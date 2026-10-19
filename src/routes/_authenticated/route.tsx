@@ -1,7 +1,7 @@
 import { createFileRoute, Link, Outlet, redirect, useNavigate } from "@tanstack/react-router";
 import { useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { useMe, ROLE_LABELS } from "@/lib/staff";
+import { useMe, ROLE_LABELS, canManage } from "@/lib/staff";
 import { Button } from "@/components/ui/button";
 
 export const Route = createFileRoute("/_authenticated")({
@@ -12,15 +12,6 @@ export const Route = createFileRoute("/_authenticated")({
   },
   component: Layout,
 });
-
-const NAV = [
-  { to: "/dashboard", label: "الرئيسية" },
-  { to: "/structure", label: "الهيكل الدراسي" },
-  { to: "/students", label: "الطلاب" },
-  { to: "/teachers", label: "المعلمون" },
-  { to: "/subjects", label: "المواد" },
-  { to: "/users", label: "المستخدمون" },
-] as const;
 
 function Layout() {
   const { data: me, isLoading } = useMe();
@@ -40,7 +31,7 @@ function Layout() {
     return (
       <main className="min-h-screen flex items-center justify-center p-6 text-center">
         <div className="max-w-sm">
-          <h1 className="text-2xl font-bold text-primary">بانتظار منح الصلاحية</h1>
+          <h1 className="text-3xl">بانتظار منح الصلاحية</h1>
           <p className="mt-3 text-muted-foreground">
             حسابك ({me?.user.email}) لم يُمنح أي دور بعد. اطلب من مالك المدرسة منحك الصلاحية.
           </p>
@@ -50,30 +41,41 @@ function Layout() {
     );
   }
 
+  const manager = canManage(me.roles);
+  const links = [
+    { to: "/dashboard", label: "الملخص" },
+    { to: "/students", label: "سجل الطلاب" },
+    { to: "/timetable", label: "الجدول الدراسي" },
+    { to: "/structure", label: "الصفوف والشعب" },
+    { to: "/teachers", label: "المعلمون" },
+    { to: "/subjects", label: "المواد" },
+    ...(manager ? [{ to: "/audit", label: "سجل التعديلات" } as const] : []),
+    ...(me.roles.includes("owner") ? [{ to: "/users", label: "المستخدمون" } as const] : []),
+  ] as const;
+
   return (
-    <div className="min-h-screen md:flex">
-      <aside className="bg-sidebar text-sidebar-foreground md:w-60 md:min-h-screen flex md:flex-col">
-        <div className="hidden md:block p-5 border-b border-sidebar-border">
-          <div className="font-display text-xl text-gold">مدرسة العمرابي</div>
-          <div className="text-xs opacity-70 mt-1">{me.roles.map((r) => ROLE_LABELS[r]).join("، ")}</div>
+    <div className="min-h-screen">
+      <header className="bg-ink text-paper">
+        <div className="max-w-7xl mx-auto px-4 md:px-8 pt-4 flex items-start justify-between gap-4">
+          <div>
+            <div className="font-display text-2xl leading-none">مدرسة العمرابي الثانوية</div>
+            <div className="text-xs opacity-60 mt-1">سجل الإدارة المدرسية</div>
+          </div>
+          <div className="text-xs text-end">
+            <div className="opacity-90">{me.user.email}</div>
+            <div className="opacity-60">{me.roles.map((r) => ROLE_LABELS[r]).join("، ")}</div>
+            <button onClick={signOut} className="mt-1 underline underline-offset-4 opacity-80 hover:opacity-100">خروج</button>
+          </div>
         </div>
-        <nav className="flex md:flex-col gap-1 p-2 overflow-x-auto flex-1">
-          {NAV.map((n) => (
-            <Link
-              key={n.to}
-              to={n.to}
-              className="whitespace-nowrap rounded-md px-3 py-2 text-sm hover:bg-sidebar-accent"
-              activeProps={{ className: "bg-sidebar-accent text-gold" }}
-            >
-              {n.label}
+        <nav className="max-w-7xl mx-auto px-2 md:px-6 mt-3 flex overflow-x-auto">
+          {links.map((l) => (
+            <Link key={l.to} to={l.to} className="tab-link" activeProps={{ className: "active" }}>
+              {l.label}
             </Link>
           ))}
         </nav>
-        <button onClick={signOut} className="px-4 py-3 text-sm opacity-80 hover:opacity-100 whitespace-nowrap">
-          خروج
-        </button>
-      </aside>
-      <main className="flex-1 p-4 md:p-8 max-w-6xl">
+      </header>
+      <main className="max-w-7xl mx-auto px-4 md:px-8 py-6 md:py-8">
         <Outlet />
       </main>
     </div>
