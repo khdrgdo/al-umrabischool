@@ -3,63 +3,92 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
-import { useSchool, errMsg } from "@/lib/staff";
+import { useSchool, useMe, canManage, errMsg } from "@/lib/staff";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Card } from "@/components/ui/card";
+import { Textarea } from "@/components/ui/textarea";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { PageHead, Field, Empty } from "@/components/app/kit";
 
 export const Route = createFileRoute("/_authenticated/teachers")({
   head: () => ({ meta: [{ title: "المعلمون — مدرسة العمرابي" }] }),
   component: Teachers,
 });
 
+type TF = { id?: string; full_name: string; phone: string; qualification: string; hired_on: string; notes: string; is_active: boolean };
+
 function Teachers() {
   const qc = useQueryClient();
   const { data: school } = useSchool();
-  const [name, setName] = useState("");
-  const [phone, setPhone] = useState("");
-  const { data: rows } = useQuery({
+  const { data: me } = useMe();
+  const manager = canManage(me?.roles ?? []);
+  const [f, setF] = useState<TF | null>(null);
+  const [q, setQ] = useState("");
+  const { data } = useQuery({
     queryKey: ["teachers"],
-    queryFn: async () => (await supabase.from("teachers").select("*").order("full_name")).data ?? [],
+    queryFn: async () => {
+      const { data: year } = await supabase.from("academic_years").select("id").eq("is_current", true).maybeSingle();
+      const [t, a] = await Promise.all([
+        supabase.from("teachers").select("*").order("full_name"),
+        supabase.from("teaching_assignments").select("teacher_id,weekly_periods,subject:subjects(name),section:sections(name,grade:grades(name))").eq("academic_year_id", year?.id ?? "00000000-0000-0000-0000-000000000000"),
+      ]);
+      return { teachers: t.data ?? [], assigns: (a.data ?? []) as { teacher_id: string; weekly_periods: number | null; subject: { name: string } | null; section: { name: string; grade: { name: string } | null } | null }[] };
+    },
   });
-  const add = useMutation({
+  const save = useMutation({
     mutationFn: async () => {
-      const { error } = await supabase.from("teachers").insert({ school_id: school!.id, full_name: name, phone: phone || null });
+      const row = { full_name: f!.full_name, phone: f!.phone || null, qualification: f!.qualification || null, hired_on: f!.hired_on || null, notes: f!.notes || null, is_active: f!.is_active };
+      const { error } = f!.id ? await supabase.from("teachers").update(row).eq("id", f!.id) : await supabase.from("teachers").insert({ ...row, school_id: school!.id });
       if (error) throw error;
     },
-    onSuccess: () => { setName(""); setPhone(""); qc.invalidateQueries({ queryKey: ["teachers"] }); toast.success("أضيف المعلم"); },
+    onSuccess: () => { setF(null); qc.invalidateQueries(); toast.success("حُفظت بيانات المعلم"); },
     onError: (e) => toast.error(errMsg(e)),
   });
-  const toggle = useMutation({
-    mutationFn: async (r: { id: string; is_active: boolean }) => {
-      const { error } = await supabase.from("teachers").update({ is_active: !r.is_active }).eq("id", r.id);
-      if (error) throw error;
-    },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["teachers"] }),
-    onError: (e) => toast.error(errMsg(e)),
-  });
+  const rows = (data?.teachers ?? []).filter((t) => !q || t.full_name.includes(q));
   return (
-    <div className="space-y-6">
-      <h1 className="text-3xl font-bold text-primary">المعلمون</h1>
-      <Card className="p-4">
-        <form className="flex flex-wrap gap-2" onSubmit={(e) => { e.preventDefault(); add.mutate(); }}>
-          <Input className="flex-1 min-w-40" placeholder="الاسم الكامل" value={name} onChange={(e) => setName(e.target.value)} required />
-          <Input className="w-40" dir="ltr" placeholder="الهاتف" value={phone} onChange={(e) => setPhone(e.target.value)} />
-          <Button disabled={add.isPending || !school}>إضافة</Button>
-        </form>
-      </Card>
-      <Card className="divide-y">
-        {rows?.length === 0 && <p className="p-6 text-center text-muted-foreground">لا يوجد معلمون بعد</p>}
-        {rows?.map((r) => (
-          <div key={r.id} className="flex items-center justify-between p-3">
-            <div>
-              <div className={r.is_active ? "" : "line-through text-muted-foreground"}>{r.full_name}</div>
-              {r.phone && <div className="text-xs text-muted-foreground" dir="ltr">{r.phone}</div>}
-            </div>
-            <Button size="sm" variant="ghost" onClick={() => toggle.mutate(r)}>{r.is_active ? "إيقاف" : "تفعيل"}</Button>
-          </div>
-        ))}
-      </Card>
+    <div>
+      <PageHead title="المعلمون" sub={`${data?.teachers.filter((t) => t.is_active).length ?? 0} معلم عامل`}
+        actions={manager && <Button onClick={() => setF({ full_name: "", phone: "", qualification: "", hired_on: "", notes: "", is_active: true })}>إضافة معلم</Button>} />
+      <Input className="w-64 mb-4" placeholder="بحث بالاسم" value={q} onChange={(e) => setQ(e.target.value)} />
+      <div className="sheet overflow-x-auto">
+        <table className="ledger">
+          <thead><tr><th>الاسم</th><th>المؤهل</th><th>الهاتف</th><th>المواد والشعب هذا العام</th><th>النصاب</th><th>الحالة</th>{manager && <th />}</tr></thead>
+          <tbody>
+            {rows.map((t) => {
+              const as = data!.assigns.filter((a) => a.teacher_id === t.id);
+              const load = as.reduce((s, a) => s + (a.weekly_periods ?? 0), 0);
+              return (
+                <tr key={t.id} className={t.is_active ? "" : "opacity-50"}>
+                  <td className="font-medium">{t.full_name}</td>
+                  <td className="text-xs">{t.qualification ?? "—"}</td>
+                  <td className="num" dir="ltr">{t.phone}</td>
+                  <td className="text-xs max-w-xs">{as.map((a) => `${a.subject?.name} (${a.section?.grade?.name.replace("الصف ", "")}/${a.section?.name})`).join("، ") || "—"}</td>
+                  <td className="num">{load || "—"}</td>
+                  <td>{t.is_active ? <span className="stamp text-ok">على رأس العمل</span> : <span className="stamp text-stamp">موقوف</span>}</td>
+                  {manager && <td><Button size="sm" variant="ghost" onClick={() => setF({ id: t.id, full_name: t.full_name, phone: t.phone ?? "", qualification: t.qualification ?? "", hired_on: t.hired_on ?? "", notes: t.notes ?? "", is_active: t.is_active })}>تعديل</Button></td>}
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+        {rows.length === 0 && <Empty>لا يوجد معلمون</Empty>}
+      </div>
+      <Dialog open={!!f} onOpenChange={(o) => !o && setF(null)}>
+        <DialogContent>
+          <DialogHeader><DialogTitle className="font-display text-xl">{f?.id ? "تعديل بيانات المعلم" : "إضافة معلم"}</DialogTitle></DialogHeader>
+          {f && (
+            <form className="grid grid-cols-2 gap-3" onSubmit={(e) => { e.preventDefault(); save.mutate(); }}>
+              <Field label="الاسم الكامل *" className="col-span-2"><Input value={f.full_name} onChange={(e) => setF({ ...f, full_name: e.target.value })} required /></Field>
+              <Field label="المؤهل" className="col-span-2"><Input value={f.qualification} onChange={(e) => setF({ ...f, qualification: e.target.value })} /></Field>
+              <Field label="الهاتف"><Input dir="ltr" value={f.phone} onChange={(e) => setF({ ...f, phone: e.target.value })} /></Field>
+              <Field label="تاريخ التعيين"><Input type="date" value={f.hired_on} onChange={(e) => setF({ ...f, hired_on: e.target.value })} /></Field>
+              <Field label="ملاحظات" className="col-span-2"><Textarea rows={2} value={f.notes} onChange={(e) => setF({ ...f, notes: e.target.value })} /></Field>
+              <label className="col-span-2 flex items-center gap-2 text-sm"><input type="checkbox" checked={f.is_active} onChange={(e) => setF({ ...f, is_active: e.target.checked })} />على رأس العمل</label>
+              <Button className="col-span-2" disabled={save.isPending}>حفظ</Button>
+            </form>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
