@@ -8,9 +8,12 @@ export const Route = createFileRoute("/_authenticated/dashboard")({
   component: Dashboard,
 });
 
-async function count(table: "students" | "teachers" | "subjects" | "sections") {
-  const q = supabase.from(table).select("id", { count: "exact", head: true });
-  const { count: c } = table === "students" ? await q.eq("status", "active") : await q;
+async function count(table: "teachers" | "subjects" | "sections") {
+  const { count: c } = await supabase.from(table).select("id", { count: "exact", head: true });
+  return c ?? 0;
+}
+async function activeStudents() {
+  const { count: c } = await supabase.from("students").select("id", { count: "exact", head: true }).eq("status", "active");
   return c ?? 0;
 }
 
