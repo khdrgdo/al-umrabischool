@@ -1,24 +1,32 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
+import { Button } from "@/components/ui/button";
 
-// No head() here: the home route inherits title/description/og/twitter from
-// __root.tsx, and ships no og:image so serve-time hosting can inject the
-// project's social preview (explicit og:image or latest screenshot).
 export const Route = createFileRoute("/")({
+  head: () => ({
+    meta: [
+      { title: "نظام إدارة مدرسة العمرابي" },
+      { name: "description", content: "بوابة إدارة مدرسة العمرابي الثانوية: الطلاب، الصفوف، المعلمون والمواد." },
+      { property: "og:title", content: "نظام إدارة مدرسة العمرابي" },
+      { property: "og:description", content: "بوابة إدارة مدرسة العمرابي الثانوية." },
+    ],
+  }),
   component: Index,
 });
 
-// IMPORTANT: Replace this placeholder. See ./README.md for routing conventions.
 function Index() {
   return (
-    <div
-      className="flex min-h-screen items-center justify-center"
-      style={{ backgroundColor: "#fcfbf8" }}
-    >
-      <img
-        data-lovable-blank-page-placeholder="REMOVE_THIS"
-        src="https://cdn.gpteng.co/blank-app-v1.svg"
-        alt="Your app will live here!"
-      />
-    </div>
+    <main className="min-h-screen bg-sidebar text-sidebar-foreground flex flex-col">
+      <div className="flex-1 flex flex-col items-center justify-center px-6 text-center">
+        <div className="mb-6 h-16 w-16 rounded-full border-2 border-gold flex items-center justify-center font-display text-3xl text-gold">ع</div>
+        <h1 className="text-4xl md:text-6xl font-bold leading-tight">مدرسة العمرابي</h1>
+        <p className="mt-4 max-w-md text-sidebar-foreground/75">
+          نظام إدارة المدرسة — للمالك ومدير المدرسة والمشرفين.
+        </p>
+        <Button asChild size="lg" className="mt-10 bg-gold text-sidebar-primary-foreground hover:bg-gold/90">
+          <Link to="/auth">الدخول إلى النظام</Link>
+        </Button>
+      </div>
+      <p className="pb-6 text-center text-xs text-sidebar-foreground/50">مدرسة العمرابي الثانوية</p>
+    </main>
   );
 }
