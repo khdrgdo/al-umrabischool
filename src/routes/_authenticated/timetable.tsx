@@ -11,7 +11,7 @@ import { PageHead, Field, Empty, WEEKDAYS } from "@/components/app/kit";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/_authenticated/timetable")({
-  validateSearch: (s: Record<string, unknown>) => ({ section: typeof s.section === "string" ? s.section : undefined }),
+  validateSearch: (s: Record<string, unknown>) => ({ section: typeof s["section"] === "string" ? s["section"] : undefined }),
   head: () => ({ meta: [{ title: "الجدول الدراسي — مدرسة العمرابي" }] }),
   component: Timetable,
 });
@@ -109,7 +109,7 @@ function SectionGrid({ d, manager }: { d: TT; manager: boolean }) {
   });
   const approve = useMutation({
     mutationFn: async () => {
-      const row = { section_id: sectionId!, status: "approved" as const, approved_by: (await supabase.auth.getUser()).data.user?.id, approved_at: new Date().toISOString() };
+      const row = { section_id: sectionId!, status: "approved" as const, approved_by: (await supabase.auth.getUser()).data.user?.id ?? null, approved_at: new Date().toISOString() };
       const { error } = await supabase.from("section_timetables").upsert(row);
       if (error) throw error;
     },

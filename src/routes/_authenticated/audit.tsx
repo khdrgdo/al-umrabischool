@@ -21,7 +21,7 @@ function diff(o: Record<string, unknown> | null, n: Record<string, unknown> | nu
   return Object.keys(n).filter((k) => k !== "updated_at" && JSON.stringify(o[k]) !== JSON.stringify(n[k]))
     .map((k) => `${k}: ${o[k] ?? "—"} ← ${n[k] ?? "—"}`).join(" · ");
 }
-const label = (d: Record<string, unknown> | null) => (d ? String(d.full_name ?? d.name ?? d.label ?? d.role ?? "") : "");
+const label = (d: Record<string, unknown> | null) => (d ? String(d["full_name"] ?? d["name"] ?? d["label"] ?? d["role"] ?? "") : "");
 
 function Audit() {
   const [table, setTable] = useState("");
