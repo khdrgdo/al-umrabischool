@@ -8,6 +8,13 @@
       "when": 1792447086205,
       "tag": "0000_foundation_schema",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1792447867384,
+      "tag": "0001_timetable_and_details",
+      "breakpoints": true
     }
   ]
 }
