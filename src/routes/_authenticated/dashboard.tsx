@@ -22,7 +22,7 @@ function Dashboard() {
     queryKey: ["dash"],
     queryFn: async () => {
       const [students, teachers, subjects, sections] = await Promise.all([
-        count("students"), count("teachers"), count("subjects"), count("sections"),
+        activeStudents(), count("teachers"), count("subjects"), count("sections"),
       ]);
       const { data: year } = await supabase.from("academic_years").select("name").eq("is_current", true).maybeSingle();
       return { students, teachers, subjects, sections, year: year?.name };
