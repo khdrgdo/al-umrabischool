@@ -19,34 +19,22 @@ export const Route = createFileRoute("/auth")({
   component: AuthPage,
 });
 
+// Sign-in only: accounts are created by the owner, never by public sign-up.
 function AuthPage() {
   const nav = useNavigate();
-  const [mode, setMode] = useState<"in" | "up">("in");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [name, setName] = useState("");
   const [busy, setBusy] = useState(false);
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     setBusy(true);
     try {
-      if (mode === "in") {
-        const { error } = await supabase.auth.signInWithPassword({ email, password });
-        if (error) throw error;
-        nav({ to: "/dashboard" });
-      } else {
-        const { data, error } = await supabase.auth.signUp({
-          email,
-          password,
-          options: { emailRedirectTo: window.location.origin + "/dashboard", data: { full_name: name } },
-        });
-        if (error) throw error;
-        if (data.session) nav({ to: "/dashboard" });
-        else toast.success("تم إنشاء الحساب. تحقق من بريدك الإلكتروني لتأكيده.");
-      }
-    } catch (err) {
-      toast.error(mode === "in" ? "بيانات الدخول غير صحيحة" : (err as Error).message);
+      const { error } = await supabase.auth.signInWithPassword({ email, password });
+      if (error) throw error;
+      nav({ to: "/dashboard" });
+    } catch {
+      toast.error("بيانات الدخول غير صحيحة");
     } finally {
       setBusy(false);
     }
@@ -56,34 +44,23 @@ function AuthPage() {
     <main className="min-h-screen flex items-center justify-center bg-background px-4">
       <Card className="w-full max-w-sm p-8">
         <h1 className="text-2xl font-bold text-primary mb-1">مدرسة العمرابي</h1>
-        <p className="text-sm text-muted-foreground mb-6">{mode === "in" ? "تسجيل الدخول" : "إنشاء حساب جديد"}</p>
+        <p className="text-sm text-muted-foreground mb-6">تسجيل الدخول</p>
         <form onSubmit={submit} className="space-y-4">
-          {mode === "up" && (
-            <div className="space-y-1.5">
-              <Label>الاسم الكامل</Label>
-              <Input value={name} onChange={(e) => setName(e.target.value)} required />
-            </div>
-          )}
           <div className="space-y-1.5">
             <Label>البريد الإلكتروني</Label>
             <Input type="email" dir="ltr" value={email} onChange={(e) => setEmail(e.target.value)} required />
           </div>
           <div className="space-y-1.5">
             <Label>كلمة المرور</Label>
-            <Input type="password" dir="ltr" minLength={8} value={password} onChange={(e) => setPassword(e.target.value)} required />
+            <Input type="password" dir="ltr" value={password} onChange={(e) => setPassword(e.target.value)} required />
           </div>
           <Button type="submit" className="w-full" disabled={busy}>
-            {mode === "in" ? "دخول" : "إنشاء الحساب"}
+            دخول
           </Button>
         </form>
-        <button className="mt-4 text-sm text-primary underline" onClick={() => setMode(mode === "in" ? "up" : "in")}>
-          {mode === "in" ? "ليس لديك حساب؟ أنشئ حسابًا" : "لديك حساب؟ سجّل الدخول"}
-        </button>
-        {mode === "up" && (
-          <p className="mt-3 text-xs text-muted-foreground">
-            الحساب الجديد لا يملك صلاحيات حتى يمنحها المالك.
-          </p>
-        )}
+        <p className="mt-4 text-xs text-muted-foreground">
+          لا يوجد تسجيل عام. يُنشئ المالك حسابات العاملين ويمنحهم الصلاحيات.
+        </p>
       </Card>
     </main>
   );
