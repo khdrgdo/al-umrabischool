@@ -464,7 +464,7 @@ export type Database = {
           previous_school?: string | null
           school_id: string
           status?: Database["public"]["Enums"]["student_status"]
-          student_number: string
+          student_number?: string
           updated_at?: string
         }
         Update: {
@@ -756,6 +756,15 @@ export type Database = {
           _student: string
         }
         Returns: undefined
+      }
+      create_student_with_enrollment: {
+        Args: {
+          _academic_year: string
+          _enrollment_type: Database["public"]["Enums"]["enrollment_type"]
+          _section: string
+          _student: Json
+        }
+        Returns: string
       }
       has_role: {
         Args: {

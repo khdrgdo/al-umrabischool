@@ -15,6 +15,13 @@
       "when": 1792447867384,
       "tag": "0001_timetable_and_details",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1792511247645,
+      "tag": "0002_auto_student_number_and_create_student",
+      "breakpoints": true
     }
   ]
 }
