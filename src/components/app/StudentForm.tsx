@@ -5,18 +5,18 @@ import { Button } from "@/components/ui/button";
 import { Field } from "./kit";
 
 export type StudentInput = {
-  student_number: string; full_name: string; gender: string | null; birth_date: string | null; national_id: string | null;
+  full_name: string; gender: string | null; birth_date: string | null; national_id: string | null;
   address: string | null; guardian_name: string | null; guardian_relation: string | null; guardian_phone: string | null;
   previous_school: string | null; notes: string | null;
 };
 
 export const emptyStudent: StudentInput = {
-  student_number: "", full_name: "", gender: null, birth_date: null, national_id: null, address: null,
+  full_name: "", gender: null, birth_date: null, national_id: null, address: null,
   guardian_name: null, guardian_relation: null, guardian_phone: null, previous_school: null, notes: null,
 };
 
-export function StudentForm({ initial, onSubmit, busy, submitLabel, extra }: {
-  initial: StudentInput; onSubmit: (v: StudentInput) => void; busy?: boolean; submitLabel: string; extra?: React.ReactNode;
+export function StudentForm({ initial, onSubmit, busy, submitLabel, extra, studentNumber }: {
+  studentNumber?: string; initial: StudentInput; onSubmit: (v: StudentInput) => void; busy?: boolean; submitLabel: string; extra?: React.ReactNode;
 }) {
   const [v, setV] = useState<StudentInput>(initial);
   const set = (k: keyof StudentInput) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) =>
@@ -26,7 +26,11 @@ export function StudentForm({ initial, onSubmit, busy, submitLabel, extra }: {
       <fieldset className="grid sm:grid-cols-2 gap-3">
         <legend className="text-sm font-medium mb-2">بيانات الطالب</legend>
         <Field label="الاسم رباعيًا *" className="sm:col-span-2"><Input value={v.full_name} onChange={set("full_name")} required /></Field>
-        <Field label="الرقم المدرسي *"><Input value={v.student_number} onChange={set("student_number")} required dir="ltr" /></Field>
+        <Field label="الرقم المدرسي">
+          <div className="h-9 flex items-center px-3 rounded-md border border-dashed text-sm text-muted-foreground num" dir="ltr">
+            {studentNumber ?? "يُولَّد تلقائيًا عند الحفظ"}
+          </div>
+        </Field>
         <Field label="النوع">
           <select className="field-select w-full" value={v.gender ?? ""} onChange={set("gender")}>
             <option value="">—</option><option value="male">ذكر</option><option value="female">أنثى</option>

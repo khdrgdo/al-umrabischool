@@ -97,7 +97,8 @@ function StudentPage() {
           {editing ? (
             <div className="sheet p-5">
               <StudentForm
-                initial={{ student_number: s.student_number, full_name: s.full_name, gender: s.gender, birth_date: s.birth_date, national_id: s.national_id, address: s.address, guardian_name: s.guardian_name, guardian_relation: s.guardian_relation, guardian_phone: s.guardian_phone, previous_school: s.previous_school, notes: s.notes }}
+                studentNumber={s.student_number}
+                initial={{ full_name: s.full_name, gender: s.gender, birth_date: s.birth_date, national_id: s.national_id, address: s.address, guardian_name: s.guardian_name, guardian_relation: s.guardian_relation, guardian_phone: s.guardian_phone, previous_school: s.previous_school, notes: s.notes }}
                 busy={save.isPending} submitLabel="حفظ التعديلات" onSubmit={(v) => save.mutate(v)}
               />
               <Button variant="ghost" className="mt-2" onClick={() => setEditing(false)}>إلغاء</Button>
