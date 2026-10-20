@@ -15,7 +15,7 @@ export const Route = createFileRoute("/_authenticated/students/")({
   component: Students,
 });
 
-type Sec = { id: string; name: string; grade_id: string; grade: { name: string; level_order: number } | null };
+type Sec = { id: string; name: string; grade_id: string; grade: { name: string; level_order: number } | null; track: { name: string } | null; spec: { name: string } | null };
 
 function Students() {
   const qc = useQueryClient();
@@ -37,7 +37,7 @@ function Students() {
       const { data: year } = await supabase.from("academic_years").select("*").eq("is_current", true).maybeSingle();
       const [students, sections, enr, grades] = await Promise.all([
         supabase.from("students").select("*").order("full_name"),
-        year ? supabase.from("sections").select("id,name,grade_id,grade:grades(name,level_order)").eq("academic_year_id", year.id) : Promise.resolve({ data: [] }),
+        year ? supabase.from("sections").select("id,name,grade_id,grade:grades(name,level_order),track:tracks(name),spec:specializations(name)").eq("academic_year_id", year.id) : Promise.resolve({ data: [] }),
         year ? supabase.from("enrollments").select("student_id,section_id,enrollment_type").eq("academic_year_id", year.id) : Promise.resolve({ data: [] }),
         supabase.from("grades").select("*").order("level_order"),
       ]);
@@ -59,19 +59,25 @@ function Students() {
 
   const create = useMutation({
     mutationFn: async (v: typeof emptyStudent) => {
-      const { data: st, error } = await supabase.from("students").insert({ ...v, school_id: school!.id }).select("id").single();
+      if (!data?.year) throw new Error("لا يوجد عام دراسي حالي. حدّد العام الحالي في الهيكل أولًا.");
+      if (!newSec) throw new Error("اختر الشعبة التي يُقيَّد فيها الطالب");
+      if (newType === "transfer_in" && !v.previous_school?.trim()) throw new Error("اذكر المدرسة السابقة للطالب المنقول");
+      // One transaction in the database: the file and the yearly enrollment are created together or not at all.
+      const { data: id, error } = await supabase.rpc("create_student_with_enrollment", {
+        _student: { ...v, school_id: school!.id },
+        _academic_year: data.year.id,
+        _section: newSec,
+        _enrollment_type: newType as "new" | "transfer_in",
+      });
       if (error) throw error;
-      if (newSec && data?.year) {
-        const { error: e2 } = await supabase.from("enrollments").insert({ student_id: st.id, section_id: newSec, academic_year_id: data.year.id, enrollment_type: newType as "new" });
-        if (e2) throw e2;
-      }
-      return st.id;
+      return id as string;
     },
-    onSuccess: (id) => { setOpen(false); qc.invalidateQueries(); toast.success("تم فتح ملف الطالب"); navigate({ to: "/students/$id", params: { id } }); },
+    onSuccess: (id) => { setOpen(false); setNewSec(""); setNewType("new"); qc.invalidateQueries(); toast.success("تم فتح ملف الطالب وقيده"); navigate({ to: "/students/$id", params: { id } }); },
     onError: (e) => toast.error(errMsg(e)),
   });
 
   const sections = (data?.sections ?? []).filter((s) => !grade || s.grade_id === grade).sort((a, b) => (a.grade?.level_order ?? 0) - (b.grade?.level_order ?? 0));
+  const secFull = (s: Sec) => [s.grade?.name, s.track?.name, s.spec?.name, s.name].filter(Boolean).join(" / ");
   const label = (s?: Sec) => (s ? `${s.grade?.name.replace("الصف ", "")} / ${s.name}` : "");
 
   function exportCsv() {
@@ -94,7 +100,7 @@ function Students() {
         </>}
       />
       <div className="flex flex-wrap gap-2 mb-4">
-        <Input className="w-64" placeholder="بحث بالاسم أو الرقم أو هاتف ولي الأمر" value={q} onChange={(e) => setQ(e.target.value)} />
+        <Input className="w-64" placeholder="بحث بالاسم أو الرقم المدرسي أو هاتف ولي الأمر" value={q} onChange={(e) => setQ(e.target.value)} />
         <select className="field-select" value={grade} onChange={(e) => { setGrade(e.target.value); setSection(""); }}>
           <option value="">كل الصفوف</option>
           {data?.grades.map((g) => <option key={g.id} value={g.id}>{g.name}</option>)}
@@ -113,7 +119,7 @@ function Students() {
       <div className="sheet overflow-x-auto">
         <table className="ledger">
           <thead>
-            <tr><th>#</th><th>الرقم</th><th>الاسم</th><th>الصف / الشعبة</th><th>نوع القيد</th><th>ولي الأمر</th><th>الهاتف</th><th>الحالة</th></tr>
+            <tr><th>#</th><th>الرقم المدرسي</th><th>الاسم</th><th>الصف / الشعبة</th><th>نوع القيد</th><th>ولي الأمر</th><th>الهاتف</th><th>الحالة</th></tr>
           </thead>
           <tbody>
             {rows.map((s, i) => {
@@ -144,18 +150,22 @@ function Students() {
             busy={create.isPending}
             submitLabel="حفظ الملف"
             onSubmit={(v) => create.mutate(v)}
-            extra={data?.year && (
+            extra={!data?.year ? (
+              <p className="text-sm text-stamp border-t pt-4">لا يوجد عام دراسي حالي، لذلك لا يمكن فتح ملف الآن.</p>
+            ) : (
               <fieldset className="grid sm:grid-cols-2 gap-3 border-t pt-4">
-                <legend className="text-sm font-medium mb-2">القيد في العام {data.year.name} (اختياري)</legend>
-                <Field label="الشعبة">
-                  <select className="field-select w-full" value={newSec} onChange={(e) => setNewSec(e.target.value)}>
-                    <option value="">بدون — يُقيَّد لاحقًا</option>
-                    {(data.sections).map((s) => <option key={s.id} value={s.id}>{label(s)}</option>)}
-                  </select>
+                <legend className="text-sm font-medium mb-2">القيد في العام {data.year.name}</legend>
+                <Field label="تصنيف التسجيل *" className="sm:col-span-2">
+                  <div className="flex gap-4 text-sm">
+                    <label className="flex items-center gap-2"><input type="radio" name="etype" checked={newType === "new"} onChange={() => setNewType("new")} /> مستجد — أول مرة في المدرسة</label>
+                    <label className="flex items-center gap-2"><input type="radio" name="etype" checked={newType === "transfer_in"} onChange={() => setNewType("transfer_in")} /> منقول من مدرسة أخرى</label>
+                  </div>
+                  {newType === "transfer_in" && <p className="text-xs text-muted-foreground mt-1">املأ حقل «المدرسة السابقة» أعلاه.</p>}
                 </Field>
-                <Field label="نوع القيد">
-                  <select className="field-select w-full" value={newType} onChange={(e) => setNewType(e.target.value)}>
-                    {Object.entries(ENROLL_TYPE).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+                <Field label="الصف / المسار / التخصص / الشعبة *" className="sm:col-span-2">
+                  <select className="field-select w-full" value={newSec} onChange={(e) => setNewSec(e.target.value)} required>
+                    <option value="">اختر الشعبة…</option>
+                    {[...data.sections].sort((a, b) => (a.grade?.level_order ?? 0) - (b.grade?.level_order ?? 0)).map((s) => <option key={s.id} value={s.id}>{secFull(s)}</option>)}
                   </select>
                 </Field>
               </fieldset>
