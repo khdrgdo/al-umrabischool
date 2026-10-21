@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import {
   LayoutDashboard,
   Users,
+  ClipboardCheck,
   CalendarDays,
   Layers,
   GraduationCap,
@@ -79,6 +80,7 @@ function Layout() {
   const navItems = [
     { to: "/dashboard", label: "لوحة التحكم", icon: LayoutDashboard },
     { to: "/students", label: "سجل الطلاب", icon: Users },
+    { to: "/attendance", label: "الحضور والغياب", icon: ClipboardCheck },
     { to: "/timetable", label: "الجدول المدرسي", icon: CalendarDays },
     { to: "/structure", label: "الصفوف والشعب", icon: Layers },
     { to: "/teachers", label: "المعلمون", icon: GraduationCap },

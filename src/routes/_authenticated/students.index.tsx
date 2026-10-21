@@ -32,7 +32,7 @@ function Students() {
   const [newSec, setNewSec] = useState("");
   const [newType, setNewType] = useState("new");
 
-  const { data } = useQuery({
+  const { data, isLoading } = useQuery({
     queryKey: ["students"],
     queryFn: async () => {
       const { data: year } = await supabase.from("academic_years").select("*").eq("is_current", true).maybeSingle();
@@ -50,11 +50,18 @@ function Students() {
   const enrBy = useMemo(() => new Map((data?.enr ?? []).map((e) => [e.student_id, e])), [data]);
 
   const rows = (data?.students ?? []).filter((s) => {
-    const e = enrBy.get(s.id); const sec = e ? secById.get(e.section_id) : undefined;
+    const e = enrBy.get(s.id);
+    const sec = e ? secById.get(e.section_id) : undefined;
     if (status && s.status !== status) return false;
     if (grade && sec?.grade_id !== grade) return false;
     if (section === "none" ? !!e : section && e?.section_id !== section) return false;
-    if (q && !s.full_name.includes(q) && !matchesStudentNumber(s.student_number, q) && !(s.guardian_phone ?? "").includes(q)) return false;
+    if (q) {
+      const query = q.trim().toLowerCase();
+      const name = (s.full_name ?? "").toLowerCase();
+      const phone = (s.guardian_phone ?? "");
+      const matchesNum = matchesStudentNumber(s.student_number, query);
+      if (!name.includes(query) && !matchesNum && !phone.includes(query)) return false;
+    }
     return true;
   });
 
@@ -88,6 +95,15 @@ function Students() {
     const a = document.createElement("a");
     a.href = URL.createObjectURL(new Blob([csv], { type: "text/csv" }));
     a.download = "students.csv"; a.click();
+  }
+
+  if (isLoading) {
+    return (
+      <div className="py-20 flex flex-col items-center justify-center text-muted-foreground text-sm">
+        <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent mb-3" />
+        <span>جارٍ تحميل سجل الطلاب…</span>
+      </div>
+    );
   }
 
   return (
@@ -271,10 +287,10 @@ function Students() {
             submitLabel="حفظ الملف"
             onSubmit={(v) => create.mutate(v)}
             extra={!data?.year ? (
-              <p className="text-sm text-stamp border-t pt-4">لا يوجد عام دراسي حالي، لذلك لا يمكن فتح ملف الآن.</p>
+              <p className="text-sm text-destructive border-t pt-4">لا يوجد عام دراسي حالي، لذلك لا يمكن فتح ملف الآن.</p>
             ) : (
               <fieldset className="grid sm:grid-cols-2 gap-3 border-t pt-4">
-                <legend className="text-sm font-medium mb-2">القيد في العام {data.year.name}</legend>
+                <legend className="text-sm font-medium mb-2">القيد في العام {data?.year?.name ?? ""}</legend>
                 <Field label="تصنيف التسجيل *" className="sm:col-span-2">
                   <div className="flex gap-4 text-sm">
                     <label className="flex items-center gap-2"><input type="radio" name="etype" checked={newType === "new"} onChange={() => setNewType("new")} /> مستجد — أول مرة في المدرسة</label>
@@ -285,7 +301,9 @@ function Students() {
                 <Field label="الصف / المسار / التخصص / الشعبة *" className="sm:col-span-2">
                   <select className="field-select w-full" value={newSec} onChange={(e) => setNewSec(e.target.value)} required>
                     <option value="">اختر الشعبة…</option>
-                    {[...data.sections].sort((a, b) => (a.grade?.level_order ?? 0) - (b.grade?.level_order ?? 0)).map((s) => <option key={s.id} value={s.id}>{secFull(s)}</option>)}
+                    {(data?.sections ?? []).slice().sort((a, b) => (a.grade?.level_order ?? 0) - (b.grade?.level_order ?? 0)).map((s) => (
+                      <option key={s.id} value={s.id}>{secFull(s)}</option>
+                    ))}
                   </select>
                 </Field>
               </fieldset>

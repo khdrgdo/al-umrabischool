@@ -84,123 +84,291 @@ function StudentPage() {
   const age = s.birth_date ? Math.floor((Date.now() - new Date(s.birth_date).getTime()) / 3.15576e10) : null;
 
   return (
-    <div>
-      <Link to="/students" className="text-sm text-muted-foreground hover:underline">← سجل الطلاب</Link>
-      <PageHead
-        title={s.full_name}
-        sub={<span dir="ltr" className="num">#{s.student_number}</span>}
-        actions={<><StatusMark status={s.status} />{manager && !editing && <Button variant="outline" onClick={() => setEditing(true)}>تعديل البيانات</Button>}</>}
-      />
+    <div className="space-y-6">
+      <div>
+        <Link to="/students" className="inline-flex items-center gap-1 text-xs text-primary font-medium hover:underline mb-2">
+          <span>← العودة إلى سجل الطلاب</span>
+        </Link>
+        <PageHead
+          title={s.full_name}
+          sub={
+            <div className="flex items-center gap-2">
+              <span className="font-mono text-xs px-2 py-0.5 rounded-md bg-muted text-foreground font-semibold" dir="ltr">
+                {s.student_number}
+              </span>
+              <span>·</span>
+              <span className="text-xs text-muted-foreground">ملف أكاديمي مسجل</span>
+            </div>
+          }
+          actions={
+            <div className="flex items-center gap-2">
+              <StatusMark status={s.status} />
+              {manager && !editing && (
+                <Button variant="outline" size="sm" onClick={() => setEditing(true)} className="h-9 text-xs">
+                  تعديل البيانات
+                </Button>
+              )}
+            </div>
+          }
+        />
+      </div>
 
-      <div className="grid lg:grid-cols-3 gap-8">
-        <div className="lg:col-span-2 space-y-8">
+      <div className="grid lg:grid-cols-3 gap-6">
+        <div className="lg:col-span-2 space-y-6">
           {editing ? (
-            <div className="sheet p-5">
+            <div className="card-surface p-6">
+              <h2 className="text-sm font-semibold text-foreground mb-4">تعديل بيانات الطالب</h2>
               <StudentForm
                 studentNumber={s.student_number}
-                initial={{ full_name: s.full_name, gender: s.gender, birth_date: s.birth_date, national_id: s.national_id, address: s.address, guardian_name: s.guardian_name, guardian_relation: s.guardian_relation, guardian_phone: s.guardian_phone, previous_school: s.previous_school, notes: s.notes }}
-                busy={save.isPending} submitLabel="حفظ التعديلات" onSubmit={(v) => save.mutate(v)}
+                initial={{
+                  full_name: s.full_name,
+                  gender: s.gender,
+                  birth_date: s.birth_date,
+                  national_id: s.national_id,
+                  address: s.address,
+                  guardian_name: s.guardian_name,
+                  guardian_relation: s.guardian_relation,
+                  guardian_phone: s.guardian_phone,
+                  previous_school: s.previous_school,
+                  notes: s.notes,
+                }}
+                busy={save.isPending}
+                submitLabel="حفظ التعديلات"
+                onSubmit={(v) => save.mutate(v)}
               />
-              <Button variant="ghost" className="mt-2" onClick={() => setEditing(false)}>إلغاء</Button>
+              <Button variant="ghost" size="sm" className="mt-3 text-xs" onClick={() => setEditing(false)}>
+                إلغاء التعديل
+              </Button>
             </div>
           ) : (
-            <section>
-              <h2 className="section-title">البيانات الأساسية</h2>
-              <dl className="grid sm:grid-cols-2 gap-x-8 text-sm">
+            <div className="card-surface p-6">
+              <h2 className="text-sm font-semibold text-foreground pb-3 mb-4 border-b border-border flex items-center justify-between">
+                <span>البيانات الشخصية والأساسية</span>
+                <span className="text-xs text-muted-foreground font-normal">الملف العام</span>
+              </h2>
+              <dl className="grid sm:grid-cols-2 gap-x-8 gap-y-1 text-xs">
                 {[
                   ["النوع", s.gender === "female" ? "أنثى" : s.gender === "male" ? "ذكر" : "—"],
                   ["تاريخ الميلاد", s.birth_date ? `${s.birth_date} (${age} سنة)` : "—"],
                   ["الرقم الوطني", s.national_id ?? "—"],
-                  ["السكن", s.address ?? "—"],
+                  ["السكن والعنوان", s.address ?? "—"],
                   ["المدرسة السابقة", s.previous_school ?? "—"],
                   ["ولي الأمر", s.guardian_name ? `${s.guardian_name}${s.guardian_relation ? ` (${s.guardian_relation})` : ""}` : "—"],
                   ["هاتف ولي الأمر", s.guardian_phone ?? "—"],
-                  ["ملاحظات", s.notes ?? "—"],
+                  ["ملاحظات إضافية", s.notes ?? "—"],
                 ].map(([k, v]) => (
-                  <div key={k} className="flex justify-between gap-4 border-b border-rule py-2">
-                    <dt className="text-muted-foreground">{k}</dt><dd className="text-end">{v}</dd>
+                  <div key={k} className="flex justify-between items-center gap-4 border-b border-border/50 py-2.5">
+                    <dt className="text-muted-foreground font-medium">{k}</dt>
+                    <dd className="text-foreground font-medium text-end">{v}</dd>
                   </div>
                 ))}
               </dl>
-            </section>
+            </div>
           )}
 
-          <section>
-            <h2 className="section-title">السجل الدراسي</h2>
-            <div className="sheet overflow-x-auto">
-              <table className="ledger">
-                <thead><tr><th>العام</th><th>الصف</th><th>الشعبة</th><th>نوع القيد</th><th>النتيجة / الحالة</th></tr></thead>
+          <div className="card-surface overflow-hidden">
+            <div className="p-4 border-b border-border flex items-center justify-between">
+              <h2 className="text-sm font-semibold text-foreground">السجل الأكاديمي والتسجيل السنوي</h2>
+              <span className="text-xs text-muted-foreground">{data.enr.length} تسجيل</span>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="modern-table">
+                <thead>
+                  <tr>
+                    <th>العام الدراسي</th>
+                    <th>الصف</th>
+                    <th>الشعبة</th>
+                    <th>نوع القيد</th>
+                    <th>النتيجة / الحالة</th>
+                  </tr>
+                </thead>
                 <tbody>
                   {data.enr.map((e) => (
                     <tr key={e.id}>
-                      <td>{e.year?.name}{e.year?.is_current && <span className="text-xs text-ok ms-2">(الحالي)</span>}</td>
-                      <td>{e.section?.grade?.name}</td>
-                      <td>{e.section?.name}</td>
-                      <td>{ENROLL_TYPE[e.enrollment_type]}</td>
-                      <td>{ENR_STATUS[e.status]}</td>
+                      <td className="font-medium">
+                        {e.year?.name}
+                        {e.year?.is_current && (
+                          <span className="text-[11px] text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200 ms-2">
+                            العام الحالي
+                          </span>
+                        )}
+                      </td>
+                      <td>{e.section?.grade?.name ?? "—"}</td>
+                      <td>
+                        <span className="inline-flex px-2 py-0.5 bg-muted rounded text-xs font-semibold">
+                          {e.section?.name ?? "—"}
+                        </span>
+                      </td>
+                      <td className="text-xs text-muted-foreground">{ENROLL_TYPE[e.enrollment_type] ?? e.enrollment_type}</td>
+                      <td>
+                        <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-muted text-foreground">
+                          {ENR_STATUS[e.status] ?? e.status}
+                        </span>
+                      </td>
                     </tr>
                   ))}
                 </tbody>
               </table>
-              {data.enr.length === 0 && <Empty>لا يوجد قيد دراسي</Empty>}
+              {data.enr.length === 0 && (
+                <Empty title="لا يوجد قيد دراسي مسجل لهذا الطالب" />
+              )}
             </div>
-          </section>
+          </div>
 
-          <section>
-            <h2 className="section-title">تاريخ تغيير الحالة</h2>
-            {data.hist.length === 0 ? <p className="text-sm text-muted-foreground">لم تتغير حالة الطالب منذ فتح الملف.</p> : (
-              <ul className="space-y-2 text-sm">
+          <div className="card-surface p-6">
+            <h2 className="text-sm font-semibold text-foreground pb-3 mb-4 border-b border-border flex items-center justify-between">
+              <span>سجل التدقيق وتاريخ الحالات</span>
+              <span className="text-xs text-muted-foreground font-normal">حركات موثقة</span>
+            </h2>
+            {data.hist.length === 0 ? (
+              <p className="text-xs text-muted-foreground">لم تتغير حالة الطالب منذ فتح ملفه المدرسي.</p>
+            ) : (
+              <ul className="space-y-3">
                 {data.hist.map((h) => (
-                  <li key={h.id} className="border-s-2 border-stamp ps-3">
-                    <b>{STATUS_LABEL[h.old_status ?? ""] ?? "—"} ← {STATUS_LABEL[h.new_status]}</b>
-                    <span className="text-muted-foreground"> · {new Date(h.changed_at).toLocaleDateString("ar-SD")}</span>
-                    <div>{h.reason}</div>
+                  <li key={h.id} className="border-s-2 border-primary ps-3 py-1">
+                    <div className="text-xs font-semibold text-foreground">
+                      <span>{STATUS_LABEL[h.old_status ?? ""] ?? "—"}</span>
+                      <span className="mx-1 text-muted-foreground">←</span>
+                      <span className="text-primary">{STATUS_LABEL[h.new_status]}</span>
+                      <span className="text-muted-foreground font-normal ms-2">
+                        · {new Date(h.changed_at).toLocaleDateString("ar-SD", { day: "numeric", month: "short", year: "numeric" })}
+                      </span>
+                    </div>
+                    {h.reason && <div className="text-xs text-muted-foreground mt-1">{h.reason}</div>}
                   </li>
                 ))}
               </ul>
             )}
-          </section>
+          </div>
         </div>
 
         {manager && (
           <aside className="space-y-6">
-            <div className="sheet p-4 space-y-3">
-              <h3 className="text-lg">القيد في العام الحالي</h3>
-              {!data.year ? <p className="text-sm text-muted-foreground">لم يُحدَّد عام دراسي حالي.</p> : current ? (
-                <>
-                  <p className="text-sm">{current.section?.grade?.name} / {current.section?.name}</p>
-                  <Field label="النقل إلى شعبة أخرى">
-                    <select className="field-select w-full" value={moveTo} onChange={(e) => setMoveTo(e.target.value)}>
-                      <option value="">اختر الشعبة</option>
-                      {data.secs.filter((x) => x.id !== current.section_id).map((x) => <option key={x.id} value={x.id}>{secLabel(x)}</option>)}
+            <div className="card-surface p-5 space-y-4">
+              <div>
+                <h3 className="text-sm font-semibold text-foreground">القيد في العام الحالي</h3>
+                <p className="text-xs text-muted-foreground mt-0.5">الشعبة والصف الدراسي المقيد به</p>
+              </div>
+              {!data.year ? (
+                <p className="text-xs text-muted-foreground">لم يُحدَّد عام دراسي حالي بعد.</p>
+              ) : current ? (
+                <div className="space-y-3">
+                  <div className="p-3 bg-muted/50 rounded-lg border border-border/60">
+                    <span className="text-xs text-muted-foreground block mb-1">الشعبة الحالية:</span>
+                    <span className="text-sm font-bold text-foreground">
+                      {current.section?.grade?.name} / {current.section?.name}
+                    </span>
+                  </div>
+                  <Field label="النقل إلى شعبة أخرى في نفس العام">
+                    <select
+                      className="w-full h-9 px-3 rounded-lg border border-input bg-card text-xs focus:ring-1 focus:ring-primary focus:outline-hidden"
+                      value={moveTo}
+                      onChange={(e) => setMoveTo(e.target.value)}
+                    >
+                      <option value="">اختر الشعبة الجديدة…</option>
+                      {data.secs
+                        .filter((x) => x.id !== current.section_id)
+                        .map((x) => (
+                          <option key={x.id} value={x.id}>
+                            {secLabel(x)}
+                          </option>
+                        ))}
                     </select>
                   </Field>
-                  <Button size="sm" disabled={!moveTo || move.isPending} onClick={() => move.mutate(current.id)}>نقل</Button>
-                </>
+                  <Button
+                    size="sm"
+                    className="w-full h-9 text-xs"
+                    disabled={!moveTo || move.isPending}
+                    onClick={() => move.mutate(current.id)}
+                  >
+                    تأكيد نقل الشعبة
+                  </Button>
+                </div>
               ) : (
-                <>
-                  <p className="text-sm text-stamp">غير مقيّد في {data.year.name}</p>
-                  <select className="field-select w-full" value={enrollSec} onChange={(e) => setEnrollSec(e.target.value)}>
-                    <option value="">اختر الشعبة</option>
-                    {data.secs.map((x) => <option key={x.id} value={x.id}>{secLabel(x)}</option>)}
-                  </select>
-                  <select className="field-select w-full" value={enrollType} onChange={(e) => setEnrollType(e.target.value)}>
-                    {Object.entries(ENROLL_TYPE).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
-                  </select>
-                  <Button size="sm" disabled={!enrollSec || enroll.isPending} onClick={() => enroll.mutate()}>قيد</Button>
-                </>
+                <div className="space-y-3">
+                  <p className="text-xs text-rose-600 bg-rose-50 p-2.5 rounded-lg border border-rose-200">
+                    الطالب غير مقيّد في العام الحالي ({data?.year?.name})
+                  </p>
+                  <Field label="اختر الشعبة للقيد">
+                    <select
+                      className="w-full h-9 px-3 rounded-lg border border-input bg-card text-xs focus:ring-1 focus:ring-primary focus:outline-hidden"
+                      value={enrollSec}
+                      onChange={(e) => setEnrollSec(e.target.value)}
+                    >
+                      <option value="">اختر الشعبة…</option>
+                      {data.secs.map((x) => (
+                        <option key={x.id} value={x.id}>
+                          {secLabel(x)}
+                        </option>
+                      ))}
+                    </select>
+                  </Field>
+                  <Field label="نوع القيد">
+                    <select
+                      className="w-full h-9 px-3 rounded-lg border border-input bg-card text-xs focus:ring-1 focus:ring-primary focus:outline-hidden"
+                      value={enrollType}
+                      onChange={(e) => setEnrollType(e.target.value)}
+                    >
+                      {Object.entries(ENROLL_TYPE).map(([k, v]) => (
+                        <option key={k} value={k}>
+                          {v}
+                        </option>
+                      ))}
+                    </select>
+                  </Field>
+                  <Button
+                    size="sm"
+                    className="w-full h-9 text-xs"
+                    disabled={!enrollSec || enroll.isPending}
+                    onClick={() => enroll.mutate()}
+                  >
+                    تسجيل وقيد الطالب
+                  </Button>
+                </div>
               )}
             </div>
 
-            <div className="sheet p-4 space-y-3">
-              <h3 className="text-lg">تغيير حالة الطالب</h3>
-              <select className="field-select w-full" value={newStatus} onChange={(e) => setNewStatus(e.target.value)}>
-                <option value="">اختر الحالة الجديدة</option>
-                {Object.entries(STATUS_LABEL).filter(([k]) => k !== s.status).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
-              </select>
-              <Input placeholder="السبب (إلزامي) — مثال: انتقل إلى مدرسة الدامر" value={reason} onChange={(e) => setReason(e.target.value)} />
-              <Button size="sm" variant="destructive" disabled={!newStatus || !reason.trim() || changeStatus.isPending} onClick={() => changeStatus.mutate()}>تأكيد التغيير</Button>
-              <p className="text-xs text-muted-foreground">لا يُحذف ملف الطالب أبدًا؛ يُحفظ السبب في السجل.</p>
+            <div className="card-surface p-5 space-y-4">
+              <div>
+                <h3 className="text-sm font-semibold text-foreground">تغيير حالة الطالب</h3>
+                <p className="text-xs text-muted-foreground mt-0.5">نقل، انسحاب، تخرج، أو إيقاف</p>
+              </div>
+              <Field label="الحالة الجديدة">
+                <select
+                  className="w-full h-9 px-3 rounded-lg border border-input bg-card text-xs focus:ring-1 focus:ring-primary focus:outline-hidden"
+                  value={newStatus}
+                  onChange={(e) => setNewStatus(e.target.value)}
+                >
+                  <option value="">اختر الحالة الجديدة…</option>
+                  {Object.entries(STATUS_LABEL)
+                    .filter(([k]) => k !== s.status)
+                    .map(([k, v]) => (
+                      <option key={k} value={k}>
+                        {v}
+                      </option>
+                    ))}
+                </select>
+              </Field>
+              <Field label="سبب التغيير (إلزامي للتدقيق)">
+                <Input
+                  placeholder="مثال: انتقال ولي الأمر لولاية أخرى…"
+                  value={reason}
+                  onChange={(e) => setReason(e.target.value)}
+                  className="h-9 text-xs"
+                />
+              </Field>
+              <Button
+                size="sm"
+                variant="destructive"
+                className="w-full h-9 text-xs"
+                disabled={!newStatus || !reason.trim() || changeStatus.isPending}
+                onClick={() => changeStatus.mutate()}
+              >
+                تأكيد تغيير الحالة
+              </Button>
+              <p className="text-[11px] text-muted-foreground text-center">
+                وفق سياسة المدرسة، لا يُحذف سجل أي طالب، بل يُحفظ السبب والمستخدم في سجل التدقيق.
+              </p>
             </div>
           </aside>
         )}
