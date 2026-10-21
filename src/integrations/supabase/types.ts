@@ -836,6 +836,282 @@ export type Database = {
         }
         Relationships: []
       }
+      fee_types: {
+        Row: {
+          created_at: string
+          id: string
+          is_active: boolean
+          name: string
+          school_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name: string
+          school_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name?: string
+          school_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fee_types_school_id_fkey"
+            columns: ["school_id"]
+            isOneToOne: false
+            referencedRelation: "schools"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      fee_structures: {
+        Row: {
+          academic_year_id: string
+          amount: number
+          created_at: string
+          description: string | null
+          due_date: string | null
+          fee_type_id: string
+          grade_id: string
+          id: string
+          track_id: string | null
+        }
+        Insert: {
+          academic_year_id: string
+          amount: number
+          created_at?: string
+          description?: string | null
+          due_date?: string | null
+          fee_type_id: string
+          grade_id: string
+          id?: string
+          track_id?: string | null
+        }
+        Update: {
+          academic_year_id?: string
+          amount?: number
+          created_at?: string
+          description?: string | null
+          due_date?: string | null
+          fee_type_id?: string
+          grade_id?: string
+          id?: string
+          track_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fee_structures_academic_year_id_fkey"
+            columns: ["academic_year_id"]
+            isOneToOne: false
+            referencedRelation: "academic_years"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fee_structures_fee_type_id_fkey"
+            columns: ["fee_type_id"]
+            isOneToOne: false
+            referencedRelation: "fee_types"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fee_structures_grade_id_fkey"
+            columns: ["grade_id"]
+            isOneToOne: false
+            referencedRelation: "grades"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      student_fee_discounts: {
+        Row: {
+          academic_year_id: string
+          amount: number
+          approved_by: string | null
+          created_at: string
+          discount_type: string
+          fee_type_id: string
+          id: string
+          reason: string
+          student_id: string
+        }
+        Insert: {
+          academic_year_id: string
+          amount: number
+          approved_by?: string | null
+          created_at?: string
+          discount_type: string
+          fee_type_id: string
+          id?: string
+          reason: string
+          student_id: string
+        }
+        Update: {
+          academic_year_id?: string
+          amount?: number
+          approved_by?: string | null
+          created_at?: string
+          discount_type?: string
+          fee_type_id?: string
+          id?: string
+          reason?: string
+          student_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "student_fee_discounts_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      student_payments: {
+        Row: {
+          academic_year_id: string
+          amount: number
+          created_at: string
+          fee_type_id: string
+          id: string
+          notes: string | null
+          payment_method: string
+          receipt_number: string
+          recorded_by: string | null
+          student_id: string
+        }
+        Insert: {
+          academic_year_id: string
+          amount: number
+          created_at?: string
+          fee_type_id: string
+          id?: string
+          notes?: string | null
+          payment_method?: string
+          receipt_number: string
+          recorded_by?: string | null
+          student_id: string
+        }
+        Update: {
+          academic_year_id?: string
+          amount?: number
+          created_at?: string
+          fee_type_id?: string
+          id?: string
+          notes?: string | null
+          payment_method?: string
+          receipt_number?: string
+          recorded_by?: string | null
+          student_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "student_payments_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      guardians: {
+        Row: {
+          address: string | null
+          created_at: string
+          email: string | null
+          full_name: string
+          id: string
+          national_id: string | null
+          phone: string
+          school_id: string
+          user_id: string | null
+        }
+        Insert: {
+          address?: string | null
+          created_at?: string
+          email?: string | null
+          full_name: string
+          id?: string
+          national_id?: string | null
+          phone: string
+          school_id: string
+          user_id?: string | null
+        }
+        Update: {
+          address?: string | null
+          created_at?: string
+          email?: string | null
+          full_name?: string
+          id?: string
+          national_id?: string | null
+          phone?: string
+          school_id?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "guardians_school_id_fkey"
+            columns: ["school_id"]
+            isOneToOne: false
+            referencedRelation: "schools"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      guardian_students: {
+        Row: {
+          can_view_fees: boolean
+          created_at: string
+          guardian_id: string
+          id: string
+          is_primary: boolean
+          receives_notifications: boolean
+          relation: string
+          student_id: string
+          verified_by: string | null
+        }
+        Insert: {
+          can_view_fees?: boolean
+          created_at?: string
+          guardian_id: string
+          id?: string
+          is_primary?: boolean
+          receives_notifications?: boolean
+          relation?: string
+          student_id: string
+          verified_by?: string | null
+        }
+        Update: {
+          can_view_fees?: boolean
+          created_at?: string
+          guardian_id?: string
+          id?: string
+          is_primary?: boolean
+          receives_notifications?: boolean
+          relation?: string
+          student_id?: string
+          verified_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "guardian_students_guardian_id_fkey"
+            columns: ["guardian_id"]
+            isOneToOne: false
+            referencedRelation: "guardians"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "guardian_students_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never

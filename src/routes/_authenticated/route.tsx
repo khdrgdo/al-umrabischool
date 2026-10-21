@@ -19,6 +19,7 @@ import {
   X,
   School,
   Sparkles,
+  Banknote,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -81,6 +82,7 @@ function Layout() {
     { to: "/dashboard", label: "لوحة التحكم", icon: LayoutDashboard },
     { to: "/students", label: "سجل الطلاب", icon: Users },
     { to: "/attendance", label: "الحضور والغياب", icon: ClipboardCheck },
+    { to: "/fees", label: "الرسوم والمالية", icon: Banknote },
     { to: "/timetable", label: "الجدول المدرسي", icon: CalendarDays },
     { to: "/structure", label: "الصفوف والشعب", icon: Layers },
     { to: "/teachers", label: "المعلمون", icon: GraduationCap },

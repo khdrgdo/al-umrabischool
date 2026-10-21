@@ -15,6 +15,7 @@ import { Route as AuthRouteImport } from './routes/auth'
 import { Route as AuthenticatedAttendanceRouteImport } from './routes/_authenticated/attendance'
 import { Route as AuthenticatedAuditRouteImport } from './routes/_authenticated/audit'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
+import { Route as AuthenticatedFeesRouteImport } from './routes/_authenticated/fees'
 import { Route as AuthenticatedStructureRouteImport } from './routes/_authenticated/structure'
 import { Route as AuthenticatedSubjectsRouteImport } from './routes/_authenticated/subjects'
 import { Route as AuthenticatedTeachersRouteImport } from './routes/_authenticated/teachers'
@@ -50,6 +51,11 @@ const AuthenticatedAuditRoute = AuthenticatedAuditRouteImport.update({
 const AuthenticatedDashboardRoute = AuthenticatedDashboardRouteImport.update({
   id: '/dashboard',
   path: '/dashboard',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedFeesRoute = AuthenticatedFeesRouteImport.update({
+  id: '/fees',
+  path: '/fees',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
 const AuthenticatedStructureRoute = AuthenticatedStructureRouteImport.update({
@@ -95,6 +101,7 @@ export interface FileRoutesByFullPath {
   '/attendance': typeof AuthenticatedAttendanceRoute
   '/audit': typeof AuthenticatedAuditRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
+  '/fees': typeof AuthenticatedFeesRoute
   '/structure': typeof AuthenticatedStructureRoute
   '/subjects': typeof AuthenticatedSubjectsRoute
   '/teachers': typeof AuthenticatedTeachersRoute
@@ -109,6 +116,7 @@ export interface FileRoutesByTo {
   '/attendance': typeof AuthenticatedAttendanceRoute
   '/audit': typeof AuthenticatedAuditRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
+  '/fees': typeof AuthenticatedFeesRoute
   '/structure': typeof AuthenticatedStructureRoute
   '/subjects': typeof AuthenticatedSubjectsRoute
   '/teachers': typeof AuthenticatedTeachersRoute
@@ -125,6 +133,7 @@ export interface FileRoutesById {
   '/_authenticated/attendance': typeof AuthenticatedAttendanceRoute
   '/_authenticated/audit': typeof AuthenticatedAuditRoute
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
+  '/_authenticated/fees': typeof AuthenticatedFeesRoute
   '/_authenticated/structure': typeof AuthenticatedStructureRoute
   '/_authenticated/subjects': typeof AuthenticatedSubjectsRoute
   '/_authenticated/teachers': typeof AuthenticatedTeachersRoute
@@ -141,6 +150,7 @@ export interface FileRouteTypes {
     | '/attendance'
     | '/audit'
     | '/dashboard'
+    | '/fees'
     | '/structure'
     | '/subjects'
     | '/teachers'
@@ -155,6 +165,7 @@ export interface FileRouteTypes {
     | '/attendance'
     | '/audit'
     | '/dashboard'
+    | '/fees'
     | '/structure'
     | '/subjects'
     | '/teachers'
@@ -170,6 +181,7 @@ export interface FileRouteTypes {
     | '/_authenticated/attendance'
     | '/_authenticated/audit'
     | '/_authenticated/dashboard'
+    | '/_authenticated/fees'
     | '/_authenticated/structure'
     | '/_authenticated/subjects'
     | '/_authenticated/teachers'
@@ -229,6 +241,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedDashboardRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/fees': {
+      id: '/_authenticated/fees'
+      path: '/fees'
+      fullPath: '/fees'
+      preLoaderRoute: typeof AuthenticatedFeesRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/structure': {
       id: '/_authenticated/structure'
       path: '/structure'
@@ -285,6 +304,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedAttendanceRoute: typeof AuthenticatedAttendanceRoute
   AuthenticatedAuditRoute: typeof AuthenticatedAuditRoute
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
+  AuthenticatedFeesRoute: typeof AuthenticatedFeesRoute
   AuthenticatedStructureRoute: typeof AuthenticatedStructureRoute
   AuthenticatedSubjectsRoute: typeof AuthenticatedSubjectsRoute
   AuthenticatedTeachersRoute: typeof AuthenticatedTeachersRoute
@@ -298,6 +318,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedAttendanceRoute: AuthenticatedAttendanceRoute,
   AuthenticatedAuditRoute: AuthenticatedAuditRoute,
   AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
+  AuthenticatedFeesRoute: AuthenticatedFeesRoute,
   AuthenticatedStructureRoute: AuthenticatedStructureRoute,
   AuthenticatedSubjectsRoute: AuthenticatedSubjectsRoute,
   AuthenticatedTeachersRoute: AuthenticatedTeachersRoute,

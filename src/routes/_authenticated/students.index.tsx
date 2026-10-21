@@ -8,7 +8,7 @@ import { matchesStudentNumber } from "@/lib/studentNumber";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { PageHead, Empty, StatusMark, ENROLL_TYPE, Field } from "@/components/app/kit";
+import { PageHead, Empty, StatusMark, ENROLL_TYPE, Field, FilterPanel } from "@/components/app/kit";
 import { StudentForm, emptyStudent } from "@/components/app/StudentForm";
 
 export const Route = createFileRoute("/_authenticated/students/")({

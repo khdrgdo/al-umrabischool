@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { PageHead, Field, StatusMark, ENROLL_TYPE, STATUS_LABEL, Empty } from "@/components/app/kit";
 import { StudentForm, type StudentInput } from "@/components/app/StudentForm";
+import { Banknote, Users, ArrowUpRight, Receipt } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/students/$id")({
   head: () => ({ meta: [{ title: "ملف الطالب — مدرسة العمرابي" }] }),
@@ -32,14 +33,34 @@ function StudentPage() {
     queryKey: ["student", id],
     queryFn: async () => {
       const { data: year } = await supabase.from("academic_years").select("*").eq("is_current", true).maybeSingle();
-      const [s, enr, hist, secs] = await Promise.all([
+      const [s, enr, hist, secs, pays] = await Promise.all([
         supabase.from("students").select("*").eq("id", id).single(),
         supabase.from("enrollments").select("*, year:academic_years(name,is_current), section:sections(name, grade:grades(name), track:tracks(name), spec:specializations(name))").eq("student_id", id).order("created_at", { ascending: false }),
         supabase.from("student_status_history").select("*").eq("student_id", id).order("changed_at", { ascending: false }),
         year ? supabase.from("sections").select("id,name,grade:grades(name,level_order)").eq("academic_year_id", year.id) : Promise.resolve({ data: [] }),
+        supabase.from("student_payments").select("*").eq("student_id", id).order("created_at", { ascending: false }),
       ]);
       if (s.error) throw s.error;
-      return { year, s: s.data, enr: enr.data ?? [], hist: hist.data ?? [], secs: (secs.data ?? []) as { id: string; name: string; grade: { name: string; level_order: number } | null }[] };
+
+      let siblings: Array<{ id: string; full_name: string; student_number: string; status: string }> = [];
+      if (s.data?.guardian_phone) {
+        const { data: sibs } = await supabase
+          .from("students")
+          .select("id, full_name, student_number, status")
+          .eq("guardian_phone", s.data.guardian_phone)
+          .neq("id", id);
+        siblings = sibs ?? [];
+      }
+
+      return {
+        year,
+        s: s.data,
+        enr: enr.data ?? [],
+        hist: hist.data ?? [],
+        secs: (secs.data ?? []) as { id: string; name: string; grade: { name: string; level_order: number } | null }[],
+        payments: pays.data ?? [],
+        siblings,
+      };
     },
   });
   const refresh = () => qc.invalidateQueries();
@@ -213,6 +234,113 @@ function StudentPage() {
                 <Empty title="لا يوجد قيد دراسي مسجل لهذا الطالب" />
               )}
             </div>
+          </div>
+
+          {/* Family, Guardians & Siblings */}
+          <div className="card-surface p-6">
+            <h2 className="text-sm font-semibold text-foreground pb-3 mb-4 border-b border-border flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Users className="h-4 w-4 text-primary" />
+                <span>أولياء الأمور والإخوة المسجلون بالمدرسة</span>
+              </div>
+              <span className="text-xs text-muted-foreground font-normal">شجرة الأسرة</span>
+            </h2>
+
+            <div className="space-y-4 text-xs">
+              <div className="p-3 rounded-lg bg-muted/40 border border-border flex items-center justify-between">
+                <div>
+                  <div className="font-semibold text-foreground">{s.guardian_name ?? "غير مسجل"}</div>
+                  <div className="text-muted-foreground mt-0.5">
+                    {s.guardian_relation ? `صلة القرابة: ${s.guardian_relation}` : "ولي الأمر الرئيسي"}
+                  </div>
+                </div>
+                {s.guardian_phone && (
+                  <div className="font-mono text-foreground font-medium bg-card px-2.5 py-1 rounded border border-border" dir="ltr">
+                    {s.guardian_phone}
+                  </div>
+                )}
+              </div>
+
+              <div>
+                <h4 className="text-xs font-semibold text-foreground mb-2">الإخوة المسجلون (المرتبطون بنفس رقم ولي الأمر):</h4>
+                {data.siblings.length === 0 ? (
+                  <p className="text-xs text-muted-foreground">لا يوجد إخوة مسجلون بنفس هاتف ولي الأمر في المدرسة.</p>
+                ) : (
+                  <div className="grid sm:grid-cols-2 gap-2">
+                    {data.siblings.map((sib) => (
+                      <Link
+                        key={sib.id}
+                        to="/students/$id"
+                        params={{ id: sib.id }}
+                        className="p-2.5 rounded-lg border border-border bg-card hover:border-primary/50 transition-colors flex items-center justify-between group"
+                      >
+                        <div>
+                          <div className="font-medium text-foreground group-hover:text-primary transition-colors">
+                            {sib.full_name}
+                          </div>
+                          <span className="font-mono text-[11px] text-muted-foreground" dir="ltr">
+                            {sib.student_number}
+                          </span>
+                        </div>
+                        <ArrowUpRight className="h-4 w-4 text-muted-foreground group-hover:text-primary transition-colors" />
+                      </Link>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Student Payments & Financial Dues */}
+          <div className="card-surface p-6">
+            <h2 className="text-sm font-semibold text-foreground pb-3 mb-4 border-b border-border flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Banknote className="h-4 w-4 text-primary" />
+                <span>سجل الرسوم والمدفوعات</span>
+              </div>
+              <Link
+                to="/fees"
+                className="text-xs text-primary hover:underline flex items-center gap-1 font-medium"
+              >
+                <span>إدارة الرسوم والمبالغ</span>
+                <ArrowUpRight className="h-3.5 w-3.5" />
+              </Link>
+            </h2>
+
+            {data.payments.length === 0 ? (
+              <p className="text-xs text-muted-foreground">لا توجد دفعات مالية مسجلة لهذا الطالب حتى الآن.</p>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="modern-table text-xs">
+                  <thead>
+                    <tr>
+                      <th>رقم الإيصال</th>
+                      <th>المبلغ المدفوع</th>
+                      <th>طريقة الدفع</th>
+                      <th>تاريخ السداد</th>
+                      <th>ملاحظات</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {data.payments.map((p) => (
+                      <tr key={p.id}>
+                        <td>
+                          <span className="font-mono font-medium text-foreground">{p.receipt_number}</span>
+                        </td>
+                        <td className="font-mono font-bold text-emerald-600">
+                          {Number(p.amount).toLocaleString()} ج.س
+                        </td>
+                        <td className="text-muted-foreground">{p.payment_method}</td>
+                        <td className="text-muted-foreground">
+                          {new Date(p.created_at).toLocaleDateString("ar-SD")}
+                        </td>
+                        <td className="text-muted-foreground">{p.notes ?? "—"}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
 
           <div className="card-surface p-6">
