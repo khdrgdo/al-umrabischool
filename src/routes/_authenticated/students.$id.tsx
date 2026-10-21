@@ -38,18 +38,22 @@ function StudentPage() {
         supabase.from("enrollments").select("*, year:academic_years(name,is_current), section:sections(name, grade:grades(name), track:tracks(name), spec:specializations(name))").eq("student_id", id).order("created_at", { ascending: false }),
         supabase.from("student_status_history").select("*").eq("student_id", id).order("changed_at", { ascending: false }),
         year ? supabase.from("sections").select("id,name,grade:grades(name,level_order)").eq("academic_year_id", year.id) : Promise.resolve({ data: [] }),
-        supabase.from("student_payments").select("*").eq("student_id", id).order("created_at", { ascending: false }),
+        supabase.from("student_payments").select("*").eq("student_id", id).order("created_at", { ascending: false }).then((r) => r.data ?? []).catch(() => []),
       ]);
       if (s.error) throw s.error;
 
       let siblings: Array<{ id: string; full_name: string; student_number: string; status: string }> = [];
       if (s.data?.guardian_phone) {
-        const { data: sibs } = await supabase
-          .from("students")
-          .select("id, full_name, student_number, status")
-          .eq("guardian_phone", s.data.guardian_phone)
-          .neq("id", id);
-        siblings = sibs ?? [];
+        try {
+          const { data: sibs } = await supabase
+            .from("students")
+            .select("id, full_name, student_number, status")
+            .eq("guardian_phone", s.data.guardian_phone.trim())
+            .neq("id", id);
+          siblings = sibs ?? [];
+        } catch {
+          siblings = [];
+        }
       }
 
       return {

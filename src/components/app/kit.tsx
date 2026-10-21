@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import React, { isValidElement, createElement, type ReactNode } from "react";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -102,13 +102,15 @@ export function Stat({
   label,
   value,
   note,
+  sub,
   icon,
   variant = "default",
 }: {
   label: string;
   value: ReactNode;
   note?: ReactNode;
-  icon?: ReactNode;
+  sub?: ReactNode;
+  icon?: any;
   variant?: "default" | "primary" | "success" | "warning";
 }) {
   const accentBorder = {
@@ -118,16 +120,25 @@ export function Stat({
     warning: "border-rose-500/40",
   }[variant];
 
+  let renderedIcon = icon;
+  if (icon && !isValidElement(icon)) {
+    try {
+      renderedIcon = createElement(icon, { className: "h-4 w-4" });
+    } catch {
+      renderedIcon = null;
+    }
+  }
+
   return (
     <div className={cn("card-surface p-4 md:p-5 flex flex-col justify-between transition hover:shadow-sm", accentBorder)}>
       <div className="flex items-center justify-between gap-2">
         <span className="text-xs font-medium text-muted-foreground">{label}</span>
-        {icon && <div className="text-muted-foreground/70">{icon}</div>}
+        {renderedIcon && <div className="text-muted-foreground/70">{renderedIcon}</div>}
       </div>
       <div className="my-2">
         <div className="text-2xl md:text-3xl font-bold tabular-nums text-foreground tracking-tight">{value}</div>
       </div>
-      {note && <div className="text-xs text-muted-foreground mt-0.5">{note}</div>}
+      {(note || sub) && <div className="text-xs text-muted-foreground mt-0.5">{note ?? sub}</div>}
     </div>
   );
 }

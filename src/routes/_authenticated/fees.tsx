@@ -18,11 +18,11 @@ import {
   PlusCircle,
   FileSpreadsheet,
   Receipt,
-  Search,
   School,
 } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/fees")({
+  ssr: false,
   head: () => ({ meta: [{ title: "الرسوم والمالية — مدرسة العمرابي" }] }),
   component: FeesPage,
 });
@@ -62,6 +62,20 @@ interface StudentFeeRow {
   }>;
 }
 
+async function safeFetchList<T>(promise: Promise<{ data: T[] | null; error: any }>): Promise<T[]> {
+  try {
+    const res = await promise;
+    if (res.error) {
+      console.warn("Financial query notice (table may not be populated yet):", res.error.message);
+      return [];
+    }
+    return res.data ?? [];
+  } catch (err) {
+    console.warn("Financial query exception caught safely:", err);
+    return [];
+  }
+}
+
 function FeesPage() {
   const qc = useQueryClient();
   const { data: me } = useMe();
@@ -93,7 +107,7 @@ function FeesPage() {
     notes: string | null;
   } | null>(null);
 
-  // Fetch all necessary financial data
+  // Fetch all necessary financial data defensively
   const { data, isLoading } = useQuery({
     queryKey: ["fees-overview"],
     queryFn: async () => {
@@ -103,7 +117,7 @@ function FeesPage() {
         .eq("is_current", true)
         .maybeSingle();
 
-      const [students, sections, enr, grades, feeStructures, payments, discounts] = await Promise.all([
+      const [studentsRes, sectionsRes, enrRes, gradesRes, feeStructures, payments, discounts] = await Promise.all([
         supabase.from("students").select("*").order("full_name"),
         year
           ? supabase
@@ -118,42 +132,26 @@ function FeesPage() {
               .eq("academic_year_id", year.id)
           : Promise.resolve({ data: [] }),
         supabase.from("grades").select("*").order("level_order"),
-        year
-          ? supabase
-              .from("fee_structures")
-              .select("*")
-              .eq("academic_year_id", year.id)
-          : Promise.resolve({ data: [] }),
-        year
-          ? supabase
-              .from("student_payments")
-              .select("*")
-              .eq("academic_year_id", year.id)
-              .order("created_at", { ascending: false })
-          : Promise.resolve({ data: [] }),
-        year
-          ? supabase
-              .from("student_fee_discounts")
-              .select("*")
-              .eq("academic_year_id", year.id)
-          : Promise.resolve({ data: [] }),
+        year ? safeFetchList(supabase.from("fee_structures").select("*").eq("academic_year_id", year.id)) : Promise.resolve([]),
+        year ? safeFetchList(supabase.from("student_payments").select("*").eq("academic_year_id", year.id).order("created_at", { ascending: false })) : Promise.resolve([]),
+        year ? safeFetchList(supabase.from("student_fee_discounts").select("*").eq("academic_year_id", year.id)) : Promise.resolve([]),
       ]);
 
       return {
         year,
-        students: students.data ?? [],
-        sections: (sections.data ?? []) as Array<{
+        students: studentsRes.data ?? [],
+        sections: (sectionsRes.data ?? []) as Array<{
           id: string;
           name: string;
           grade_id: string;
           grade: { name: string; level_order: number } | null;
           track: { name: string } | null;
         }>,
-        enrollments: (enr.data ?? []) as Array<{ student_id: string; section_id: string }>,
-        grades: grades.data ?? [],
-        feeStructures: feeStructures.data ?? [],
-        payments: payments.data ?? [],
-        discounts: discounts.data ?? [],
+        enrollments: (enrRes.data ?? []) as Array<{ student_id: string; section_id: string }>,
+        grades: gradesRes.data ?? [],
+        feeStructures,
+        payments,
+        discounts,
       };
     },
   });
@@ -165,8 +163,9 @@ function FeesPage() {
   const structureByGrade = useMemo(() => {
     const map = new Map<string, number>();
     for (const fs of data?.feeStructures ?? []) {
+      if (!fs?.grade_id) continue;
       const current = map.get(fs.grade_id) ?? 0;
-      map.set(fs.grade_id, current + Number(fs.amount));
+      map.set(fs.grade_id, current + (Number(fs.amount) || 0));
     }
     return map;
   }, [data?.feeStructures]);
@@ -175,6 +174,7 @@ function FeesPage() {
   const paymentsByStudent = useMemo(() => {
     const map = new Map<string, typeof data.payments>();
     for (const p of data?.payments ?? []) {
+      if (!p?.student_id) continue;
       const arr = map.get(p.student_id) ?? [];
       arr.push(p);
       map.set(p.student_id, arr);
@@ -185,8 +185,9 @@ function FeesPage() {
   const discountsByStudent = useMemo(() => {
     const map = new Map<string, number>();
     for (const d of data?.discounts ?? []) {
+      if (!d?.student_id) continue;
       const cur = map.get(d.student_id) ?? 0;
-      map.set(d.student_id, cur + Number(d.amount));
+      map.set(d.student_id, cur + (Number(d.amount) || 0));
     }
     return map;
   }, [data?.discounts]);
@@ -194,19 +195,19 @@ function FeesPage() {
   // Build rows for each enrolled student
   const rows = useMemo(() => {
     const list: StudentFeeRow[] = [];
-    const defaultAnnualFee = 150000; // Default benchmark if fee_structures table not yet populated
+    const defaultAnnualFee = 150000; // Benchmark fee in SDG if custom grade fee not set
 
     for (const s of data?.students ?? []) {
       const enr = enrBy.get(s.id);
       const sec = enr ? secById.get(enr.section_id) : undefined;
       const gradeId = sec?.grade_id ?? null;
-      const gradeName = sec?.grade?.name ?? "غير مسجل";
+      const gradeName = sec?.grade?.name ?? (sec ? "الصف المقيد" : "غير مسجل");
       const sectionName = sec?.name ?? "—";
 
       // Base fee
       let baseAmount = 0;
       if (gradeId && structureByGrade.has(gradeId)) {
-        baseAmount = structureByGrade.get(gradeId)!;
+        baseAmount = structureByGrade.get(gradeId) ?? defaultAnnualFee;
       } else if (sec) {
         baseAmount = defaultAnnualFee;
       }
@@ -217,7 +218,7 @@ function FeesPage() {
 
       // Payments
       const studentPays = paymentsByStudent.get(s.id) ?? [];
-      const paidAmount = studentPays.reduce((sum, p) => sum + Number(p.amount), 0);
+      const paidAmount = studentPays.reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
       const balance = Math.max(0, netDue - paidAmount);
 
       // Status
@@ -252,7 +253,7 @@ function FeesPage() {
         status,
         payments: studentPays.map((p) => ({
           id: p.id,
-          amount: Number(p.amount),
+          amount: Number(p.amount) || 0,
           receiptNumber: p.receipt_number,
           paymentMethod: p.payment_method,
           createdAt: p.created_at,
@@ -272,9 +273,9 @@ function FeesPage() {
       if (statusFilter && r.status !== statusFilter) return false;
       if (q) {
         const query = q.trim().toLowerCase();
-        const nameMatches = r.fullName.toLowerCase().includes(query);
+        const nameMatches = (r.fullName || "").toLowerCase().includes(query);
         const numMatches = matchesStudentNumber(r.studentNumber, query);
-        const phoneMatches = (r.guardianPhone ?? "").includes(query);
+        const phoneMatches = (r.guardianPhone || "").includes(query);
         if (!nameMatches && !numMatches && !phoneMatches) return false;
       }
       return true;
@@ -304,20 +305,19 @@ function FeesPage() {
 
       const receiptNumber = `REC-${new Date().getFullYear()}-${Math.floor(100000 + Math.random() * 900000)}`;
 
-      // Get or create default fee type
       let feeTypeId = "00000000-0000-0000-0000-000000000000";
       const { data: ft } = await supabase.from("fee_types").select("id").limit(1).maybeSingle();
-      if (ft) {
+      if (ft?.id) {
         feeTypeId = ft.id;
       } else {
         const { data: school } = await supabase.from("schools").select("id").limit(1).single();
-        if (school) {
+        if (school?.id) {
           const { data: newFt } = await supabase
             .from("fee_types")
             .insert({ school_id: school.id, name: "رسوم دراسية" })
             .select()
             .single();
-          if (newFt) feeTypeId = newFt.id;
+          if (newFt?.id) feeTypeId = newFt.id;
         }
       }
 
@@ -342,15 +342,14 @@ function FeesPage() {
       qc.invalidateQueries({ queryKey: ["fees-overview"] });
       toast.success(`تم تسجيل الدفعة بنجاح برقم إيصال: ${res.receiptNumber}`);
 
-      // Open printable receipt automatically
       if (selectedStudent) {
         setActiveReceipt({
           receiptNumber: res.receiptNumber,
           studentName: selectedStudent.fullName,
           studentNumber: selectedStudent.studentNumber,
           gradeSection: `${selectedStudent.gradeName} / ${selectedStudent.sectionName}`,
-          amount: Number(payAmount),
-          method: METHOD_LABELS[payMethod],
+          amount: Number(payAmount) || 0,
+          method: METHOD_LABELS[payMethod] ?? payMethod,
           date: new Date().toLocaleDateString("ar-EG"),
           notes: payNotes || null,
         });
@@ -367,47 +366,52 @@ function FeesPage() {
 
   // Export CSV
   function exportCsv() {
-    const head = [
-      "الرقم المدرسي",
-      "اسم الطالب",
-      "الصف",
-      "الشعبة",
-      "الرسوم المقررة",
-      "المنح والخصم",
-      "الصافي المستحق",
-      "المدفوع فعلياً",
-      "المتبقي",
-      "حالة السداد",
-      "هاتف ولي الأمر",
-    ];
-    const statusMap = {
-      paid: "مسدد بالكامل",
-      partial: "مسدد جزئياً",
-      unpaid: "غير مسدد",
-      exempt: "معفى / منحة",
-      none: "غير محدد",
-    };
-    const lines = filteredRows.map((r) => [
-      r.studentNumber,
-      r.fullName,
-      r.gradeName,
-      r.sectionName,
-      r.baseAmount,
-      r.discountAmount,
-      r.netDue,
-      r.paidAmount,
-      r.balance,
-      statusMap[r.status],
-      r.guardianPhone ?? "—",
-    ]);
+    try {
+      const head = [
+        "الرقم المدرسي",
+        "اسم الطالب",
+        "الصف",
+        "الشعبة",
+        "الرسوم المقررة",
+        "المنح والخصم",
+        "الصافي المستحق",
+        "المدفوع فعلياً",
+        "المتبقي",
+        "حالة السداد",
+        "هاتف ولي الأمر",
+      ];
+      const statusMap = {
+        paid: "مسدد بالكامل",
+        partial: "مسدد جزئياً",
+        unpaid: "غير مسدد",
+        exempt: "معفى / منحة",
+        none: "غير محدد",
+      };
+      const lines = filteredRows.map((r) => [
+        r.studentNumber,
+        r.fullName,
+        r.gradeName,
+        r.sectionName,
+        r.baseAmount,
+        r.discountAmount,
+        r.netDue,
+        r.paidAmount,
+        r.balance,
+        statusMap[r.status] ?? "—",
+        r.guardianPhone ?? "—",
+      ]);
 
-    const csv = "\uFEFF" + [head, ...lines].map((row) => row.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(",")).join("\n");
-    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = `تقرير_الرسوم_${data?.year?.name ?? "المدرسة"}.csv`;
-    link.click();
+      const csv = "\uFEFF" + [head, ...lines].map((row) => row.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(",")).join("\n");
+      const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `تقرير_الرسوم_${data?.year?.name ?? "المدرسة"}.csv`;
+      link.click();
+      URL.revokeObjectURL(url);
+    } catch {
+      toast.error("فشل تصدير التقرير المالي");
+    }
   }
 
   const sectionsForGrade = (data?.sections ?? []).filter((s) => !grade || s.grade_id === grade);
@@ -461,26 +465,29 @@ function FeesPage() {
         <StatCard
           label="إجمالي الرسوم المقررة"
           value={`${stats.totalExpected.toLocaleString()} ج.س`}
-          sub="الصافي بعد المنح والخصومات"
-          icon={Banknote}
+          note="الصافي بعد المنح والخصومات"
+          icon={<Banknote className="h-4 w-4" />}
         />
         <StatCard
           label="إجمالي المحصّل الفعلي"
           value={`${stats.totalCollected.toLocaleString()} ج.س`}
-          sub="الوارد في خزينة المدرسة"
-          icon={CheckCircle2}
+          note="الوارد في خزينة المدرسة"
+          icon={<CheckCircle2 className="h-4 w-4" />}
+          variant="success"
         />
         <StatCard
           label="الرصيد المتبقي (المتأخرات)"
           value={`${stats.totalOutstanding.toLocaleString()} ج.س`}
-          sub="مستحقات غير مسددة"
-          icon={AlertCircle}
+          note="مستحقات غير مسددة"
+          icon={<AlertCircle className="h-4 w-4" />}
+          variant="warning"
         />
         <StatCard
           label="نسبة التحصيل الإجمالية"
           value={`${stats.rate}%`}
-          sub="معدل استيفاء الرسوم السنوية"
-          icon={Clock}
+          note="معدل استيفاء الرسوم السنوية"
+          icon={<Clock className="h-4 w-4" />}
+          variant="primary"
         />
       </div>
 
@@ -530,7 +537,7 @@ function FeesPage() {
             <option value="">كافة الشعب</option>
             {sectionsForGrade.map((s) => (
               <option key={s.id} value={s.id}>
-                {s.grade?.name.replace("الصف ", "")} / {s.name}
+                {s.grade?.name ? s.grade.name.replace("الصف ", "") : ""} / {s.name ?? ""}
               </option>
             ))}
           </select>
@@ -853,7 +860,9 @@ function FeesPage() {
               )}
               <div className="flex justify-between items-center py-2.5 bg-muted/60 px-3 rounded-lg font-bold text-sm text-foreground mt-3">
                 <span>المبلغ المستلم:</span>
-                <span className="font-mono text-primary">{activeReceipt?.amount.toLocaleString()} ج.س</span>
+                <span className="font-mono text-primary">
+                  {activeReceipt?.amount ? activeReceipt.amount.toLocaleString() : "0"} ج.س
+                </span>
               </div>
             </div>
 

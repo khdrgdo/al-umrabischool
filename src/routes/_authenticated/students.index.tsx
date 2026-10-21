@@ -86,7 +86,7 @@ function Students() {
 
   const sections = (data?.sections ?? []).filter((s) => !grade || s.grade_id === grade).sort((a, b) => (a.grade?.level_order ?? 0) - (b.grade?.level_order ?? 0));
   const secFull = (s: Sec) => [s.grade?.name, s.track?.name, s.spec?.name, s.name].filter(Boolean).join(" / ");
-  const label = (s?: Sec) => (s ? `${s.grade?.name.replace("الصف ", "")} / ${s.name}` : "");
+  const label = (s?: Sec) => (s ? `${s.grade?.name ? s.grade.name.replace("الصف ", "") : ""} / ${s.name ?? ""}` : "");
 
   function exportCsv() {
     const head = ["الرقم", "الاسم", "النوع", "الصف/الشعبة", "ولي الأمر", "الهاتف", "الحالة"];

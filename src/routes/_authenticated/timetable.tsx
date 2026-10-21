@@ -68,7 +68,7 @@ function Timetable() {
   );
 }
 
-const secLabel = (s?: { name: string; grade: { name: string } | null }) => (s ? `${s.grade?.name.replace("الصف ", "")} / ${s.name}` : "");
+const secLabel = (s?: { name: string; grade: { name: string } | null }) => (s ? `${s.grade?.name ? s.grade.name.replace("الصف ", "") : ""} / ${s.name ?? ""}` : "");
 
 function SectionGrid({ d, manager }: { d: TT; manager: boolean }) {
   const qc = useQueryClient();

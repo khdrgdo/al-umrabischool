@@ -1112,6 +1112,165 @@ export type Database = {
           },
         ]
       }
+      assessment_categories: {
+        Row: {
+          created_at: string
+          default_max_score: number
+          id: string
+          is_active: boolean
+          name: string
+          school_id: string
+          weight: number
+        }
+        Insert: {
+          created_at?: string
+          default_max_score?: number
+          id?: string
+          is_active?: boolean
+          name: string
+          school_id: string
+          weight?: number
+        }
+        Update: {
+          created_at?: string
+          default_max_score?: number
+          id?: string
+          is_active?: boolean
+          name?: string
+          school_id?: string
+          weight?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "assessment_categories_school_id_fkey"
+            columns: ["school_id"]
+            isOneToOne: false
+            referencedRelation: "schools"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      assessments: {
+        Row: {
+          academic_year_id: string
+          approved_by: string | null
+          created_at: string
+          created_by: string | null
+          id: string
+          max_score: number
+          pass_score: number
+          section_id: string
+          status: string
+          subject_id: string
+          term: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          academic_year_id: string
+          approved_by?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          max_score?: number
+          pass_score?: number
+          section_id: string
+          status?: string
+          subject_id: string
+          term?: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          academic_year_id?: string
+          approved_by?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          max_score?: number
+          pass_score?: number
+          section_id?: string
+          status?: string
+          subject_id?: string
+          term?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "assessments_academic_year_id_fkey"
+            columns: ["academic_year_id"]
+            isOneToOne: false
+            referencedRelation: "academic_years"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "assessments_section_id_fkey"
+            columns: ["section_id"]
+            isOneToOne: false
+            referencedRelation: "sections"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "assessments_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: false
+            referencedRelation: "subjects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      student_grades: {
+        Row: {
+          absence_reason: string | null
+          assessment_id: string
+          id: string
+          is_absent: boolean
+          notes: string | null
+          score: number | null
+          student_id: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          absence_reason?: string | null
+          assessment_id: string
+          id?: string
+          is_absent?: boolean
+          notes?: string | null
+          score?: number | null
+          student_id: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          absence_reason?: string | null
+          assessment_id?: string
+          id?: string
+          is_absent?: boolean
+          notes?: string | null
+          score?: number | null
+          student_id?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "student_grades_assessment_id_fkey"
+            columns: ["assessment_id"]
+            isOneToOne: false
+            referencedRelation: "assessments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "student_grades_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never

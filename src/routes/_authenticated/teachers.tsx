@@ -62,7 +62,7 @@ function Teachers() {
                   <td className="font-medium">{t.full_name}</td>
                   <td className="text-xs">{t.qualification ?? "—"}</td>
                   <td className="num" dir="ltr">{t.phone}</td>
-                  <td className="text-xs max-w-xs">{as.map((a) => `${a.subject?.name} (${a.section?.grade?.name.replace("الصف ", "")}/${a.section?.name})`).join("، ") || "—"}</td>
+                  <td className="text-xs max-w-xs">{as.map((a) => `${a.subject?.name ?? "—"} (${(a.section?.grade?.name ? a.section.grade.name.replace("الصف ", "") : "")}/${a.section?.name ?? "—"})`).join("، ") || "—"}</td>
                   <td className="num">{load || "—"}</td>
                   <td>{t.is_active ? <span className="stamp text-ok">على رأس العمل</span> : <span className="stamp text-stamp">موقوف</span>}</td>
                   {manager && <td><Button size="sm" variant="ghost" onClick={() => setF({ id: t.id, full_name: t.full_name, phone: t.phone ?? "", qualification: t.qualification ?? "", hired_on: t.hired_on ?? "", notes: t.notes ?? "", is_active: t.is_active })}>تعديل</Button></td>}
