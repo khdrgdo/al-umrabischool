@@ -52,6 +52,99 @@ export type Database = {
           },
         ]
       }
+      attendance_records: {
+        Row: {
+          id: string
+          reason: string | null
+          session_id: string
+          status: string
+          student_id: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          id?: string
+          reason?: string | null
+          session_id: string
+          status?: string
+          student_id: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          id?: string
+          reason?: string | null
+          session_id?: string
+          status?: string
+          student_id?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "attendance_records_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "attendance_sessions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "attendance_records_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      attendance_sessions: {
+        Row: {
+          academic_year_id: string
+          attendance_date: string
+          created_at: string
+          created_by: string | null
+          id: string
+          section_id: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          academic_year_id: string
+          attendance_date: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          section_id: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          academic_year_id?: string
+          attendance_date?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          section_id?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "attendance_sessions_academic_year_id_fkey"
+            columns: ["academic_year_id"]
+            isOneToOne: false
+            referencedRelation: "academic_years"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "attendance_sessions_section_id_fkey"
+            columns: ["section_id"]
+            isOneToOne: false
+            referencedRelation: "sections"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       audit_log: {
         Row: {
           action: string
@@ -774,6 +867,10 @@ export type Database = {
         Returns: boolean
       }
       is_staff: { Args: { _user_id: string }; Returns: boolean }
+      save_daily_attendance: {
+        Args: { _absences: Json; _date: string; _section: string }
+        Returns: string
+      }
     }
     Enums: {
       app_role: "owner" | "principal" | "supervisor"
