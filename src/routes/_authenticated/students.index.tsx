@@ -91,56 +91,175 @@ function Students() {
   }
 
   return (
-    <div>
+    <div className="space-y-6">
       <PageHead
         title="سجل الطلاب"
-        sub={`${rows.length} من أصل ${data?.students.length ?? 0} طالب · العام ${data?.year?.name ?? "—"}`}
-        actions={<>
-          <Button variant="outline" onClick={exportCsv}>تصدير القائمة</Button>
-          {manager && <Button onClick={() => setOpen(true)}>فتح ملف طالب</Button>}
-        </>}
+        sub={
+          <span>
+            إجمالي المقيدين: <strong className="text-foreground">{data?.students.length ?? 0} طالب</strong>
+            {rows.length !== (data?.students.length ?? 0) && (
+              <span className="text-primary font-medium"> ({rows.length} معروض بعد التصفية)</span>
+            )}
+            {" · "}
+            العام الدراسي الحالي: <strong className="text-foreground">{data?.year?.name ?? "—"}</strong>
+          </span>
+        }
+        actions={
+          <>
+            <Button variant="outline" size="sm" onClick={exportCsv} className="h-9 gap-1.5 text-xs">
+              <span>تصدير القائمة (CSV)</span>
+            </Button>
+            {manager && (
+              <Button size="sm" onClick={() => setOpen(true)} className="h-9 gap-1.5 text-xs">
+                <span>+ فتح ملف طالب</span>
+              </Button>
+            )}
+          </>
+        }
       />
-      <div className="flex flex-wrap gap-2 mb-4">
-        <Input className="w-64" placeholder="بحث بالاسم أو الرقم المدرسي أو هاتف ولي الأمر" value={q} onChange={(e) => setQ(e.target.value)} />
-        <select className="field-select" value={grade} onChange={(e) => { setGrade(e.target.value); setSection(""); }}>
-          <option value="">كل الصفوف</option>
-          {data?.grades.map((g) => <option key={g.id} value={g.id}>{g.name}</option>)}
-        </select>
-        <select className="field-select" value={section} onChange={(e) => setSection(e.target.value)}>
-          <option value="">كل الشعب</option>
-          {sections.map((s) => <option key={s.id} value={s.id}>{label(s)}</option>)}
-          <option value="none">غير مسجلين هذا العام</option>
-        </select>
-        <select className="field-select" value={status} onChange={(e) => setStatus(e.target.value)}>
-          <option value="">كل الحالات</option>
-          <option value="active">منتظم</option><option value="transferred_out">منقول</option>
-          <option value="withdrawn">منسحب</option><option value="graduated">متخرج</option><option value="suspended">موقوف</option>
-        </select>
-      </div>
-      <div className="sheet overflow-x-auto">
-        <table className="ledger">
-          <thead>
-            <tr><th>#</th><th>الرقم المدرسي</th><th>الاسم</th><th>الصف / الشعبة</th><th>نوع القيد</th><th>ولي الأمر</th><th>الهاتف</th><th>الحالة</th></tr>
-          </thead>
-          <tbody>
-            {rows.map((s, i) => {
-              const e = enrBy.get(s.id);
-              return (
-                <tr key={s.id} className="cursor-pointer" onClick={() => navigate({ to: "/students/$id", params: { id: s.id } })}>
-                  <td className="num">{i + 1}</td>
-                  <td className="num" dir="ltr">{s.student_number}</td>
-                  <td><Link to="/students/$id" params={{ id: s.id }} className="font-medium hover:underline">{s.full_name}</Link></td>
-                  <td>{e ? label(secById.get(e.section_id)) : <span className="text-stamp text-xs">غير مسجل</span>}</td>
-                  <td className="text-xs text-muted-foreground">{e ? ENROLL_TYPE[e.enrollment_type] : ""}</td>
-                  <td>{s.guardian_name}</td>
-                  <td className="num" dir="ltr">{s.guardian_phone}</td>
-                  <td><StatusMark status={s.status} /></td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-        {rows.length === 0 && <Empty>لا توجد نتائج مطابقة</Empty>}
+
+      {/* Filter Panel (Notion Design Guide Pattern) */}
+      <FilterPanel
+        title="خيارات تصفية الطلاب"
+        onReset={() => {
+          setQ("");
+          setGrade("");
+          setSection("");
+          setStatus("active");
+        }}
+      >
+        <Field label="البحث بالاسم / الرقم / الهاتف">
+          <Input
+            placeholder="بحث بالاسم أو الرقم أو الهاتف…"
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            className="h-9 text-xs"
+          />
+        </Field>
+
+        <Field label="الصف الدراسي">
+          <select
+            className="w-full h-9 px-3 rounded-lg border border-input bg-card text-xs focus:ring-1 focus:ring-primary focus:outline-hidden"
+            value={grade}
+            onChange={(e) => {
+              setGrade(e.target.value);
+              setSection("");
+            }}
+          >
+            <option value="">كافة الصفوف</option>
+            {data?.grades.map((g) => (
+              <option key={g.id} value={g.id}>
+                {g.name}
+              </option>
+            ))}
+          </select>
+        </Field>
+
+        <Field label="الشعبة الدراسية">
+          <select
+            className="w-full h-9 px-3 rounded-lg border border-input bg-card text-xs focus:ring-1 focus:ring-primary focus:outline-hidden"
+            value={section}
+            onChange={(e) => setSection(e.target.value)}
+          >
+            <option value="">كافة الشعب</option>
+            {sections.map((s) => (
+              <option key={s.id} value={s.id}>
+                {label(s)}
+              </option>
+            ))}
+            <option value="none">غير مقيدين بشعبة هذا العام</option>
+          </select>
+        </Field>
+
+        <Field label="حالة الطالب">
+          <select
+            className="w-full h-9 px-3 rounded-lg border border-input bg-card text-xs focus:ring-1 focus:ring-primary focus:outline-hidden"
+            value={status}
+            onChange={(e) => setStatus(e.target.value)}
+          >
+            <option value="">كافة الحالات</option>
+            <option value="active">منتظم</option>
+            <option value="transferred_out">منقول</option>
+            <option value="withdrawn">منسحب</option>
+            <option value="graduated">متخرج</option>
+            <option value="suspended">موقوف</option>
+          </select>
+        </Field>
+      </FilterPanel>
+
+      {/* Modern Card Table */}
+      <div className="card-surface overflow-hidden">
+        <div className="p-4 border-b border-border flex items-center justify-between">
+          <div className="text-xs font-semibold text-foreground">قائمة الطلاب المسجلين</div>
+          <span className="text-xs text-muted-foreground">{rows.length} طالب</span>
+        </div>
+
+        <div className="overflow-x-auto">
+          <table className="modern-table">
+            <thead>
+              <tr>
+                <th className="w-12">#</th>
+                <th>الرقم المدرسي</th>
+                <th>اسم الطالب</th>
+                <th>الصف / الشعبة</th>
+                <th>نوع القيد</th>
+                <th>ولي الأمر</th>
+                <th>رقم الهاتف</th>
+                <th>الحالة</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((s, i) => {
+                const e = enrBy.get(s.id);
+                return (
+                  <tr
+                    key={s.id}
+                    className="cursor-pointer hover:bg-muted/40 transition-colors"
+                    onClick={() => navigate({ to: "/students/$id", params: { id: s.id } })}
+                  >
+                    <td className="num text-muted-foreground text-xs">{i + 1}</td>
+                    <td>
+                      <span className="font-mono text-xs px-2 py-0.5 rounded-md bg-muted text-foreground font-medium" dir="ltr">
+                        {s.student_number}
+                      </span>
+                    </td>
+                    <td>
+                      <Link
+                        to="/students/$id"
+                        params={{ id: s.id }}
+                        className="font-medium text-foreground hover:text-primary transition-colors"
+                      >
+                        {s.full_name}
+                      </Link>
+                    </td>
+                    <td>
+                      {e ? (
+                        <span className="text-xs font-medium text-foreground">{label(secById.get(e.section_id))}</span>
+                      ) : (
+                        <span className="text-xs text-rose-600 bg-rose-50 px-2 py-0.5 rounded-full border border-rose-200">
+                          غير مسجل
+                        </span>
+                      )}
+                    </td>
+                    <td className="text-xs text-muted-foreground">{e ? ENROLL_TYPE[e.enrollment_type] : "—"}</td>
+                    <td className="text-xs text-foreground font-medium">{s.guardian_name ?? "—"}</td>
+                    <td className="num text-xs text-muted-foreground" dir="ltr">
+                      {s.guardian_phone ?? "—"}
+                    </td>
+                    <td>
+                      <StatusMark status={s.status} />
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+          {rows.length === 0 && (
+            <Empty title="لا يوجد طلاب يطابقون خيارات التصفية">
+              جرّب تغيير كلمات البحث أو إعادة ضبط خيارات التصفية لعرض النتائج.
+            </Empty>
+          )}
+        </div>
       </div>
 
       <Dialog open={open} onOpenChange={setOpen}>

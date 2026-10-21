@@ -5,12 +5,13 @@
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
-  --font-sans: "Readex Pro", system-ui, sans-serif;
-  --font-display: "Amiri", "Readex Pro", serif;
-  --radius-sm: 1px;
-  --radius-md: 2px;
-  --radius-lg: var(--radius);
-  --radius-xl: 4px;
+  --font-sans: "IBM Plex Sans Arabic", "Readex Pro", system-ui, -apple-system, sans-serif;
+  --font-display: "IBM Plex Sans Arabic", "Readex Pro", sans-serif;
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);
@@ -31,82 +32,240 @@
   --color-input: var(--input);
   --color-ring: var(--ring);
   --color-ring-offset-background: var(--background);
-  --color-paper: var(--paper);
-  --color-ink: var(--ink);
-  --color-stamp: var(--stamp);
-  --color-gold: var(--stamp);
-  --color-rule: var(--rule);
-  --color-ok: var(--ok);
-  --color-sidebar: var(--ink);
-  --color-sidebar-foreground: var(--paper);
-  --color-sidebar-primary: var(--stamp);
-  --color-sidebar-primary-foreground: var(--paper);
-  --color-sidebar-accent: var(--primary);
-  --color-sidebar-accent-foreground: var(--paper);
-  --color-sidebar-border: var(--rule);
+
+  /* Notion Visual Design Tokens */
+  --color-canvas: var(--canvas);
+  --color-panel: var(--panel);
+  --color-line: var(--line);
+  --color-slate-text: var(--slate-text);
+  --color-lavender: var(--lavender);
+  --color-lavender-light: var(--lavender-light);
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-ring: var(--ring);
 }
 
 :root {
-  --radius: 3px;
-  --paper: oklch(0.968 0.014 88);
-  --ink: oklch(0.23 0.03 230);
-  --stamp: oklch(0.5 0.17 28);
-  --rule: oklch(0.84 0.025 85);
-  --ok: oklch(0.48 0.1 155);
-  --background: var(--paper);
-  --foreground: var(--ink);
-  --card: oklch(0.985 0.008 88);
-  --card-foreground: var(--ink);
-  --popover: oklch(0.99 0.006 88);
-  --popover-foreground: var(--ink);
-  --primary: oklch(0.34 0.07 215);
-  --primary-foreground: oklch(0.98 0.01 88);
-  --secondary: oklch(0.92 0.02 88);
-  --secondary-foreground: var(--ink);
-  --muted: oklch(0.935 0.016 88);
-  --muted-foreground: oklch(0.47 0.025 230);
-  --accent: oklch(0.9 0.035 85);
-  --accent-foreground: var(--ink);
-  --destructive: var(--stamp);
-  --destructive-foreground: oklch(0.98 0 0);
-  --border: var(--rule);
-  --input: oklch(0.8 0.025 85);
-  --ring: oklch(0.34 0.07 215);
+  --radius: 12px;
+
+  /* Notion Visual Guide Color Palette */
+  --canvas: #F7F7FD;           /* Soft light lavender workspace background */
+  --panel: #FFFFFF;            /* Pure white cards & containers */
+  --line: #EEEFF5;             /* Subtle lavender-gray borders */
+  --slate-text: #1F2438;       /* Primary dark slate text */
+  --lavender: #5B5FC7;         /* Primary brand lavender/violet */
+  --lavender-light: #EEF0FF;   /* Active tab & hover tint */
+  --success: #10B981;          /* Emerald success */
+  --warning: #EF4444;          /* Coral alert/warning */
+
+  /* Standard system mapping */
+  --background: var(--canvas);
+  --foreground: var(--slate-text);
+  --card: #FFFFFF;
+  --card-foreground: var(--slate-text);
+  --popover: #FFFFFF;
+  --popover-foreground: var(--slate-text);
+  --primary: #5B5FC7;
+  --primary-foreground: #FFFFFF;
+  --secondary: #F0F1FA;
+  --secondary-foreground: #2D314E;
+  --muted: #F3F4F9;
+  --muted-foreground: #6E7391;
+  --accent: #EEF0FF;
+  --accent-foreground: #5B5FC7;
+  --destructive: #EF4444;
+  --destructive-foreground: #FFFFFF;
+  --border: #EEEFF5;
+  --input: #E4E6F0;
+  --ring: #5B5FC7;
+
+  /* Sidebar Tokens */
+  --sidebar: #FFFFFF;
+  --sidebar-foreground: #383D58;
+  --sidebar-primary: #5B5FC7;
+  --sidebar-primary-foreground: #FFFFFF;
+  --sidebar-accent: #EEF0FF;
+  --sidebar-accent-foreground: #5B5FC7;
+  --sidebar-border: #EEEFF5;
 }
 
 @layer base {
-  * { border-color: var(--color-border); }
+  * {
+    border-color: var(--color-border);
+  }
   body {
     background-color: var(--color-background);
     color: var(--color-foreground);
     font-family: var(--font-sans);
-    font-size: 15px;
+    font-size: 14px;
+    line-height: 1.6;
     font-feature-settings: "tnum";
+    -webkit-font-smoothing: antialiased;
   }
-  h1, h2, h3 { font-family: var(--font-display); font-weight: 700; letter-spacing: 0; }
+  h1, h2, h3, h4, h5, h6 {
+    font-family: var(--font-display);
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    color: var(--color-foreground);
+  }
 }
 
 @layer components {
-  /* Register-style table */
-  .ledger { width: 100%; border-collapse: collapse; font-size: 14px; }
+  /* Modern Clean Card */
+  .card-surface {
+    background: #FFFFFF;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius);
+    box-shadow: 0 1px 3px 0 rgba(31, 36, 56, 0.04), 0 1px 2px -1px rgba(31, 36, 56, 0.02);
+  }
+
+  /* Modern Filter Box */
+  .filter-surface {
+    background: #FFFFFF;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius);
+    padding: 16px 20px;
+    box-shadow: 0 1px 3px 0 rgba(31, 36, 56, 0.04);
+  }
+
+  /* Modern Table with subtle borders & clean rows */
+  .modern-table {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+    font-size: 13.5px;
+  }
+  .modern-table th {
+    text-align: start;
+    font-weight: 500;
+    font-size: 12px;
+    color: var(--color-muted-foreground);
+    background-color: #FAFAFE;
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--color-border);
+    white-space: nowrap;
+  }
+  .modern-table th:first-child {
+    border-top-right-radius: var(--radius);
+  }
+  .modern-table th:last-child {
+    border-top-left-radius: var(--radius);
+  }
+  .modern-table td {
+    padding: 13px 16px;
+    border-bottom: 1px solid var(--color-border);
+    vertical-align: middle;
+    color: var(--color-foreground);
+  }
+  .modern-table tbody tr {
+    transition: background-color 150ms ease;
+  }
+  .modern-table tbody tr:hover td {
+    background-color: #F8F9FE;
+  }
+  .modern-table tbody tr:last-child td {
+    border-bottom: none;
+  }
+  .modern-table .num {
+    font-variant-numeric: tabular-nums;
+    font-weight: 500;
+  }
+
+  /* Backward-compatible ledger class with modern styling */
+  .ledger {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+    font-size: 13.5px;
+  }
   .ledger th {
-    text-align: start; font-weight: 500; font-size: 12px; color: var(--muted-foreground);
-    padding: 8px 10px; border-bottom: 2px solid var(--ink); white-space: nowrap;
+    text-align: start;
+    font-weight: 500;
+    font-size: 12px;
+    color: var(--color-muted-foreground);
+    background: #FAFAFE;
+    padding: 11px 16px;
+    border-bottom: 1px solid var(--color-border);
+    white-space: nowrap;
   }
-  .ledger td { padding: 9px 10px; border-bottom: 1px solid var(--rule); vertical-align: middle; }
-  .ledger tbody tr:hover td { background: color-mix(in oklab, var(--accent) 45%, transparent); }
-  .ledger .num { font-variant-numeric: tabular-nums; color: var(--muted-foreground); }
-  .sheet { background: var(--card); border: 1px solid var(--rule); }
-  .field-select {
-    height: 36px; border: 1px solid var(--input); background: var(--card); padding: 0 8px; font-size: 14px; border-radius: 2px;
+  .ledger td {
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--color-border);
+    vertical-align: middle;
   }
+  .ledger tbody tr:hover td {
+    background-color: #F8F9FE;
+  }
+  .ledger tbody tr:last-child td {
+    border-bottom: none;
+  }
+  .ledger .num {
+    font-variant-numeric: tabular-nums;
+  }
+
+  .sheet {
+    background: #FFFFFF;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius);
+    overflow: hidden;
+    box-shadow: 0 1px 3px 0 rgba(31, 36, 56, 0.04);
+  }
+
+  /* Modern Pill Badges */
+  .status-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 3px 10px;
+    font-size: 12px;
+    font-weight: 500;
+    border-radius: 9999px;
+  }
+  .status-pill.active {
+    background-color: #ECFDF5;
+    color: #065F46;
+    border: 1px solid #A7F3D0;
+  }
+  .status-pill.inactive {
+    background-color: #FEF2F2;
+    color: #991B1B;
+    border: 1px solid #FECACA;
+  }
+  .status-pill.warning {
+    background-color: #FFFBEB;
+    color: #92400E;
+    border: 1px solid #FDE68A;
+  }
+
+  /* Backward compatibility for stamp */
   .stamp {
-    display: inline-block; border: 1.5px solid currentColor; padding: 1px 8px; font-size: 12px; line-height: 1.5;
-    transform: rotate(-2deg);
+    display: inline-flex;
+    align-items: center;
+    padding: 2px 9px;
+    font-size: 11.5px;
+    font-weight: 500;
+    border-radius: 9999px;
+    background: #EEF0FF;
+    color: #5B5FC7;
+    border: 1px solid #D9DCF7;
   }
-  .tab-link { padding: 10px 2px; margin-inline: 10px; font-size: 14px; border-bottom: 2px solid transparent; white-space: nowrap; opacity: .75; }
-  .tab-link:hover { opacity: 1; }
-  .tab-link.active { opacity: 1; border-color: var(--stamp); }
-  .section-title { font-family: var(--font-display); font-size: 1.35rem; border-bottom: 1px solid var(--rule); padding-bottom: 4px; margin-bottom: 12px; }
+
+  .section-title {
+    font-size: 1.15rem;
+    font-weight: 600;
+    color: var(--color-foreground);
+    margin-bottom: 14px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
 }
+
