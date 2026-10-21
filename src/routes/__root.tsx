@@ -45,29 +45,37 @@ function ErrorComponent({ error, reset }: ErrorComponentProps) {
   }, [error]);
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background px-4">
-      <div className="max-w-md text-center">
-        <h1 className="text-xl font-semibold tracking-tight text-foreground">
-          This page didn't load
+    <div className="flex min-h-screen items-center justify-center bg-background px-4" dir="rtl">
+      <div className="card-surface max-w-lg p-6 text-center space-y-4">
+        <div className="h-12 w-12 rounded-full bg-rose-50 text-rose-600 flex items-center justify-center mx-auto border border-rose-200">
+          <span className="text-xl font-bold">!</span>
+        </div>
+        <h1 className="text-xl font-bold text-foreground">
+          تعذر تحميل هذه الصفحة
         </h1>
-        <p className="mt-2 text-sm text-muted-foreground">
-          Something went wrong on our end. You can try refreshing or head back home.
+        <p className="text-sm text-muted-foreground">
+          حدث خطأ أثناء معالجة البيانات. يمكنك المحاولة مجددًا أو العودة للوحة التحكم.
         </p>
-        <div className="mt-6 flex flex-wrap justify-center gap-2">
+        {error?.message && (
+          <div className="p-3 bg-muted rounded-lg text-xs font-mono text-destructive text-start break-words overflow-x-auto" dir="ltr">
+            {error.message}
+          </div>
+        )}
+        <div className="flex flex-wrap justify-center gap-2 pt-2">
           <button
             onClick={() => {
               router.invalidate();
               reset();
             }}
-            className="inline-flex items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+            className="inline-flex items-center justify-center rounded-lg bg-primary px-4 py-2 text-xs font-medium text-primary-foreground hover:bg-primary/90 transition-colors"
           >
-            Try again
+            إعادة المحاولة
           </button>
           <a
-            href="/"
-            className="inline-flex items-center justify-center rounded-md border border-input bg-background px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-accent"
+            href="/dashboard"
+            className="inline-flex items-center justify-center rounded-lg border border-input bg-card px-4 py-2 text-xs font-medium text-foreground hover:bg-accent transition-colors"
           >
-            Go home
+            لوحة التحكم
           </a>
         </div>
       </div>

@@ -56,13 +56,15 @@ function StudentPage() {
         }
       }
 
+      const paymentList = Array.isArray(pays) ? pays : ((pays as any)?.data ?? []);
+
       return {
         year,
         s: s.data,
         enr: enr.data ?? [],
         hist: hist.data ?? [],
         secs: (secs.data ?? []) as { id: string; name: string; grade: { name: string; level_order: number } | null }[],
-        payments: pays.data ?? [],
+        payments: paymentList,
         siblings,
       };
     },
@@ -105,8 +107,9 @@ function StudentPage() {
   if (isLoading || !data) return <Empty>جارٍ التحميل…</Empty>;
   const s = data.s;
   const current = data.enr.find((e) => e.year?.is_current);
-  const secLabel = (x: { id: string; name: string; grade: { name: string } | null }) => `${x.grade?.name} / ${x.name}`;
-  const age = s.birth_date ? Math.floor((Date.now() - new Date(s.birth_date).getTime()) / 3.15576e10) : null;
+  const secLabel = (x: { id: string; name: string; grade: { name: string } | null }) => `${x.grade?.name ? x.grade.name.replace("الصف ", "") : ""} / ${x.name ?? ""}`;
+  const rawAge = s.birth_date ? Math.floor((Date.now() - new Date(s.birth_date).getTime()) / 3.15576e10) : null;
+  const age = rawAge != null && !Number.isNaN(rawAge) ? rawAge : null;
 
   return (
     <div className="space-y-6">
@@ -388,7 +391,7 @@ function StudentPage() {
                   <div className="p-3 bg-muted/50 rounded-lg border border-border/60">
                     <span className="text-xs text-muted-foreground block mb-1">الشعبة الحالية:</span>
                     <span className="text-sm font-bold text-foreground">
-                      {current.section?.grade?.name} / {current.section?.name}
+                      {current.section?.grade?.name ?? "صف غير محدد"} / {current.section?.name ?? "شعبة غير محددة"}
                     </span>
                   </div>
                   <Field label="النقل إلى شعبة أخرى في نفس العام">

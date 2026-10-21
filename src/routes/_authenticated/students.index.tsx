@@ -90,11 +90,20 @@ function Students() {
 
   function exportCsv() {
     const head = ["الرقم", "الاسم", "النوع", "الصف/الشعبة", "ولي الأمر", "الهاتف", "الحالة"];
-    const lines = rows.map((s) => [s.student_number, s.full_name, s.gender === "female" ? "أنثى" : "ذكر", label(secById.get(enrBy.get(s.id)?.section_id ?? "")), s.guardian_name ?? "", s.guardian_phone ?? "", s.status]);
+    const lines = rows.map((s) => [
+      s.student_number ?? "",
+      s.full_name ?? "",
+      s.gender === "female" ? "أنثى" : s.gender === "male" ? "ذكر" : "—",
+      label(secById.get(enrBy.get(s.id)?.section_id ?? "")),
+      s.guardian_name ?? "",
+      s.guardian_phone ?? "",
+      s.status ?? "",
+    ]);
     const csv = "\uFEFF" + [head, ...lines].map((r) => r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(",")).join("\n");
     const a = document.createElement("a");
     a.href = URL.createObjectURL(new Blob([csv], { type: "text/csv" }));
-    a.download = "students.csv"; a.click();
+    a.download = "students.csv";
+    a.click();
   }
 
   if (isLoading) {
@@ -236,7 +245,7 @@ function Students() {
                     <td className="num text-muted-foreground text-xs">{i + 1}</td>
                     <td>
                       <span className="font-mono text-xs px-2 py-0.5 rounded-md bg-muted text-foreground font-medium" dir="ltr">
-                        {s.student_number}
+                        {s.student_number || "—"}
                       </span>
                     </td>
                     <td>
@@ -245,25 +254,25 @@ function Students() {
                         params={{ id: s.id }}
                         className="font-medium text-foreground hover:text-primary transition-colors"
                       >
-                        {s.full_name}
+                        {s.full_name || "بدون اسم"}
                       </Link>
                     </td>
                     <td>
                       {e ? (
-                        <span className="text-xs font-medium text-foreground">{label(secById.get(e.section_id))}</span>
+                        <span className="text-xs font-medium text-foreground">{label(secById.get(e.section_id)) || "—"}</span>
                       ) : (
                         <span className="text-xs text-rose-600 bg-rose-50 px-2 py-0.5 rounded-full border border-rose-200">
                           غير مسجل
                         </span>
                       )}
                     </td>
-                    <td className="text-xs text-muted-foreground">{e ? ENROLL_TYPE[e.enrollment_type] : "—"}</td>
+                    <td className="text-xs text-muted-foreground">{e ? (ENROLL_TYPE[e.enrollment_type] ?? e.enrollment_type) : "—"}</td>
                     <td className="text-xs text-foreground font-medium">{s.guardian_name ?? "—"}</td>
                     <td className="num text-xs text-muted-foreground" dir="ltr">
                       {s.guardian_phone ?? "—"}
                     </td>
                     <td>
-                      <StatusMark status={s.status} />
+                      <StatusMark status={s.status ?? "active"} />
                     </td>
                   </tr>
                 );

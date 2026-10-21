@@ -1271,6 +1271,119 @@ export type Database = {
           },
         ]
       }
+      school_events: {
+        Row: {
+          academic_year_id: string | null
+          created_at: string
+          created_by: string | null
+          description: string | null
+          ends_on: string | null
+          event_type: "term_date" | "exam" | "holiday" | "meeting" | "event" | "result"
+          id: string
+          is_published: boolean
+          school_id: string
+          starts_on: string
+          target_audience: "all" | "students" | "teachers" | "parents" | "staff_only"
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          academic_year_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          ends_on?: string | null
+          event_type: "term_date" | "exam" | "holiday" | "meeting" | "event" | "result"
+          id?: string
+          is_published?: boolean
+          school_id: string
+          starts_on: string
+          target_audience?: "all" | "students" | "teachers" | "parents" | "staff_only"
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          academic_year_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          ends_on?: string | null
+          event_type?: "term_date" | "exam" | "holiday" | "meeting" | "event" | "result"
+          id?: string
+          is_published?: boolean
+          school_id?: string
+          starts_on?: string
+          target_audience?: "all" | "students" | "teachers" | "parents" | "staff_only"
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "school_events_school_id_fkey"
+            columns: ["school_id"]
+            isOneToOne: false
+            referencedRelation: "schools"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "school_events_academic_year_id_fkey"
+            columns: ["academic_year_id"]
+            isOneToOne: false
+            referencedRelation: "academic_years"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      announcements: {
+        Row: {
+          body: string
+          created_at: string
+          created_by: string | null
+          expires_at: string | null
+          id: string
+          is_published: boolean
+          priority: "normal" | "important" | "urgent"
+          published_at: string
+          school_id: string
+          target_audience: "all" | "students" | "teachers" | "parents" | "staff_only"
+          title: string
+        }
+        Insert: {
+          body: string
+          created_at?: string
+          created_by?: string | null
+          expires_at?: string | null
+          id?: string
+          is_published?: boolean
+          priority?: "normal" | "important" | "urgent"
+          published_at?: string
+          school_id: string
+          target_audience?: "all" | "students" | "teachers" | "parents" | "staff_only"
+          title: string
+        }
+        Update: {
+          body?: string
+          created_at?: string
+          created_by?: string | null
+          expires_at?: string | null
+          id?: string
+          is_published?: boolean
+          priority?: "normal" | "important" | "urgent"
+          published_at?: string
+          school_id?: string
+          target_audience?: "all" | "students" | "teachers" | "parents" | "staff_only"
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "announcements_school_id_fkey"
+            columns: ["school_id"]
+            isOneToOne: false
+            referencedRelation: "schools"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never

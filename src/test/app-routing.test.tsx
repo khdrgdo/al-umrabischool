@@ -39,6 +39,11 @@ describe("App routing", () => {
     expect(matches.at(-1)?.routeId).toBe("/_authenticated/grades");
   });
 
+  it("matches route for /calendar", () => {
+    const matches = router.matchRoutes("/calendar");
+    expect(matches.at(-1)?.routeId).toBe("/_authenticated/calendar");
+  });
+
   it("renders StatCard safely whether icon is a component or an element", () => {
     const { renderToString } = require("react-dom/server");
     const { StatCard } = require("@/components/app/kit");
