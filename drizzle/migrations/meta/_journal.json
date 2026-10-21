@@ -29,6 +29,13 @@
       "when": 1792568852082,
       "tag": "0003_omr_student_number",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1792569051061,
+      "tag": "0004_daily_attendance",
+      "breakpoints": true
     }
   ]
 }
