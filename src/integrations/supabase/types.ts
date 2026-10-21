@@ -1384,12 +1384,100 @@ export type Database = {
           },
         ]
       }
+      student_promotions: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          decision: "promote" | "repeat" | "graduate" | "transfer_out" | "pending"
+          executed_at: string | null
+          from_academic_year_id: string
+          id: string
+          is_executed: boolean
+          notes: string | null
+          school_id: string
+          student_id: string
+          target_section_id: string | null
+          to_academic_year_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          decision?: "promote" | "repeat" | "graduate" | "transfer_out" | "pending"
+          executed_at?: string | null
+          from_academic_year_id: string
+          id?: string
+          is_executed?: boolean
+          notes?: string | null
+          school_id: string
+          student_id: string
+          target_section_id?: string | null
+          to_academic_year_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          decision?: "promote" | "repeat" | "graduate" | "transfer_out" | "pending"
+          executed_at?: string | null
+          from_academic_year_id?: string
+          id?: string
+          is_executed?: boolean
+          notes?: string | null
+          school_id?: string
+          student_id?: string
+          target_section_id?: string | null
+          to_academic_year_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "student_promotions_school_id_fkey"
+            columns: ["school_id"]
+            isOneToOne: false
+            referencedRelation: "schools"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "student_promotions_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "student_promotions_from_academic_year_id_fkey"
+            columns: ["from_academic_year_id"]
+            isOneToOne: false
+            referencedRelation: "academic_years"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "student_promotions_to_academic_year_id_fkey"
+            columns: ["to_academic_year_id"]
+            isOneToOne: false
+            referencedRelation: "academic_years"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "student_promotions_target_section_id_fkey"
+            columns: ["target_section_id"]
+            isOneToOne: false
+            referencedRelation: "sections"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
       can_manage: { Args: { _user_id: string }; Returns: boolean }
+      execute_year_rollover: {
+        Args: { _from_year: string; _to_year: string }
+        Returns: { promoted: number; repeated: number; graduated: number; transferred: number }
+      }
       change_student_status: {
         Args: {
           _reason: string

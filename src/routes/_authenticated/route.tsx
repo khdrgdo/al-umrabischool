@@ -22,6 +22,7 @@ import {
   Banknote,
   Award,
   Calendar,
+  ArrowRightLeft,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -91,6 +92,7 @@ function Layout() {
     { to: "/structure", label: "الصفوف والشعب", icon: Layers },
     { to: "/teachers", label: "المعلمون", icon: GraduationCap },
     { to: "/subjects", label: "المواد الدراسية", icon: BookOpen },
+    ...(manager ? [{ to: "/rollover", label: "الترحيل السنوي", icon: ArrowRightLeft } as const] : []),
     ...(manager ? [{ to: "/audit", label: "سجل التعديلات", icon: ShieldCheck } as const] : []),
     ...(me.roles.includes("owner") ? [{ to: "/users", label: "إدارة المستخدمين", icon: UserCog } as const] : []),
   ] as const;
