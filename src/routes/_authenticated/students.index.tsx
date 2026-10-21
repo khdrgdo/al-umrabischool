@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useSchool, useMe, canManage, errMsg } from "@/lib/staff";
+import { matchesStudentNumber } from "@/lib/studentNumber";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -53,7 +54,7 @@ function Students() {
     if (status && s.status !== status) return false;
     if (grade && sec?.grade_id !== grade) return false;
     if (section === "none" ? !!e : section && e?.section_id !== section) return false;
-    if (q && !s.full_name.includes(q) && !s.student_number.includes(q) && !(s.guardian_phone ?? "").includes(q)) return false;
+    if (q && !s.full_name.includes(q) && !matchesStudentNumber(s.student_number, q) && !(s.guardian_phone ?? "").includes(q)) return false;
     return true;
   });
 
