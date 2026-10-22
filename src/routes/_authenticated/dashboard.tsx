@@ -1,3 +1,4 @@
+import { schoolPageHead } from "@/lib/pageHead";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -5,7 +6,7 @@ import { PageHead, StatCard, WEEKDAYS } from "@/components/app/kit";
 import { Users, Layers, GraduationCap, BookOpen, Clock, CheckCircle2 } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
-  head: () => ({ meta: [{ title: "لوحة التحكم — مدرسة العمرابي" }] }),
+  head: () => schoolPageHead("لوحة التحكم — مدرسة العمرابي", "لوحة التحكم في نظام إدارة مدرسة العمرابي الثانوية."),
   component: Dashboard,
 });
 

@@ -1,3 +1,4 @@
+import { schoolPageHead } from "@/lib/pageHead";
 import { createFileRoute } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState, useMemo } from "react";
@@ -11,7 +12,7 @@ import { Users, UserCheck, UserX, Percent, Calendar, CheckCheck, Save } from "lu
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/_authenticated/attendance")({
-  head: () => ({ meta: [{ title: "سجل الحضور والغياب — مدرسة العمرابي" }] }),
+  head: () => schoolPageHead("سجل الحضور والغياب — مدرسة العمرابي", "سجل الحضور والغياب في نظام إدارة مدرسة العمرابي الثانوية."),
   component: AttendancePage,
 });
 
@@ -66,7 +67,7 @@ function AttendancePage() {
   // Automatically select first section when loaded
   useMemo(() => {
     if (!selectedSection && meta?.sections?.length) {
-      setSelectedSection(meta.sections[0].id);
+      setSelectedSection(meta.sections[0]?.id ?? "");
     }
   }, [meta, selectedSection]);
 

@@ -1,3 +1,4 @@
+import { schoolPageHead } from "@/lib/pageHead";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
@@ -23,7 +24,7 @@ import {
 
 export const Route = createFileRoute("/_authenticated/fees")({
   ssr: false,
-  head: () => ({ meta: [{ title: "الرسوم والمالية — مدرسة العمرابي" }] }),
+  head: () => schoolPageHead("الرسوم والمالية — مدرسة العمرابي", "الرسوم والمالية في نظام إدارة مدرسة العمرابي الثانوية."),
   component: FeesPage,
 });
 
@@ -62,7 +63,7 @@ interface StudentFeeRow {
   }>;
 }
 
-async function safeFetchList<T>(promise: Promise<{ data: T[] | null; error: any }>): Promise<T[]> {
+async function safeFetchList<T>(promise: PromiseLike<{ data: T[] | null; error: any }>): Promise<T[]> {
   try {
     const res = await promise;
     if (res.error) {
@@ -172,7 +173,7 @@ function FeesPage() {
 
   // Payments and discounts per student
   const paymentsByStudent = useMemo(() => {
-    const map = new Map<string, typeof data.payments>();
+    const map = new Map<string, NonNullable<typeof data>["payments"]>();
     for (const p of data?.payments ?? []) {
       if (!p?.student_id) continue;
       const arr = map.get(p.student_id) ?? [];
@@ -658,6 +659,7 @@ function FeesPage() {
                           variant="ghost"
                           onClick={() => {
                             const lastP = row.payments[0];
+                            if (!lastP) return;
                             setActiveReceipt({
                               receiptNumber: lastP.receiptNumber,
                               studentName: row.fullName,

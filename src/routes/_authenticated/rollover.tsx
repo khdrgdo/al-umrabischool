@@ -1,3 +1,4 @@
+import { schoolPageHead } from "@/lib/pageHead";
 import { createFileRoute } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import React, { useMemo, useState } from "react";
@@ -24,7 +25,7 @@ import {
 } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/rollover")({
-  head: () => ({ meta: [{ title: "الترحيل السنوي وترقية الطلاب — مدرسة العمرابي" }] }),
+  head: () => schoolPageHead("الترحيل السنوي وترقية الطلاب — مدرسة العمرابي", "الترحيل السنوي وترقية الطلاب في نظام إدارة مدرسة العمرابي الثانوية."),
   component: RolloverPage,
 });
 

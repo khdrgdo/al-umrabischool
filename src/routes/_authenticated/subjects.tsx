@@ -1,3 +1,4 @@
+import { schoolPageHead } from "@/lib/pageHead";
 import { createFileRoute } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
@@ -9,7 +10,7 @@ import { Input } from "@/components/ui/input";
 import { PageHead, Empty } from "@/components/app/kit";
 
 export const Route = createFileRoute("/_authenticated/subjects")({
-  head: () => ({ meta: [{ title: "المواد — مدرسة العمرابي" }] }),
+  head: () => schoolPageHead("المواد — مدرسة العمرابي", "المواد في نظام إدارة مدرسة العمرابي الثانوية."),
   component: Subjects,
 });
 
