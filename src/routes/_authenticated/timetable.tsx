@@ -1,3 +1,4 @@
+import { schoolPageHead } from "@/lib/pageHead";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
@@ -12,7 +13,7 @@ import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/_authenticated/timetable")({
   validateSearch: (s: Record<string, unknown>) => ({ section: typeof s["section"] === "string" ? s["section"] : undefined }),
-  head: () => ({ meta: [{ title: "الجدول الدراسي — مدرسة العمرابي" }] }),
+  head: () => schoolPageHead("الجدول الدراسي — مدرسة العمرابي", "الجدول الدراسي في نظام إدارة مدرسة العمرابي الثانوية."),
   component: Timetable,
 });
 

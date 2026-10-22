@@ -1,3 +1,4 @@
+import { schoolPageHead } from "@/lib/pageHead";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
@@ -11,7 +12,7 @@ import { StudentForm, type StudentInput } from "@/components/app/StudentForm";
 import { Banknote, Users, ArrowUpRight, Receipt } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/students/$id")({
-  head: () => ({ meta: [{ title: "ملف الطالب — مدرسة العمرابي" }] }),
+  head: () => schoolPageHead("ملف الطالب — مدرسة العمرابي", "ملف الطالب في نظام إدارة مدرسة العمرابي الثانوية."),
   component: StudentPage,
 });
 

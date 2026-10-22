@@ -1,3 +1,4 @@
+import { schoolPageHead } from "@/lib/pageHead";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
@@ -12,7 +13,7 @@ import { PageHead, Empty, StatusMark, ENROLL_TYPE, Field, FilterPanel } from "@/
 import { StudentForm, emptyStudent } from "@/components/app/StudentForm";
 
 export const Route = createFileRoute("/_authenticated/students/")({
-  head: () => ({ meta: [{ title: "سجل الطلاب — مدرسة العمرابي" }] }),
+  head: () => schoolPageHead("سجل الطلاب — مدرسة العمرابي", "سجل الطلاب في نظام إدارة مدرسة العمرابي الثانوية."),
   component: Students,
 });
 

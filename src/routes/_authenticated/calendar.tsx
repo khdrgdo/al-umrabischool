@@ -1,3 +1,4 @@
+import { schoolPageHead } from "@/lib/pageHead";
 import { createFileRoute } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import React, { useMemo, useState } from "react";
@@ -29,7 +30,7 @@ import {
 } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/calendar")({
-  head: () => ({ meta: [{ title: "التقويم المدرسي والإعلانات — مدرسة العمرابي" }] }),
+  head: () => schoolPageHead("التقويم المدرسي والإعلانات — مدرسة العمرابي", "التقويم المدرسي والإعلانات في نظام إدارة مدرسة العمرابي الثانوية."),
   component: CalendarPage,
 });
 
