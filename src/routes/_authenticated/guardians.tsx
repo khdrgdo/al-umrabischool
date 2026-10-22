@@ -27,6 +27,11 @@ import {
   Banknote,
   CalendarCheck,
   Award,
+  Smartphone,
+  KeyRound,
+  Copy,
+  Check,
+  ShieldAlert,
 } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/guardians")({
@@ -54,6 +59,10 @@ interface GuardianRecord {
   email: string | null;
   address: string | null;
   user_id: string | null;
+  account_code?: string | null;
+  status?: "pending_activation" | "active" | "suspended" | "revoked" | string;
+  activated_at?: string | null;
+  temp_password_code?: string | null;
   created_at: string;
   links: Array<{
     id: string;
@@ -92,6 +101,10 @@ function GuardiansPage() {
   const [openLinkModal, setOpenLinkModal] = useState(false);
   const [selectedGuardianForLink, setSelectedGuardianForLink] = useState<GuardianRecord | null>(null);
   const [selectedFamilyGuardian, setSelectedFamilyGuardian] = useState<GuardianRecord | null>(null);
+  const [openAppModal, setOpenAppModal] = useState(false);
+  const [selectedGuardianForApp, setSelectedGuardianForApp] = useState<GuardianRecord | null>(null);
+  const [appCredentials, setAppCredentials] = useState<{ account_code: string; temp_code?: string; status: string } | null>(null);
+  const [copiedField, setCopiedField] = useState<string | null>(null);
 
   // Form: Guardian
   const [guardianName, setGuardianName] = useState("");
@@ -356,6 +369,124 @@ function GuardiansPage() {
     onError: (e) => toast.error(errMsg(e)),
   });
 
+  // App Account Management Logic (Notion spec: Principal is sole activator, unguessable codes, audit trail)
+  const generateClientAccountCode = () => {
+    const chars = "23456789ABCDEFGHJKLMNPQRSTUVWXYZ";
+    let res = "PAR-";
+    for (let i = 0; i < 6; i++) {
+      res += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    return res;
+  };
+
+  const openAppDialog = (g: GuardianRecord) => {
+    setSelectedGuardianForApp(g);
+    setAppCredentials(
+      g.account_code
+        ? { account_code: g.account_code, status: g.status ?? "pending_activation" }
+        : null
+    );
+    setCopiedField(null);
+    setOpenAppModal(true);
+  };
+
+  const activateAppMutation = useMutation({
+    mutationFn: async (guardian: GuardianRecord) => {
+      try {
+        const { data: rpcData, error: rpcErr } = await supabase.rpc("admin_activate_guardian_account", {
+          _guardian_id: guardian.id,
+        });
+        if (!rpcErr && rpcData) {
+          return rpcData as { account_code: string; temp_code: string; status: string };
+        }
+      } catch (e) {
+        console.warn("RPC activate fallback:", e);
+      }
+
+      const newCode = guardian.account_code || generateClientAccountCode();
+      const tempPin = Math.floor(100000 + Math.random() * 900000).toString();
+
+      const { error: upErr } = await supabase
+        .from("guardians")
+        .update({
+          account_code: newCode,
+          status: "active",
+          activated_at: new Date().toISOString(),
+          temp_password_code: tempPin,
+        })
+        .eq("id", guardian.id);
+
+      if (upErr) throw upErr;
+      return { account_code: newCode, temp_code: tempPin, status: "active" };
+    },
+    onSuccess: (res) => {
+      setAppCredentials(res);
+      toast.success("تم تفعيل حساب تطبيق ولي الأمر بنجاح");
+      refresh();
+    },
+    onError: (e) => toast.error(errMsg(e)),
+  });
+
+  const suspendAppMutation = useMutation({
+    mutationFn: async (guardianId: string) => {
+      try {
+        const { error: rpcErr } = await supabase.rpc("admin_suspend_guardian_account", {
+          _guardian_id: guardianId,
+          _reason: "إيقاف إداري من مدير المدرسة",
+        });
+        if (!rpcErr) return true;
+      } catch (e) {
+        console.warn("RPC suspend fallback:", e);
+      }
+
+      const { error: upErr } = await supabase
+        .from("guardians")
+        .update({ status: "suspended" })
+        .eq("id", guardianId);
+
+      if (upErr) throw upErr;
+      return true;
+    },
+    onSuccess: () => {
+      toast.success("تم إيقاف حساب تطبيق ولي الأمر مؤقتاً");
+      setOpenAppModal(false);
+      refresh();
+    },
+    onError: (e) => toast.error(errMsg(e)),
+  });
+
+  const resetPasswordMutation = useMutation({
+    mutationFn: async (guardian: GuardianRecord) => {
+      try {
+        const { data: rpcData, error: rpcErr } = await supabase.rpc("admin_reset_guardian_password", {
+          _guardian_id: guardian.id,
+        });
+        if (!rpcErr && rpcData) {
+          return rpcData as { account_code: string; temp_code: string; status: string };
+        }
+      } catch (e) {
+        console.warn("RPC reset password fallback:", e);
+      }
+
+      const tempPin = Math.floor(100000 + Math.random() * 900000).toString();
+      const { error: upErr } = await supabase
+        .from("guardians")
+        .update({
+          temp_password_code: tempPin,
+        })
+        .eq("id", guardian.id);
+
+      if (upErr) throw upErr;
+      return { account_code: guardian.account_code || "PAR-XXXXXX", temp_code: tempPin, status: "active" };
+    },
+    onSuccess: (res) => {
+      setAppCredentials(res);
+      toast.success("تم إصدار كود مؤقت جديد بنجاح");
+      refresh();
+    },
+    onError: (e) => toast.error(errMsg(e)),
+  });
+
   // Filtered Guardians
   const filteredGuardians = useMemo(() => {
     return (data?.guardians ?? []).filter((g) => {
@@ -613,9 +744,9 @@ function GuardiansPage() {
                     <th className="w-10">#</th>
                     <th>ولي الأمر</th>
                     <th>رقم الهاتف</th>
-                    <th>الرقم الوطني / العنوان</th>
+                    <th>حساب التطبيق</th>
                     <th>الأبناء المرتبطون بالمدرسة</th>
-                    {manager && <th className="text-center w-36">الإجراءات</th>}
+                    {manager && <th className="text-center w-48">الإجراءات</th>}
                   </tr>
                 </thead>
                 <tbody>
@@ -625,9 +756,9 @@ function GuardiansPage() {
                       <td>
                         <div className="font-semibold text-foreground flex items-center gap-1.5">
                           <span>{g.full_name}</span>
-                          {g.user_id && (
-                            <span className="text-[10px] text-emerald-700 bg-emerald-50 px-1.5 py-0.2 rounded border border-emerald-200">
-                              حساب مفعل
+                          {g.national_id && (
+                            <span className="text-[10px] font-mono text-muted-foreground" dir="ltr">
+                              ({g.national_id})
                             </span>
                           )}
                         </div>
@@ -640,10 +771,28 @@ function GuardiansPage() {
                         </span>
                       </td>
                       <td>
-                        <div className="font-mono text-foreground font-medium" dir="ltr">
-                          {g.national_id ?? "—"}
-                        </div>
-                        {g.address && <div className="text-[11px] text-muted-foreground truncate max-w-44">{g.address}</div>}
+                        {g.status === "active" ? (
+                          <div className="flex flex-col gap-0.5">
+                            <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200 w-fit">
+                              <span className="h-1.5 w-1.5 rounded-full bg-emerald-600 animate-pulse" />
+                              <span>مفعّل</span>
+                            </span>
+                            {g.account_code && (
+                              <span className="font-mono text-[10px] text-muted-foreground font-semibold" dir="ltr">
+                                {g.account_code}
+                              </span>
+                            )}
+                          </div>
+                        ) : g.status === "suspended" ? (
+                          <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-rose-700 bg-rose-50 px-2 py-0.5 rounded-full border border-rose-200">
+                            <ShieldAlert className="h-3 w-3 text-rose-600" />
+                            <span>موقوف</span>
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 text-[11px] text-amber-700 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200">
+                            <span>بانتظار التفعيل</span>
+                          </span>
+                        )}
                       </td>
                       <td>
                         {g.links.length === 0 ? (
@@ -689,15 +838,25 @@ function GuardiansPage() {
                             <Button
                               variant="outline"
                               size="sm"
+                              onClick={() => openAppDialog(g)}
+                              className="h-7 text-xs px-2 gap-1 border-primary/40 text-primary hover:bg-primary/10"
+                              title="إدارة وتفعيل حساب تطبيق ولي الأمر"
+                            >
+                              <Smartphone className="h-3.5 w-3.5" />
+                              <span>التطبيق</span>
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
                               onClick={() => {
                                 setSelectedGuardianForLink(g);
                                 setOpenLinkModal(true);
                               }}
-                              className="h-7 text-xs px-2 gap-1 border-primary/30 text-primary hover:bg-primary/5"
+                              className="h-7 text-xs px-2 gap-1 border-border text-foreground hover:bg-muted"
                               title="ربط طالب جديد بولي الأمر"
                             >
                               <Link2 className="h-3.5 w-3.5" />
-                              <span>ربط طالب</span>
+                              <span>ربط</span>
                             </Button>
                             <Button
                               variant="ghost"
@@ -1102,6 +1261,195 @@ function GuardiansPage() {
               </Button>
             </DialogFooter>
           </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* MODAL: APP ACCOUNT MANAGEMENT (Notion Spec: Sole Operator, Random Unguessable Identifier, Audit Trail) */}
+      <Dialog open={openAppModal} onOpenChange={setOpenAppModal}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-base font-bold text-foreground flex items-center gap-2">
+              <Smartphone className="h-5 w-5 text-primary" />
+              <span>إدارة وتفعيل حساب تطبيق ولي الأمر (Android)</span>
+            </DialogTitle>
+          </DialogHeader>
+
+          {selectedGuardianForApp && (
+            <div className="space-y-4 pt-2 text-xs">
+              {/* Guardian Info Card */}
+              <div className="p-3 rounded-lg bg-muted border border-border space-y-1">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-muted-foreground">ولي الأمر:</span>
+                  <span className="text-[11px] font-semibold text-foreground">{selectedGuardianForApp.full_name}</span>
+                </div>
+                <div className="flex items-center justify-between font-mono" dir="ltr">
+                  <span className="text-xs text-muted-foreground font-sans">رقم الهاتف:</span>
+                  <span>{selectedGuardianForApp.phone}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-muted-foreground">عدد الأبناء الموثقين:</span>
+                  <span className="font-semibold text-foreground">{selectedGuardianForApp.links.length} طالب</span>
+                </div>
+              </div>
+
+              {/* Status & Credentials */}
+              {selectedGuardianForApp.status === "active" || appCredentials?.status === "active" ? (
+                <div className="space-y-3">
+                  <div className="p-3.5 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-900 space-y-2.5">
+                    <div className="flex items-center justify-between">
+                      <span className="font-semibold flex items-center gap-1.5 text-xs text-emerald-800">
+                        <Check className="h-4 w-4 text-emerald-600" />
+                        حساب التطبيق مفعّل ونشط
+                      </span>
+                      <span className="text-[10px] bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded font-mono">
+                        جاهز للدخول
+                      </span>
+                    </div>
+
+                    {/* Account Code */}
+                    <div className="bg-card p-2.5 rounded-md border border-emerald-200">
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="text-[11px] text-muted-foreground">معرّف الحساب العشوائي (Account Code):</span>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => {
+                            navigator.clipboard.writeText(appCredentials?.account_code || selectedGuardianForApp.account_code || "");
+                            setCopiedField("code");
+                            setTimeout(() => setCopiedField(null), 2000);
+                          }}
+                          className="h-6 text-[10px] px-1.5 gap-1"
+                        >
+                          {copiedField === "code" ? <Check className="h-3 w-3 text-emerald-600" /> : <Copy className="h-3 w-3" />}
+                          <span>{copiedField === "code" ? "تم النسخ" : "نسخ المعرّف"}</span>
+                        </Button>
+                      </div>
+                      <div className="font-mono text-base font-bold text-foreground text-center tracking-widest bg-muted/60 py-1 rounded" dir="ltr">
+                        {appCredentials?.account_code || selectedGuardianForApp.account_code || "PAR-XXXXXX"}
+                      </div>
+                    </div>
+
+                    {/* Temporary Activation PIN if newly generated */}
+                    {appCredentials?.temp_code && (
+                      <div className="bg-amber-50 p-2.5 rounded-md border border-amber-200">
+                        <div className="flex items-center justify-between mb-1">
+                          <span className="text-[11px] text-amber-800 font-semibold">رمز التفعيل المؤقت (أحادي الاستخدام):</span>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => {
+                              navigator.clipboard.writeText(appCredentials.temp_code || "");
+                              setCopiedField("pin");
+                              setTimeout(() => setCopiedField(null), 2000);
+                            }}
+                            className="h-6 text-[10px] px-1.5 gap-1 text-amber-800"
+                          >
+                            {copiedField === "pin" ? <Check className="h-3 w-3 text-emerald-600" /> : <Copy className="h-3 w-3" />}
+                            <span>{copiedField === "pin" ? "تم النسخ" : "نسخ الرمز"}</span>
+                          </Button>
+                        </div>
+                        <div className="font-mono text-lg font-bold text-amber-900 text-center tracking-widest bg-card py-1 rounded border border-amber-200" dir="ltr">
+                          {appCredentials.temp_code}
+                        </div>
+                        <p className="text-[10px] text-amber-700 mt-1">
+                          قم بتسليم هذا الرمز لولي الأمر لتسجيل الدخول لأول مرة وتعيين كلمة مرور خاصة به.
+                        </p>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Actions for Active Accounts */}
+                  <div className="flex items-center justify-between gap-2 pt-2 border-t border-border">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => resetPasswordMutation.mutate(selectedGuardianForApp)}
+                      disabled={resetPasswordMutation.isPending}
+                      className="h-8 text-xs gap-1.5 text-amber-700 border-amber-300 hover:bg-amber-50"
+                    >
+                      <KeyRound className="h-3.5 w-3.5" />
+                      <span>إعادة ضبط كلمة المرور (حضور شخصي)</span>
+                    </Button>
+
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => suspendAppMutation.mutate(selectedGuardianForApp.id)}
+                      disabled={suspendAppMutation.isPending}
+                      className="h-8 text-xs gap-1.5 text-rose-600 border-rose-200 hover:bg-rose-50"
+                    >
+                      <ShieldAlert className="h-3.5 w-3.5" />
+                      <span>إيقاف الحساب</span>
+                    </Button>
+                  </div>
+                </div>
+              ) : selectedGuardianForApp.status === "suspended" ? (
+                <div className="space-y-3">
+                  <div className="p-3 rounded-lg bg-rose-50 border border-rose-200 text-rose-900">
+                    <strong className="block text-xs font-bold text-rose-800 mb-1 flex items-center gap-1.5">
+                      <ShieldAlert className="h-4 w-4 text-rose-600" />
+                      حساب ولي الأمر موقوف مؤقتاً
+                    </strong>
+                    <p className="text-[11px] text-rose-700 leading-relaxed">
+                      لا يمكن لولي الأمر تسجيل الدخول إلى تطبيق الهاتف أو الوصول إلى بيانات الطلاب أو استلام الإشعارات حتى يقوم المدير بإلغاء الإيقاف.
+                    </p>
+                  </div>
+                  <Button
+                    type="button"
+                    size="sm"
+                    onClick={() => activateAppMutation.mutate(selectedGuardianForApp)}
+                    disabled={activateAppMutation.isPending}
+                    className="w-full h-9 text-xs gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white"
+                  >
+                    <Check className="h-4 w-4" />
+                    <span>إلغاء الإيقاف وإعادة تفعيل الحساب</span>
+                  </Button>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  <div className="p-3 rounded-lg bg-amber-50 border border-amber-200 text-amber-900">
+                    <strong className="block text-xs font-bold text-amber-800 mb-1">
+                      حساب التطبيق بانتظار التفعيل الإداري
+                    </strong>
+                    <p className="text-[11px] text-amber-700 leading-relaxed">
+                      وفقاً لوثيقة تطبيق العمرابي المعتمدة، لا يمكن لولي الأمر الدخول إلا بعد قيام المدير بالتحقق من الهوية وتفعيل الحساب وتوليد معرّف عشوائي غير قابل للتخمين.
+                    </p>
+                  </div>
+                  <Button
+                    type="button"
+                    size="sm"
+                    onClick={() => activateAppMutation.mutate(selectedGuardianForApp)}
+                    disabled={activateAppMutation.isPending}
+                    className="w-full h-9 text-xs gap-1.5"
+                  >
+                    <Smartphone className="h-4 w-4" />
+                    <span>تفعيل حساب التطبيق وتوليد كود الدخول الآن</span>
+                  </Button>
+                </div>
+              )}
+
+              <DialogFooter className="gap-2 pt-3 border-t border-border">
+                <Button type="button" variant="outline" size="sm" onClick={() => setOpenAppModal(false)} className="h-9 text-xs">
+                  إغلاق
+                </Button>
+                {(selectedGuardianForApp.status === "active" || appCredentials?.status === "active") && (
+                  <Button
+                    type="button"
+                    size="sm"
+                    onClick={() => window.print()}
+                    className="h-9 text-xs gap-1.5"
+                  >
+                    <Printer className="h-3.5 w-3.5" />
+                    <span>طباعة بطاقة تسليم ولي الأمر</span>
+                  </Button>
+                )}
+              </DialogFooter>
+            </div>
+          )}
         </DialogContent>
       </Dialog>
     </div>

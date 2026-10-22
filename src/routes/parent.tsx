@@ -78,7 +78,7 @@ function ParentPortalPage() {
         const { data: g } = await supabase
           .from("guardians")
           .select("*")
-          .or(`phone.eq.${guardianIdentifier},national_id.eq.${guardianIdentifier}`)
+          .or(`phone.eq.${guardianIdentifier},national_id.eq.${guardianIdentifier},account_code.eq.${guardianIdentifier}`)
           .limit(1)
           .maybeSingle();
         guardian = g;
