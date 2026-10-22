@@ -22,6 +22,7 @@ import {
   Award,
   Calendar,
   ArrowRightLeft,
+  UserCheck,
 } from "lucide-react";
 import { AppShell } from "@/components/app/AppShell";
 
@@ -81,6 +82,7 @@ function Layout() {
   const navItems = [
     { to: "/dashboard", label: "لوحة التحكم", icon: LayoutDashboard },
     { to: "/students", label: "سجل الطلاب", icon: Users },
+    { to: "/guardians", label: "أولياء الأمور", icon: UserCheck },
     { to: "/attendance", label: "الحضور والغياب", icon: ClipboardCheck },
     { to: "/fees", label: "الرسوم والمالية", icon: Banknote },
     { to: "/grades", label: "الدرجات والتقييمات", icon: Award },

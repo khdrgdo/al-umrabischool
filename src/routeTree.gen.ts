@@ -18,6 +18,7 @@ import { Route as AuthenticatedCalendarRouteImport } from './routes/_authenticat
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
 import { Route as AuthenticatedFeesRouteImport } from './routes/_authenticated/fees'
 import { Route as AuthenticatedGradesRouteImport } from './routes/_authenticated/grades'
+import { Route as AuthenticatedGuardiansRouteImport } from './routes/_authenticated/guardians'
 import { Route as AuthenticatedRolloverRouteImport } from './routes/_authenticated/rollover'
 import { Route as AuthenticatedStructureRouteImport } from './routes/_authenticated/structure'
 import { Route as AuthenticatedSubjectsRouteImport } from './routes/_authenticated/subjects'
@@ -71,6 +72,11 @@ const AuthenticatedGradesRoute = AuthenticatedGradesRouteImport.update({
   path: '/grades',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedGuardiansRoute = AuthenticatedGuardiansRouteImport.update({
+  id: '/guardians',
+  path: '/guardians',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 const AuthenticatedRolloverRoute = AuthenticatedRolloverRouteImport.update({
   id: '/rollover',
   path: '/rollover',
@@ -122,6 +128,7 @@ export interface FileRoutesByFullPath {
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/fees': typeof AuthenticatedFeesRoute
   '/grades': typeof AuthenticatedGradesRoute
+  '/guardians': typeof AuthenticatedGuardiansRoute
   '/rollover': typeof AuthenticatedRolloverRoute
   '/structure': typeof AuthenticatedStructureRoute
   '/subjects': typeof AuthenticatedSubjectsRoute
@@ -140,6 +147,7 @@ export interface FileRoutesByTo {
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/fees': typeof AuthenticatedFeesRoute
   '/grades': typeof AuthenticatedGradesRoute
+  '/guardians': typeof AuthenticatedGuardiansRoute
   '/rollover': typeof AuthenticatedRolloverRoute
   '/structure': typeof AuthenticatedStructureRoute
   '/subjects': typeof AuthenticatedSubjectsRoute
@@ -160,6 +168,7 @@ export interface FileRoutesById {
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
   '/_authenticated/fees': typeof AuthenticatedFeesRoute
   '/_authenticated/grades': typeof AuthenticatedGradesRoute
+  '/_authenticated/guardians': typeof AuthenticatedGuardiansRoute
   '/_authenticated/rollover': typeof AuthenticatedRolloverRoute
   '/_authenticated/structure': typeof AuthenticatedStructureRoute
   '/_authenticated/subjects': typeof AuthenticatedSubjectsRoute
@@ -180,6 +189,7 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/fees'
     | '/grades'
+    | '/guardians'
     | '/rollover'
     | '/structure'
     | '/subjects'
@@ -198,6 +208,7 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/fees'
     | '/grades'
+    | '/guardians'
     | '/rollover'
     | '/structure'
     | '/subjects'
@@ -217,6 +228,7 @@ export interface FileRouteTypes {
     | '/_authenticated/dashboard'
     | '/_authenticated/fees'
     | '/_authenticated/grades'
+    | '/_authenticated/guardians'
     | '/_authenticated/rollover'
     | '/_authenticated/structure'
     | '/_authenticated/subjects'
@@ -298,6 +310,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedGradesRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/guardians': {
+      id: '/_authenticated/guardians'
+      path: '/guardians'
+      fullPath: '/guardians'
+      preLoaderRoute: typeof AuthenticatedGuardiansRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/rollover': {
       id: '/_authenticated/rollover'
       path: '/rollover'
@@ -364,6 +383,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
   AuthenticatedFeesRoute: typeof AuthenticatedFeesRoute
   AuthenticatedGradesRoute: typeof AuthenticatedGradesRoute
+  AuthenticatedGuardiansRoute: typeof AuthenticatedGuardiansRoute
   AuthenticatedRolloverRoute: typeof AuthenticatedRolloverRoute
   AuthenticatedStructureRoute: typeof AuthenticatedStructureRoute
   AuthenticatedSubjectsRoute: typeof AuthenticatedSubjectsRoute
@@ -381,6 +401,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
   AuthenticatedFeesRoute: AuthenticatedFeesRoute,
   AuthenticatedGradesRoute: AuthenticatedGradesRoute,
+  AuthenticatedGuardiansRoute: AuthenticatedGuardiansRoute,
   AuthenticatedRolloverRoute: AuthenticatedRolloverRoute,
   AuthenticatedStructureRoute: AuthenticatedStructureRoute,
   AuthenticatedSubjectsRoute: AuthenticatedSubjectsRoute,
