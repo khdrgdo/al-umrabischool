@@ -33,17 +33,78 @@ function Students() {
   const [newSec, setNewSec] = useState("");
   const [newType, setNewType] = useState("new");
 
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ["students"],
     queryFn: async () => {
-      const { data: year } = await supabase.from("academic_years").select("*").eq("is_current", true).maybeSingle();
-      const [students, sections, enr, grades] = await Promise.all([
-        supabase.from("students").select("*").order("full_name"),
-        year ? supabase.from("sections").select("id,name,grade_id,grade:grades(name,level_order),track:tracks(name),spec:specializations(name)").eq("academic_year_id", year.id) : Promise.resolve({ data: [] }),
-        year ? supabase.from("enrollments").select("student_id,section_id,enrollment_type").eq("academic_year_id", year.id) : Promise.resolve({ data: [] }),
-        supabase.from("grades").select("*").order("level_order"),
-      ]);
-      return { year, students: students.data ?? [], sections: (sections.data ?? []) as Sec[], enr: (enr.data ?? []) as { student_id: string; section_id: string; enrollment_type: string }[], grades: grades.data ?? [] };
+      let year: any = null;
+      try {
+        const { data: currentYear } = await supabase.from("academic_years").select("*").eq("is_current", true).maybeSingle();
+        if (currentYear) {
+          year = currentYear;
+        } else {
+          const { data: latestYear } = await supabase.from("academic_years").select("*").order("starts_on", { ascending: false }).limit(1).maybeSingle();
+          year = latestYear ?? null;
+        }
+      } catch (err) {
+        console.warn("Could not fetch academic year:", err);
+      }
+
+      let studentsList: any[] = [];
+      try {
+        const { data: sData } = await supabase.from("students").select("*").order("full_name");
+        studentsList = sData ?? [];
+      } catch (err) {
+        console.warn("Could not fetch students:", err);
+      }
+
+      let sectionsList: Sec[] = [];
+      if (year?.id) {
+        try {
+          const { data: secData } = await supabase
+            .from("sections")
+            .select("id,name,grade_id,grade:grades(name,level_order),track:tracks(name)")
+            .eq("academic_year_id", year.id);
+          sectionsList = (secData ?? []).map((sec: any) => ({
+            id: sec.id,
+            name: sec.name,
+            grade_id: sec.grade_id,
+            grade: sec.grade ?? null,
+            track: sec.track ?? null,
+            spec: null,
+          }));
+        } catch (err) {
+          console.warn("Could not fetch sections:", err);
+        }
+      }
+
+      let enrollmentsList: Array<{ student_id: string; section_id: string; enrollment_type: string }> = [];
+      if (year?.id) {
+        try {
+          const { data: enrData } = await supabase
+            .from("enrollments")
+            .select("student_id,section_id,enrollment_type")
+            .eq("academic_year_id", year.id);
+          enrollmentsList = (enrData ?? []) as any[];
+        } catch (err) {
+          console.warn("Could not fetch enrollments:", err);
+        }
+      }
+
+      let gradesList: any[] = [];
+      try {
+        const { data: grData } = await supabase.from("grades").select("*").order("level_order");
+        gradesList = grData ?? [];
+      } catch (err) {
+        console.warn("Could not fetch grades:", err);
+      }
+
+      return {
+        year,
+        students: studentsList,
+        sections: sectionsList,
+        enr: enrollmentsList,
+        grades: gradesList,
+      };
     },
   });
 
@@ -71,9 +132,16 @@ function Students() {
       if (!data?.year) throw new Error("لا يوجد عام دراسي حالي. حدّد العام الحالي في الهيكل أولًا.");
       if (!newSec) throw new Error("اختر الشعبة التي يُقيَّد فيها الطالب");
       if (newType === "transfer_in" && !v.previous_school?.trim()) throw new Error("اذكر المدرسة السابقة للطالب المنقول");
-      // One transaction in the database: the file and the yearly enrollment are created together or not at all.
+
+      let targetSchoolId = school?.id;
+      if (!targetSchoolId) {
+        const { data: s } = await supabase.from("schools").select("id").limit(1).maybeSingle();
+        targetSchoolId = s?.id;
+      }
+      if (!targetSchoolId) throw new Error("تعذر التحقق من مدرسة الطالب");
+
       const { data: id, error } = await supabase.rpc("create_student_with_enrollment", {
-        _student: { ...v, school_id: school!.id },
+        _student: { ...v, school_id: targetSchoolId },
         _academic_year: data.year.id,
         _section: newSec,
         _enrollment_type: newType as "new" | "transfer_in",
@@ -81,7 +149,14 @@ function Students() {
       if (error) throw error;
       return id as string;
     },
-    onSuccess: (id) => { setOpen(false); setNewSec(""); setNewType("new"); qc.invalidateQueries(); toast.success("تم فتح ملف الطالب وقيده"); navigate({ to: "/students/$id", params: { id } }); },
+    onSuccess: (id) => {
+      setOpen(false);
+      setNewSec("");
+      setNewType("new");
+      qc.invalidateQueries();
+      toast.success("تم فتح ملف الطالب وقيده بنجاح");
+      navigate({ to: "/students/$id", params: { id } });
+    },
     onError: (e) => toast.error(errMsg(e)),
   });
 
@@ -105,6 +180,17 @@ function Students() {
     a.href = URL.createObjectURL(new Blob([csv], { type: "text/csv" }));
     a.download = "students.csv";
     a.click();
+  }
+
+  if (isError) {
+    return (
+      <div className="py-20 flex flex-col items-center justify-center text-center p-6 card-surface">
+        <p className="text-sm text-destructive font-medium mb-3">حدث خطأ أثناء تحميل سجل الطلاب من الخادم.</p>
+        <Button variant="outline" size="sm" onClick={() => refetch()} className="text-xs">
+          إعادة المحاولة
+        </Button>
+      </div>
+    );
   }
 
   if (isLoading) {
@@ -173,7 +259,7 @@ function Students() {
             }}
           >
             <option value="">كافة الصفوف</option>
-            {data?.grades.map((g) => (
+            {(data?.grades ?? []).map((g) => (
               <option key={g.id} value={g.id}>
                 {g.name}
               </option>

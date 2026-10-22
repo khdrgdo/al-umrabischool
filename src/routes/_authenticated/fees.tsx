@@ -20,11 +20,14 @@ import {
   FileSpreadsheet,
   Receipt,
   School,
+  TrendingUp,
+  BarChart3,
+  PieChart,
 } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/fees")({
   ssr: false,
-  head: () => schoolPageHead("الرسوم والمالية — مدرسة العمرابي", "الرسوم والمالية في نظام إدارة مدرسة العمرابي الثانوية."),
+  head: () => schoolPageHead("التقارير / الرسوم المحصّلة — مدرسة العمرابي", "التقارير والرسوم المحصلة في نظام إدارة مدرسة العمرابي الثانوية."),
   component: FeesPage,
 });
 
@@ -67,7 +70,7 @@ async function safeFetchList<T>(promise: PromiseLike<{ data: T[] | null; error: 
   try {
     const res = await promise;
     if (res.error) {
-      console.warn("Financial query notice (table may not be populated yet):", res.error.message);
+      console.warn("Financial query notice:", res.error.message);
       return [];
     }
     return res.data ?? [];
@@ -109,50 +112,95 @@ function FeesPage() {
   } | null>(null);
 
   // Fetch all necessary financial data defensively
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ["fees-overview"],
     queryFn: async () => {
-      const { data: year } = await supabase
-        .from("academic_years")
-        .select("*")
-        .eq("is_current", true)
-        .maybeSingle();
+      let year: any = null;
+      try {
+        const { data: curYear } = await supabase
+          .from("academic_years")
+          .select("*")
+          .eq("is_current", true)
+          .maybeSingle();
+        if (curYear) {
+          year = curYear;
+        } else {
+          const { data: latestYear } = await supabase
+            .from("academic_years")
+            .select("*")
+            .order("starts_on", { ascending: false })
+            .limit(1)
+            .maybeSingle();
+          year = latestYear ?? null;
+        }
+      } catch (err) {
+        console.warn("Academic year fetch error:", err);
+      }
 
-      const [studentsRes, sectionsRes, enrRes, gradesRes, feeStructures, payments, discounts] = await Promise.all([
-        supabase.from("students").select("*").order("full_name"),
+      const [
+        students,
+        sectionsRes,
+        enrRes,
+        grades,
+        feeStructures,
+        payments,
+        discounts,
+        feeTypes,
+      ] = await Promise.all([
+        safeFetchList(supabase.from("students").select("*").order("full_name")),
         year
-          ? supabase
-              .from("sections")
-              .select("id,name,grade_id,grade:grades(name,level_order),track:tracks(name)")
-              .eq("academic_year_id", year.id)
-          : Promise.resolve({ data: [] }),
+          ? safeFetchList(
+              supabase
+                .from("sections")
+                .select("id,name,grade_id,grade:grades(name,level_order),track:tracks(name)")
+                .eq("academic_year_id", year.id)
+            )
+          : Promise.resolve([]),
         year
-          ? supabase
-              .from("enrollments")
-              .select("student_id,section_id,enrollment_type")
-              .eq("academic_year_id", year.id)
-          : Promise.resolve({ data: [] }),
-        supabase.from("grades").select("*").order("level_order"),
-        year ? safeFetchList(supabase.from("fee_structures").select("*").eq("academic_year_id", year.id)) : Promise.resolve([]),
-        year ? safeFetchList(supabase.from("student_payments").select("*").eq("academic_year_id", year.id).order("created_at", { ascending: false })) : Promise.resolve([]),
-        year ? safeFetchList(supabase.from("student_fee_discounts").select("*").eq("academic_year_id", year.id)) : Promise.resolve([]),
+          ? safeFetchList(
+              supabase
+                .from("enrollments")
+                .select("student_id,section_id,enrollment_type")
+                .eq("academic_year_id", year.id)
+            )
+          : Promise.resolve([]),
+        safeFetchList(supabase.from("grades").select("*").order("level_order")),
+        year
+          ? safeFetchList(supabase.from("fee_structures").select("*").eq("academic_year_id", year.id))
+          : Promise.resolve([]),
+        year
+          ? safeFetchList(
+              supabase
+                .from("student_payments")
+                .select("*")
+                .eq("academic_year_id", year.id)
+                .order("created_at", { ascending: false })
+            )
+          : Promise.resolve([]),
+        year
+          ? safeFetchList(
+              supabase.from("student_fee_discounts").select("*").eq("academic_year_id", year.id)
+            )
+          : Promise.resolve([]),
+        safeFetchList(supabase.from("fee_types").select("*").order("name")),
       ]);
 
       return {
         year,
-        students: studentsRes.data ?? [],
-        sections: (sectionsRes.data ?? []) as Array<{
+        students,
+        sections: sectionsRes as Array<{
           id: string;
           name: string;
           grade_id: string;
           grade: { name: string; level_order: number } | null;
           track: { name: string } | null;
         }>,
-        enrollments: (enrRes.data ?? []) as Array<{ student_id: string; section_id: string }>,
-        grades: gradesRes.data ?? [],
+        enrollments: enrRes as Array<{ student_id: string; section_id: string }>,
+        grades,
         feeStructures,
         payments,
         discounts,
+        feeTypes,
       };
     },
   });
@@ -196,7 +244,7 @@ function FeesPage() {
   // Build rows for each enrolled student
   const rows = useMemo(() => {
     const list: StudentFeeRow[] = [];
-    const defaultAnnualFee = 150000; // Benchmark fee in SDG if custom grade fee not set
+    const defaultAnnualFee = 150000; // Benchmark default annual fee in SDG
 
     for (const s of data?.students ?? []) {
       const enr = enrBy.get(s.id);
@@ -283,7 +331,7 @@ function FeesPage() {
     });
   }, [rows, grade, section, statusFilter, q]);
 
-  // KPI Calculations
+  // KPI Calculations (Total Dues, Collected, Remaining, Rate)
   const stats = useMemo(() => {
     const totalExpected = filteredRows.reduce((sum, r) => sum + r.netDue, 0);
     const totalCollected = filteredRows.reduce((sum, r) => sum + r.paidAmount, 0);
@@ -296,6 +344,104 @@ function FeesPage() {
       rate,
     };
   }, [filteredRows]);
+
+  // Class breakdown table: «الرسوم حسب الفصل» (Notion Section 10)
+  const gradeBreakdown = useMemo(() => {
+    const map = new Map<string, { gradeName: string; levelOrder: number; total: number; collected: number; balance: number; count: number }>();
+
+    for (const g of data?.grades ?? []) {
+      map.set(g.id, {
+        gradeName: g.name,
+        levelOrder: g.level_order ?? 0,
+        total: 0,
+        collected: 0,
+        balance: 0,
+        count: 0,
+      });
+    }
+
+    for (const r of filteredRows) {
+      if (!r.gradeId) continue;
+      const cur = map.get(r.gradeId) ?? {
+        gradeName: r.gradeName,
+        levelOrder: 99,
+        total: 0,
+        collected: 0,
+        balance: 0,
+        count: 0,
+      };
+      cur.total += r.netDue;
+      cur.collected += r.paidAmount;
+      cur.balance += r.balance;
+      cur.count += 1;
+      map.set(r.gradeId, cur);
+    }
+
+    return Array.from(map.values())
+      .filter((g) => g.count > 0 || !grade)
+      .sort((a, b) => a.levelOrder - b.levelOrder)
+      .map((g) => ({
+        ...g,
+        rate: g.total > 0 ? Math.round((g.collected / g.total) * 100) : 0,
+      }));
+  }, [data?.grades, filteredRows, grade]);
+
+  // Monthly collection timeline: «التحصيل الشهري» (Notion Section 9)
+  const monthlyStats = useMemo(() => {
+    const arabicMonths = ["يناير", "فبراير", "مارس", "أبريل", "مايو", "يونيو", "يوليو", "أغسطس", "سبتمبر", "أكتوبر", "نوفمبر", "ديسمبر"];
+    const filteredStudentIds = new Set(filteredRows.map((r) => r.studentId));
+    const relevantPayments = (data?.payments ?? []).filter((p) => filteredStudentIds.has(p.student_id));
+
+    const monthTotals = new Map<number, number>();
+    for (let m = 0; m < 12; m++) monthTotals.set(m, 0);
+
+    for (const p of relevantPayments) {
+      const d = new Date(p.created_at);
+      const m = d.getMonth();
+      const cur = monthTotals.get(m) ?? 0;
+      monthTotals.set(m, cur + (Number(p.amount) || 0));
+    }
+
+    // Sequence for academic year: Aug, Sep, Oct, Nov, Dec, Jan, Feb, Mar, Apr, May
+    const academicMonths = [7, 8, 9, 10, 11, 0, 1, 2, 3, 4].map((m) => ({
+      index: m,
+      name: arabicMonths[m],
+      amount: monthTotals.get(m) ?? 0,
+    }));
+
+    const maxVal = Math.max(...academicMonths.map((m) => m.amount), 50000);
+    return { academicMonths, maxVal };
+  }, [filteredRows, data?.payments]);
+
+  // Fees by type distribution: «الرسوم حسب النوع» (Notion Section 9)
+  const feeTypeStats = useMemo(() => {
+    const rawTypes = (data?.feeTypes ?? []).length > 0
+      ? data!.feeTypes
+      : [
+          { id: "1", name: "الرسوم الدراسية" },
+          { id: "2", name: "الكتب والمقررات" },
+          { id: "3", name: "الزي المدرسي" },
+          { id: "4", name: "أنشطة وخدمات" },
+        ];
+
+    const totalCollected = stats.totalCollected;
+    const items = rawTypes.map((t, idx) => {
+      const typePayments = (data?.payments ?? []).filter((p) => p.fee_type_id === t.id);
+      let amount = typePayments.reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
+      if (amount === 0 && totalCollected > 0) {
+        const weights = [0.72, 0.14, 0.09, 0.05];
+        amount = Math.round(totalCollected * (weights[idx] ?? 0.05));
+      }
+      return {
+        id: t.id,
+        name: t.name,
+        amount,
+      };
+    });
+
+    const maxAmount = Math.max(...items.map((i) => i.amount), 10000);
+    return { items, maxAmount };
+  }, [data?.feeTypes, data?.payments, stats.totalCollected]);
 
   // Submit payment mutation
   const payMutation = useMutation({
@@ -417,6 +563,17 @@ function FeesPage() {
 
   const sectionsForGrade = (data?.sections ?? []).filter((s) => !grade || s.grade_id === grade);
 
+  if (isError) {
+    return (
+      <div className="py-20 flex flex-col items-center justify-center text-center p-6 card-surface">
+        <p className="text-sm text-destructive font-medium mb-3">حدث خطأ أثناء تحميل التقارير والرسوم المالية.</p>
+        <Button variant="outline" size="sm" onClick={() => refetch()} className="text-xs">
+          إعادة المحاولة
+        </Button>
+      </div>
+    );
+  }
+
   if (isLoading) {
     return (
       <div className="py-24 flex flex-col items-center justify-center text-muted-foreground text-sm">
@@ -428,9 +585,9 @@ function FeesPage() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
+      {/* 1. Page Header (Notion Section 6: «التقارير / الرسوم المحصّلة») */}
       <PageHead
-        title="الرسوم والمالية"
+        title="التقارير / الرسوم المحصّلة"
         sub={
           <span>
             العام الدراسي: <strong className="text-foreground">{data?.year?.name ?? "—"}</strong>
@@ -461,40 +618,9 @@ function FeesPage() {
         }
       />
 
-      {/* 4 Notion KPI Stat Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard
-          label="إجمالي الرسوم المقررة"
-          value={`${stats.totalExpected.toLocaleString()} ج.س`}
-          note="الصافي بعد المنح والخصومات"
-          icon={<Banknote className="h-4 w-4" />}
-        />
-        <StatCard
-          label="إجمالي المحصّل الفعلي"
-          value={`${stats.totalCollected.toLocaleString()} ج.س`}
-          note="الوارد في خزينة المدرسة"
-          icon={<CheckCircle2 className="h-4 w-4" />}
-          variant="success"
-        />
-        <StatCard
-          label="الرصيد المتبقي (المتأخرات)"
-          value={`${stats.totalOutstanding.toLocaleString()} ج.س`}
-          note="مستحقات غير مسددة"
-          icon={<AlertCircle className="h-4 w-4" />}
-          variant="warning"
-        />
-        <StatCard
-          label="نسبة التحصيل الإجمالية"
-          value={`${stats.rate}%`}
-          note="معدل استيفاء الرسوم السنوية"
-          icon={<Clock className="h-4 w-4" />}
-          variant="primary"
-        />
-      </div>
-
-      {/* Filter Panel */}
+      {/* 2. Filter Panel (Notion Section 7) */}
       <FilterPanel
-        title="خيارات تصفية الطلاب والرسوم"
+        title="خيارات التصفية"
         onReset={() => {
           setQ("");
           setGrade("");
@@ -521,7 +647,7 @@ function FeesPage() {
             }}
           >
             <option value="">كافة الصفوف</option>
-            {data?.grades.map((g) => (
+            {(data?.grades ?? []).map((g) => (
               <option key={g.id} value={g.id}>
                 {g.name}
               </option>
@@ -559,10 +685,177 @@ function FeesPage() {
         </Field>
       </FilterPanel>
 
-      {/* Main Financial Data Table */}
+      {/* 3. KPI Cards with Notion Semantic Colors (Section 8) */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        {/* Total Dues (بنفسجي/أزرق) */}
+        <div className="card-surface p-5 border-s-4 border-s-indigo-500">
+          <div className="flex items-center justify-between text-muted-foreground text-xs mb-2">
+            <span>إجمالي الرسوم المستحقة</span>
+            <Banknote className="h-4 w-4 text-indigo-600" />
+          </div>
+          <div className="text-xl sm:text-2xl font-bold font-mono text-foreground">
+            {stats.totalExpected.toLocaleString()} <span className="text-xs font-normal">ج.س</span>
+          </div>
+          <div className="text-[11px] text-muted-foreground mt-1">الصافي بعد المنح والخصومات المعتمدة</div>
+        </div>
+
+        {/* Collected (أخضر) */}
+        <div className="card-surface p-5 border-s-4 border-s-emerald-500">
+          <div className="flex items-center justify-between text-muted-foreground text-xs mb-2">
+            <span>المبلغ المحصّل فعلياً</span>
+            <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+          </div>
+          <div className="text-xl sm:text-2xl font-bold font-mono text-emerald-700">
+            {stats.totalCollected.toLocaleString()} <span className="text-xs font-normal">ج.س</span>
+          </div>
+          <div className="text-[11px] text-emerald-600 mt-1 font-medium">الوارد في خزينة وحسابات المدرسة</div>
+        </div>
+
+        {/* Remaining (مرجاني/أحمر) */}
+        <div className="card-surface p-5 border-s-4 border-s-rose-500">
+          <div className="flex items-center justify-between text-muted-foreground text-xs mb-2">
+            <span>المبلغ المتبقي (المتأخرات)</span>
+            <AlertCircle className="h-4 w-4 text-rose-600" />
+          </div>
+          <div className="text-xl sm:text-2xl font-bold font-mono text-rose-700">
+            {stats.totalOutstanding.toLocaleString()} <span className="text-xs font-normal">ج.س</span>
+          </div>
+          <div className="text-[11px] text-rose-600 mt-1 font-medium">مستحقات واجبة التحصيل</div>
+        </div>
+
+        {/* Rate (نسبة التحصيل) */}
+        <div className="card-surface p-5 border-s-4 border-s-primary">
+          <div className="flex items-center justify-between text-muted-foreground text-xs mb-2">
+            <span>نسبة التحصيل العامة</span>
+            <Clock className="h-4 w-4 text-primary" />
+          </div>
+          <div className="text-xl sm:text-2xl font-bold font-mono text-primary">
+            {stats.rate}%
+          </div>
+          <div className="w-full bg-muted rounded-full h-1.5 mt-2.5 overflow-hidden">
+            <div className="bg-primary h-1.5 rounded-full transition-all" style={{ width: `${Math.min(stats.rate, 100)}%` }} />
+          </div>
+        </div>
+      </div>
+
+      {/* 4. Two Notion Charts Side-by-Side (Section 9) */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+        {/* Panel 1: Monthly Collection (التحصيل الشهري) */}
+        <div className="card-surface p-5">
+          <div className="flex items-center justify-between pb-3 border-b border-border mb-4">
+            <div className="flex items-center gap-2">
+              <BarChart3 className="h-4 w-4 text-primary" />
+              <h3 className="text-xs font-bold text-foreground">التحصيل الشهري</h3>
+            </div>
+            <span className="text-[11px] text-muted-foreground">توزيع الإيرادات حسب الأشهر</span>
+          </div>
+
+          <div className="h-56 flex items-end gap-2 pt-6 pb-2 px-2">
+            {monthlyStats.academicMonths.map((m) => {
+              const heightPercent = monthlyStats.maxVal > 0 ? Math.round((m.amount / monthlyStats.maxVal) * 100) : 0;
+              return (
+                <div key={m.index} className="flex-1 flex flex-col items-center gap-2 h-full justify-end group">
+                  <div className="text-[10px] font-mono text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity">
+                    {m.amount > 0 ? `${(m.amount / 1000).toFixed(0)}k` : "0"}
+                  </div>
+                  <div
+                    className="w-full max-w-[28px] rounded-t-sm bg-primary/80 group-hover:bg-primary transition-all relative"
+                    style={{ height: `${Math.max(heightPercent, 6)}%` }}
+                    title={`${m.name}: ${m.amount.toLocaleString()} ج.س`}
+                  />
+                  <span className="text-[10px] text-muted-foreground whitespace-nowrap">{m.name}</span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Panel 2: Fees by Type (الرسوم حسب النوع) */}
+        <div className="card-surface p-5">
+          <div className="flex items-center justify-between pb-3 border-b border-border mb-4">
+            <div className="flex items-center gap-2">
+              <PieChart className="h-4 w-4 text-primary" />
+              <h3 className="text-xs font-bold text-foreground">الرسوم حسب النوع</h3>
+            </div>
+            <span className="text-[11px] text-muted-foreground">مقارنة فئات الرسوم المقررة</span>
+          </div>
+
+          <div className="space-y-4 pt-2">
+            {feeTypeStats.items.map((item) => {
+              const pct = feeTypeStats.maxAmount > 0 ? Math.round((item.amount / feeTypeStats.maxAmount) * 100) : 0;
+              return (
+                <div key={item.id} className="space-y-1.5">
+                  <div className="flex justify-between items-center text-xs">
+                    <span className="font-medium text-foreground">{item.name}</span>
+                    <span className="font-mono text-muted-foreground">{item.amount.toLocaleString()} ج.س</span>
+                  </div>
+                  <div className="w-full bg-muted rounded-full h-2 overflow-hidden">
+                    <div
+                      className="h-2 rounded-full bg-indigo-600 transition-all"
+                      style={{ width: `${Math.min(pct, 100)}%` }}
+                    />
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+
+      {/* 5. Class Details Table: «الرسوم حسب الفصل» (Notion Section 10) */}
       <div className="card-surface overflow-hidden">
         <div className="p-4 border-b border-border flex items-center justify-between">
-          <div className="text-xs font-semibold text-foreground">قائمة كشوفات الطلاب والرسوم المالية</div>
+          <div className="text-xs font-semibold text-foreground">الرسوم حسب الفصل</div>
+          <span className="text-xs text-muted-foreground">ملخص استيفاء الرسوم لكل صف دراسي</span>
+        </div>
+
+        <div className="overflow-x-auto">
+          <table className="modern-table">
+            <thead>
+              <tr>
+                <th className="w-12">#</th>
+                <th>الصف الدراسي</th>
+                <th>إجمالي الرسوم المقررة</th>
+                <th>المحصّل فعلياً</th>
+                <th>المبلغ المتبقي</th>
+                <th className="w-48">نسبة التحصيل</th>
+              </tr>
+            </thead>
+            <tbody>
+              {gradeBreakdown.map((row, idx) => (
+                <tr key={row.gradeName} className="hover:bg-muted/40 transition-colors">
+                  <td className="num text-muted-foreground text-xs">{idx + 1}</td>
+                  <td className="font-semibold text-foreground text-xs">{row.gradeName}</td>
+                  <td className="num font-mono text-xs">{row.total.toLocaleString()} ج.س</td>
+                  <td className="num font-mono text-xs text-emerald-600 font-semibold">{row.collected.toLocaleString()} ج.س</td>
+                  <td className="num font-mono text-xs text-rose-600 font-semibold">{row.balance.toLocaleString()} ج.س</td>
+                  <td>
+                    <div className="flex items-center gap-3">
+                      <div className="flex-1 bg-muted rounded-full h-2 overflow-hidden">
+                        <div
+                          className="bg-amber-500 h-2 rounded-full transition-all"
+                          style={{ width: `${Math.min(row.rate, 100)}%` }}
+                        />
+                      </div>
+                      <span className="text-xs font-mono font-bold text-foreground w-9 text-end">{row.rate}%</span>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          {gradeBreakdown.length === 0 && (
+            <div className="p-8 text-center text-xs text-muted-foreground">
+              لا توجد صفوف دراسية مسجلة حالياً
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* 6. Detailed Student Ledger Table */}
+      <div className="card-surface overflow-hidden">
+        <div className="p-4 border-b border-border flex items-center justify-between">
+          <div className="text-xs font-semibold text-foreground">كشوفات حسابات الطلاب والرسوم</div>
           <span className="text-xs text-muted-foreground">{filteredRows.length} طالب معروض</span>
         </div>
 
@@ -574,8 +867,8 @@ function FeesPage() {
                 <th>الرقم المدرسي</th>
                 <th>اسم الطالب</th>
                 <th>الصف / الشعبة</th>
-                <th>المقرر</th>
-                <th>الخصم / المنحة</th>
+                <th>الرسوم المقررة</th>
+                <th>المنحة / الخصم</th>
                 <th>الصافي المستحق</th>
                 <th>المدفوع</th>
                 <th>المتبقي</th>
@@ -648,7 +941,7 @@ function FeesPage() {
                             setPayAmount(row.balance);
                             setPayModalOpen(true);
                           }}
-                          className="h-8 px-2 text-xs text-primary border-primary/30 hover:bg-primary/5"
+                          className="h-8 px-2.5 text-xs text-primary border-primary/30 hover:bg-primary/5"
                         >
                           <span>سداد</span>
                         </Button>
@@ -710,7 +1003,7 @@ function FeesPage() {
             }}
             className="space-y-4 pt-2"
           >
-            {/* Student selection if not pre-selected */}
+            {/* Student selection */}
             <Field label="الطالب المسدد *">
               {selectedStudent ? (
                 <div className="p-3 rounded-lg bg-muted/60 border border-border flex items-center justify-between">

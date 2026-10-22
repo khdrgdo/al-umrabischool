@@ -143,7 +143,7 @@ function Structure() {
       <section>
         <h2 className="section-title">الصفوف والمسارات والتخصصات</h2>
         <div className="grid md:grid-cols-3 gap-6">
-          {data?.grades.map((g) => (
+          {(data?.grades ?? []).map((g) => (
             <div key={g.id} className="sheet p-4">
               <EditableName value={g.name} disabled={!manager} onSave={(name) => run(() => supabase.from("grades").update({ name }).eq("id", g.id), "حُفظ")()} className="font-display text-lg" />
               {data.tracks.filter((t) => t.grade_id === g.id).map((t) => (
@@ -201,7 +201,7 @@ function Structure() {
               </Field>
               <Field label="الصف" className="col-span-2">
                 <select className="field-select w-full" value={sf.grade_id} onChange={(e) => setSf({ ...sf, grade_id: e.target.value, track_id: "", specialization_id: "" })} required>
-                  <option value="">اختر</option>{data.grades.map((g) => <option key={g.id} value={g.id}>{g.name}</option>)}
+                  <option value="">اختر</option>{(data?.grades ?? []).map((g) => <option key={g.id} value={g.id}>{g.name}</option>)}
                 </select>
               </Field>
               <Field label="المسار">

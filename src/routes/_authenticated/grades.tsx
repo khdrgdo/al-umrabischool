@@ -507,7 +507,7 @@ function GradesPage() {
             }}
           >
             <option value="">كافة الصفوف</option>
-            {meta?.grades.map((g) => (
+            {(meta?.grades ?? []).map((g) => (
               <option key={g.id} value={g.id}>
                 {g.name}
               </option>

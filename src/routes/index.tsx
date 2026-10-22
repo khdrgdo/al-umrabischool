@@ -22,9 +22,14 @@ function Index() {
         <p className="mt-4 max-w-md text-sidebar-foreground/75">
           نظام إدارة المدرسة — للمالك ومدير المدرسة والمشرفين.
         </p>
-        <Button asChild size="lg" className="mt-10 bg-gold text-sidebar-primary-foreground hover:bg-gold/90">
-          <Link to="/auth">الدخول إلى النظام</Link>
-        </Button>
+        <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
+          <Button asChild size="lg" className="bg-primary text-primary-foreground hover:bg-primary/90">
+            <Link to="/auth">دخول الإدارة المدرسية</Link>
+          </Button>
+          <Button asChild size="lg" variant="outline" className="border-sidebar-border bg-card text-foreground hover:bg-muted">
+            <Link to="/parent">بوابة أولياء الأمور</Link>
+          </Button>
+        </div>
       </div>
       <p className="pb-6 text-center text-xs text-sidebar-foreground/50">مدرسة العمرابي الثانوية</p>
     </main>

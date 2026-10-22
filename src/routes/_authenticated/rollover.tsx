@@ -160,8 +160,9 @@ function RolloverPage() {
     const savedMap = new Map(data.existingPromotions.map((p) => [p.student_id, p]));
 
     // Grade level order lookup
-    const gradeLevelMap = new Map(data.grades.map((g) => [g.id, g.level_order]));
-    const maxGradeLevel = Math.max(...data.grades.map((g) => g.level_order), 3);
+    const gradesList = data?.grades ?? [];
+    const gradeLevelMap = new Map(gradesList.map((g) => [g.id, g.level_order]));
+    const maxGradeLevel = gradesList.length > 0 ? Math.max(...gradesList.map((g) => g.level_order), 3) : 3;
 
     for (const enr of data.enrollments) {
       const studentId = enr.student_id;
@@ -575,7 +576,7 @@ function RolloverPage() {
                 onChange={(e) => setGradeFilter(e.target.value)}
               >
                 <option value="">كافة الصفوف</option>
-                {data?.grades.map((g) => (
+                {(data?.grades ?? []).map((g) => (
                   <option key={g.id} value={g.id}>
                     {g.name}
                   </option>
