@@ -241,10 +241,9 @@ function FeesPage() {
     return map;
   }, [data?.discounts]);
 
-  // Build rows for each enrolled student
+  // Build rows for each enrolled student strictly from verified DB fee structures
   const rows = useMemo(() => {
     const list: StudentFeeRow[] = [];
-    const defaultAnnualFee = 150000; // Benchmark default annual fee in SDG
 
     for (const s of data?.students ?? []) {
       const enr = enrBy.get(s.id);
@@ -253,12 +252,10 @@ function FeesPage() {
       const gradeName = sec?.grade?.name ?? (sec ? "الصف المقيد" : "غير مسجل");
       const sectionName = sec?.name ?? "—";
 
-      // Base fee
+      // Base fee comes strictly from approved fee structure for the grade (or 0 if unconfigured)
       let baseAmount = 0;
       if (gradeId && structureByGrade.has(gradeId)) {
-        baseAmount = structureByGrade.get(gradeId) ?? defaultAnnualFee;
-      } else if (sec) {
-        baseAmount = defaultAnnualFee;
+        baseAmount = structureByGrade.get(gradeId) ?? 0;
       }
 
       // Discounts
@@ -424,14 +421,9 @@ function FeesPage() {
           { id: "4", name: "أنشطة وخدمات" },
         ];
 
-    const totalCollected = stats.totalCollected;
-    const items = rawTypes.map((t, idx) => {
+    const items = rawTypes.map((t) => {
       const typePayments = (data?.payments ?? []).filter((p) => p.fee_type_id === t.id);
-      let amount = typePayments.reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
-      if (amount === 0 && totalCollected > 0) {
-        const weights = [0.72, 0.14, 0.09, 0.05];
-        amount = Math.round(totalCollected * (weights[idx] ?? 0.05));
-      }
+      const amount = typePayments.reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
       return {
         id: t.id,
         name: t.name,
@@ -441,31 +433,36 @@ function FeesPage() {
 
     const maxAmount = Math.max(...items.map((i) => i.amount), 10000);
     return { items, maxAmount };
-  }, [data?.feeTypes, data?.payments, stats.totalCollected]);
+  }, [data?.feeTypes, data?.payments]);
 
   // Submit payment mutation
   const payMutation = useMutation({
     mutationFn: async () => {
       if (!selectedStudent) throw new Error("اختر الطالب أولاً");
       if (!payAmount || Number(payAmount) <= 0) throw new Error("أدخل مبلغاً صحيحاً");
-      if (!data?.year) throw new Error("لا يوجد عام دراسي حالي");
+      if (!data?.year) throw new Error("لا يوجد عام دراسي حالي معتمد");
 
-      const receiptNumber = `REC-${new Date().getFullYear()}-${Math.floor(100000 + Math.random() * 900000)}`;
+      // Robust receipt number using timestamp slice to prevent collisions
+      const receiptNumber = `REC-${new Date().getFullYear()}-${Date.now().toString().slice(-6)}`;
 
-      let feeTypeId = "00000000-0000-0000-0000-000000000000";
+      let feeTypeId: string | null = null;
       const { data: ft } = await supabase.from("fee_types").select("id").limit(1).maybeSingle();
       if (ft?.id) {
         feeTypeId = ft.id;
       } else {
-        const { data: school } = await supabase.from("schools").select("id").limit(1).single();
+        const { data: school } = await supabase.from("schools").select("id").limit(1).maybeSingle();
         if (school?.id) {
           const { data: newFt } = await supabase
             .from("fee_types")
             .insert({ school_id: school.id, name: "رسوم دراسية" })
-            .select()
-            .single();
+            .select("id")
+            .maybeSingle();
           if (newFt?.id) feeTypeId = newFt.id;
         }
+      }
+
+      if (!feeTypeId) {
+        throw new Error("تعذر تحديد نوع الرسم. يرجى تهيئة أنواع الرسوم المعتمدة أولاً في لوحة التحكم.");
       }
 
       const { data: inserted, error } = await supabase
@@ -534,6 +531,14 @@ function FeesPage() {
         exempt: "معفى / منحة",
         none: "غير محدد",
       };
+      const sanitizeCsv = (val: any) => {
+        let str = String(val ?? "").replace(/"/g, '""');
+        if (/^[=+\-@\t\r]/.test(str)) {
+          str = "'" + str;
+        }
+        return `"${str}"`;
+      };
+
       const lines = filteredRows.map((r) => [
         r.studentNumber,
         r.fullName,
@@ -548,7 +553,7 @@ function FeesPage() {
         r.guardianPhone ?? "—",
       ]);
 
-      const csv = "\uFEFF" + [head, ...lines].map((row) => row.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(",")).join("\n");
+      const csv = "\uFEFF" + [head, ...lines].map((row) => row.map(sanitizeCsv).join(",")).join("\n");
       const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
       const url = URL.createObjectURL(blob);
       const link = document.createElement("a");
@@ -617,6 +622,16 @@ function FeesPage() {
           </>
         }
       />
+
+      {/* Unconfigured Fee Structures Guidance (per Notion anti-guessing rules) */}
+      {(data?.feeStructures ?? []).length === 0 && (
+        <div className="p-4 rounded-lg bg-amber-50/90 border border-amber-200 text-amber-900 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs">
+          <div>
+            <strong className="font-semibold block mb-0.5">تنبيه إداري: لم يتم اعتماد هيكل رسوم لهذا العام بعد</strong>
+            <span>وفقاً للسياسة المالية المعتمدة في النظام، لا يتم فرض مبالغ تخمينية أو تقديرية على الطلاب دون اعتماد رسمي من المدير. تظهر المبالغ المستحقة كـ (0) حتى يتم إدخال الرسوم المقررة لكل صف.</span>
+          </div>
+        </div>
+      )}
 
       {/* 2. Filter Panel (Notion Section 7) */}
       <FilterPanel

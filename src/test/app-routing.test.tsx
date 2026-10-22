@@ -59,10 +59,10 @@ describe("App routing", () => {
     expect(matches.at(-1)?.routeId).toBe("/parent");
   });
 
-  it("renders StatCard safely whether icon is a component or an element", () => {
-    const { renderToString } = require("react-dom/server");
-    const { StatCard } = require("@/components/app/kit");
-    const { Banknote } = require("lucide-react");
+  it("renders StatCard safely whether icon is a component or an element", async () => {
+    const { renderToString } = await import("react-dom/server");
+    const { StatCard } = await import("../components/app/kit");
+    const { Banknote } = await import("lucide-react");
 
     // Passed as component function
     const html1 = renderToString(<StatCard label="اختبار 1" value="100" icon={Banknote} />);

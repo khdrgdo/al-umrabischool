@@ -49,14 +49,15 @@ function ParentPortalPage() {
   const [activeTab, setActiveTab] = useState<TabKey>("overview");
   const [selectedChildIndex, setSelectedChildIndex] = useState(0);
 
-  // Guardian identity state (supports demo/verified phone search or account number)
+  // Guardian identity state (strictly authentic lookup, no hardcoded demo fallback)
   const [phoneSearch, setPhoneSearch] = useState("");
-  const [guardianIdentifier, setGuardianIdentifier] = useState<string>("0912345678"); // Default demo active guardian phone
+  const [guardianIdentifier, setGuardianIdentifier] = useState<string>("");
   const [isVerifying, setIsVerifying] = useState(false);
 
   // Fetch guardian profile and linked children
   const { data: guardianData, isLoading, refetch } = useQuery({
     queryKey: ["parent-portal", guardianIdentifier],
+    enabled: !!guardianIdentifier.trim(),
     queryFn: async () => {
       // 1. Fetch current academic year
       let currentYear: any = null;
@@ -95,7 +96,6 @@ function ParentPortalPage() {
             .eq("guardian_id", guardian.id);
 
           if (links && links.length > 0) {
-            // Get enrollments for current year
             const studentIds = links.map((l: any) => l.student?.id).filter(Boolean);
             const { data: enrollments } = currentYear?.id
               ? await supabase
@@ -113,8 +113,8 @@ function ParentPortalPage() {
                 id: l.student?.id ?? "",
                 studentNumber: l.student?.student_number ?? "—",
                 fullName: l.student?.full_name ?? "بدون اسم",
-                gradeName: sec?.grade?.name ?? "الصف الثاني الثانوي",
-                sectionName: sec?.name ?? "الشعبة أ",
+                gradeName: sec?.grade?.name ?? "غير مقيد",
+                sectionName: sec?.name ?? "—",
                 sectionId: sec?.id ?? "",
                 status: l.student?.status ?? "active",
                 canViewFees: l.can_view_fees ?? true,
@@ -124,26 +124,6 @@ function ParentPortalPage() {
         } catch (err) {
           console.warn("Linked children query notice:", err);
         }
-      }
-
-      // Fallback fallback children for demonstration if no db records match
-      if (linkedStudents.length === 0) {
-        // Fetch up to 2 active students from database so the view renders authentic student files
-        try {
-          const { data: sampleStudents } = await supabase.from("students").select("*").limit(2);
-          if (sampleStudents && sampleStudents.length > 0) {
-            linkedStudents = sampleStudents.map((s, idx) => ({
-              id: s.id,
-              studentNumber: s.student_number ?? `OMR-2027-${idx + 1}`,
-              fullName: s.full_name ?? (idx === 0 ? "أحمد مصطفى العمرابي" : "عمر مصطفى العمرابي"),
-              gradeName: idx === 0 ? "الصف الثالث الثانوي (علمي)" : "الصف الأول الثانوي",
-              sectionName: idx === 0 ? "الشعبة (أ) — أحياء" : "الشعبة (ب)",
-              sectionId: "00000000-0000-0000-0000-000000000000",
-              status: s.status ?? "active",
-              canViewFees: true,
-            }));
-          }
-        } catch {}
       }
 
       // 4. Fetch announcements targeted to parents
@@ -171,11 +151,7 @@ function ParentPortalPage() {
       } catch {}
 
       return {
-        guardian: guardian ?? {
-          full_name: "مصطفى أحمد العمرابي",
-          phone: guardianIdentifier,
-          account_number: "PAR-000184",
-        },
+        guardian,
         year: currentYear,
         children: linkedStudents,
         announcements,
@@ -247,7 +223,19 @@ function ParentPortalPage() {
           supabase.from("student_fee_discounts").select("*").eq("student_id", activeChild!.id),
         ]);
 
-        const baseAnnualFee = 150000;
+        let baseAnnualFee = 0;
+        if (guardianData?.year?.id && activeChild?.sectionId) {
+          const { data: sec } = await supabase.from("sections").select("grade_id").eq("id", activeChild.sectionId).maybeSingle();
+          if (sec?.grade_id) {
+            const { data: fs } = await supabase
+              .from("fee_structures")
+              .select("amount")
+              .eq("academic_year_id", guardianData.year.id)
+              .eq("grade_id", sec.grade_id);
+            baseAnnualFee = (fs ?? []).reduce((sum, f) => sum + (Number(f.amount) || 0), 0);
+          }
+        }
+
         const discountTotal = (discounts.data ?? []).reduce((sum, d) => sum + (Number(d.amount) || 0), 0);
         const netDue = Math.max(0, baseAnnualFee - discountTotal);
         const paidTotal = (payments.data ?? []).reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
@@ -263,11 +251,11 @@ function ParentPortalPage() {
         };
       } catch {
         return {
-          baseAnnualFee: 150000,
+          baseAnnualFee: 0,
           discountTotal: 0,
-          netDue: 150000,
-          paidTotal: 100000,
-          balance: 50000,
+          netDue: 0,
+          paidTotal: 0,
+          balance: 0,
           payments: [],
         };
       }

@@ -1,7 +1,7 @@
 import { schoolPageHead } from "@/lib/pageHead";
 import { createFileRoute } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useMe, canManage, errMsg } from "@/lib/staff";
@@ -91,34 +91,59 @@ function AttendancePage() {
         .sort((a, b) => a.full_name.localeCompare(b.full_name));
 
       // 2. Fetch existing session & records
-      const { data: session } = await supabase
+      const { data: session, error: sessErr } = await supabase
         .from("attendance_sessions")
         .select("id")
         .eq("section_id", selectedSection)
         .eq("attendance_date", date)
         .maybeSingle();
 
-      let initialAbsences = new Map<string, string>();
+      if (sessErr) throw sessErr;
+
+      const loadedAbsences = new Map<string, string>();
 
       if (session) {
-        const { data: records } = await supabase
+        const { data: records, error: recErr } = await supabase
           .from("attendance_records")
           .select("student_id, status, reason")
           .eq("session_id", session.id);
 
+        if (recErr) throw recErr;
+
         for (const r of records ?? []) {
           if (r.status === "absent") {
-            initialAbsences.set(r.student_id, r.reason ?? "");
+            loadedAbsences.set(r.student_id, r.reason ?? "");
           }
         }
       }
 
-      setAbsences(initialAbsences);
-      setIsDirty(false);
-
-      return { students, sessionExists: !!session };
+      return { students, sessionExists: !!session, loadedAbsences };
     },
   });
+
+  // Pure synchronization when query finishes (prevents side effects inside queryFn)
+  useEffect(() => {
+    if (rosterData?.loadedAbsences) {
+      setAbsences(new Map(rosterData.loadedAbsences));
+      setIsDirty(false);
+    }
+  }, [rosterData]);
+
+  function handleDateChange(newDate: string) {
+    if (isDirty && !window.confirm("توجد تعديلات حضور غير محفوظة. هل تريد تجاهلها والانتقال لتاريخ آخر؟")) {
+      return;
+    }
+    setDate(newDate);
+    setIsDirty(false);
+  }
+
+  function handleSectionChange(newSec: string) {
+    if (isDirty && !window.confirm("توجد تعديلات حضور غير محفوظة. هل تريد تجاهلها والانتقال لشعبة أخرى؟")) {
+      return;
+    }
+    setSelectedSection(newSec);
+    setIsDirty(false);
+  }
 
   // Save Mutation
   const saveMutation = useMutation({
@@ -258,7 +283,7 @@ function AttendancePage() {
               <Input
                 type="date"
                 value={date}
-                onChange={(e) => setDate(e.target.value)}
+                onChange={(e) => handleDateChange(e.target.value)}
                 className="h-9 text-xs ps-9"
               />
               <Calendar className="h-4 w-4 text-muted-foreground absolute start-3 top-2.5 pointer-events-none" />
@@ -270,7 +295,7 @@ function AttendancePage() {
             <select
               className="w-full h-9 px-3 rounded-lg border border-input bg-card text-xs focus:ring-1 focus:ring-primary focus:outline-hidden"
               value={selectedSection}
-              onChange={(e) => setSelectedSection(e.target.value)}
+              onChange={(e) => handleSectionChange(e.target.value)}
               disabled={metaLoading}
             >
               <option value="">اختر الشعبة…</option>

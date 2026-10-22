@@ -109,7 +109,7 @@ function GuardiansPage() {
   const [linkReceivesNotifications, setLinkReceivesNotifications] = useState(true);
 
   // Query: Guardians, Students, Sections
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, isError, error, refetch } = useQuery({
     queryKey: ["guardians_directory_data"],
     queryFn: async () => {
       const { data: year } = await supabase.from("academic_years").select("*").eq("is_current", true).maybeSingle();
@@ -125,6 +125,16 @@ function GuardiansPage() {
           ? supabase.from("sections").select("id, name, grade:grades(name)").eq("academic_year_id", year.id)
           : Promise.resolve({ data: [] }),
       ]);
+
+      if (studentsRes.error) {
+        throw studentsRes.error;
+      }
+      if (guardiansRes.error && guardiansRes.error.code !== "42P01" && !guardiansRes.error.message?.includes("does not exist")) {
+        throw guardiansRes.error;
+      }
+      if (linksRes.error && linksRes.error.code !== "42P01" && !linksRes.error.message?.includes("does not exist")) {
+        throw linksRes.error;
+      }
 
       const rawGuardians = guardiansRes.data ?? [];
       const rawLinks = linksRes.data ?? [];
@@ -243,38 +253,43 @@ function GuardiansPage() {
 
   const refresh = () => qc.invalidateQueries({ queryKey: ["guardians_directory_data"] });
 
-  // Mutation: Create or Update Guardian
+  // Mutation: Create or Update Guardian (F-002 fix: strictly propagate errors to UI)
   const saveGuardian = useMutation({
     mutationFn: async () => {
       if (!guardianName.trim()) throw new Error("يرجى إدخال اسم ولي الأمر رباعياً");
       if (!guardianPhone.trim()) throw new Error("يرجى إدخال رقم هاتف التواصل");
 
-      try {
-        if (editingGuardianId && !editingGuardianId.startsWith("synth-")) {
-          const { error } = await supabase
-            .from("guardians")
-            .update({
-              full_name: guardianName.trim(),
-              phone: guardianPhone.trim(),
-              national_id: guardianNationalId.trim() || null,
-              email: guardianEmail.trim() || null,
-              address: guardianAddress.trim() || null,
-            })
-            .eq("id", editingGuardianId);
-          if (error) throw error;
-        } else {
-          const { error } = await supabase.from("guardians").insert({
-            school_id: school?.id ?? "00000000-0000-0000-0000-000000000000",
+      let targetSchoolId = school?.id;
+      if (!targetSchoolId) {
+        const { data: s } = await supabase.from("schools").select("id").limit(1).maybeSingle();
+        targetSchoolId = s?.id;
+      }
+      if (!targetSchoolId) {
+        throw new Error("تعذر تحديد مدرسة ولي الأمر");
+      }
+
+      if (editingGuardianId && !editingGuardianId.startsWith("synth-")) {
+        const { error } = await supabase
+          .from("guardians")
+          .update({
             full_name: guardianName.trim(),
             phone: guardianPhone.trim(),
             national_id: guardianNationalId.trim() || null,
             email: guardianEmail.trim() || null,
             address: guardianAddress.trim() || null,
-          });
-          if (error) throw error;
-        }
-      } catch (err: any) {
-        console.warn("guardians write failed remotely:", err?.message);
+          })
+          .eq("id", editingGuardianId);
+        if (error) throw error;
+      } else {
+        const { error } = await supabase.from("guardians").insert({
+          school_id: targetSchoolId,
+          full_name: guardianName.trim(),
+          phone: guardianPhone.trim(),
+          national_id: guardianNationalId.trim() || null,
+          email: guardianEmail.trim() || null,
+          address: guardianAddress.trim() || null,
+        });
+        if (error) throw error;
       }
     },
     onSuccess: () => {
@@ -291,43 +306,45 @@ function GuardiansPage() {
     onError: (e) => toast.error(errMsg(e)),
   });
 
-  // Mutation: Link Student to Guardian
+  // Mutation: Link Student to Guardian (F-002 fix: strictly atomic with error propagation)
   const linkStudentMutation = useMutation({
     mutationFn: async () => {
       if (!selectedGuardianForLink) throw new Error("لم يتم اختيار ولي أمر");
       if (!linkStudentId) throw new Error("يرجى اختيار الطالب المراد ربطه");
 
-      try {
-        // If guardian was synthesized from phone, ensure actual record is inserted first
-        let realGuardianId = selectedGuardianForLink.id;
-        if (realGuardianId.startsWith("synth-")) {
-          const { data: newG, error: gErr } = await supabase
-            .from("guardians")
-            .insert({
-              school_id: school?.id ?? "00000000-0000-0000-0000-000000000000",
-              full_name: selectedGuardianForLink.full_name,
-              phone: selectedGuardianForLink.phone,
-            })
-            .select("id")
-            .single();
-          if (!gErr && newG) {
-            realGuardianId = newG.id;
-          }
+      let realGuardianId = selectedGuardianForLink.id;
+      if (realGuardianId.startsWith("synth-")) {
+        let targetSchoolId = school?.id;
+        if (!targetSchoolId) {
+          const { data: s } = await supabase.from("schools").select("id").limit(1).maybeSingle();
+          targetSchoolId = s?.id;
         }
+        if (!targetSchoolId) throw new Error("تعذر التحقق من معرف المدرسة");
 
-        const { error } = await supabase.from("guardian_students").insert({
-          guardian_id: realGuardianId,
-          student_id: linkStudentId,
-          relation: linkRelation,
-          is_primary: linkIsPrimary,
-          can_view_fees: linkCanViewFees,
-          receives_notifications: linkReceivesNotifications,
-          verified_by: me?.user.id,
-        });
-        if (error) throw error;
-      } catch (err: any) {
-        console.warn("guardian_students link failed remotely:", err?.message);
+        const { data: newG, error: gErr } = await supabase
+          .from("guardians")
+          .insert({
+            school_id: targetSchoolId,
+            full_name: selectedGuardianForLink.full_name,
+            phone: selectedGuardianForLink.phone,
+          })
+          .select("id")
+          .single();
+        if (gErr) throw gErr;
+        if (!newG) throw new Error("فشل إنشاء ملف ولي الأمر في قاعدة البيانات");
+        realGuardianId = newG.id;
       }
+
+      const { error } = await supabase.from("guardian_students").insert({
+        guardian_id: realGuardianId,
+        student_id: linkStudentId,
+        relation: linkRelation,
+        is_primary: linkIsPrimary,
+        can_view_fees: linkCanViewFees,
+        receives_notifications: linkReceivesNotifications,
+        verified_by: me?.user.id,
+      });
+      if (error) throw error;
     },
     onSuccess: () => {
       toast.success("تم ربط وتوثيق صلة القرابة للطالب بنجاح");
@@ -386,7 +403,15 @@ function GuardiansPage() {
       g.links.map((l) => `${l.student.full_name} (${l.student.student_number})`).join(" ؛ "),
     ]);
 
-    const csvContent = "\uFEFF" + [headers, ...rows].map((r) => r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(",")).join("\n");
+    const sanitizeCsv = (val: any) => {
+      let str = String(val ?? "");
+      if (/^[=+\-@\t\r]/.test(str)) {
+        str = "'" + str;
+      }
+      return `"${str.replace(/"/g, '""')}"`;
+    };
+
+    const csvContent = "\uFEFF" + [headers, ...rows].map((r) => r.map((c) => sanitizeCsv(c)).join(",")).join("\n");
     const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
     const link = document.createElement("a");
     link.href = URL.createObjectURL(blob);
@@ -409,6 +434,20 @@ function GuardiansPage() {
       <div className="py-20 flex flex-col items-center justify-center text-muted-foreground text-sm">
         <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent mb-3" />
         <span>جارٍ تحميل سجل أولياء الأمور وروابط الأسر…</span>
+      </div>
+    );
+  }
+
+  if (isError) {
+    return (
+      <div className="py-20 flex flex-col items-center justify-center text-center px-4">
+        <AlertCircle className="h-10 w-10 text-destructive mb-3" />
+        <h2 className="text-base font-semibold text-foreground mb-1">تعذر تحميل بيانات أولياء الأمور</h2>
+        <p className="text-sm text-muted-foreground mb-4 max-w-md">{errMsg(error)}</p>
+        <Button variant="outline" size="sm" onClick={() => refetch()} className="gap-2">
+          <RefreshCw className="h-4 w-4" />
+          إعادة المحاولة
+        </Button>
       </div>
     );
   }

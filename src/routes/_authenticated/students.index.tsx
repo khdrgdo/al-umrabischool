@@ -33,77 +33,78 @@ function Students() {
   const [newSec, setNewSec] = useState("");
   const [newType, setNewType] = useState("new");
 
-  const { data, isLoading, isError, refetch } = useQuery({
+  const { data, isLoading, isError, error: queryError, refetch } = useQuery({
     queryKey: ["students"],
     queryFn: async () => {
-      let year: any = null;
-      try {
-        const { data: currentYear } = await supabase.from("academic_years").select("*").eq("is_current", true).maybeSingle();
-        if (currentYear) {
-          year = currentYear;
-        } else {
-          const { data: latestYear } = await supabase.from("academic_years").select("*").order("starts_on", { ascending: false }).limit(1).maybeSingle();
-          year = latestYear ?? null;
-        }
-      } catch (err) {
-        console.warn("Could not fetch academic year:", err);
+      // 1. Fetch current or latest academic year
+      const { data: currentYear, error: yErr } = await supabase
+        .from("academic_years")
+        .select("*")
+        .eq("is_current", true)
+        .maybeSingle();
+      if (yErr) throw yErr;
+
+      let year = currentYear;
+      if (!year) {
+        const { data: latestYear, error: lErr } = await supabase
+          .from("academic_years")
+          .select("*")
+          .order("starts_on", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        if (lErr) throw lErr;
+        year = latestYear ?? null;
       }
 
-      let studentsList: any[] = [];
-      try {
-        const { data: sData } = await supabase.from("students").select("*").order("full_name");
-        studentsList = sData ?? [];
-      } catch (err) {
-        console.warn("Could not fetch students:", err);
-      }
+      // 2. Fetch students
+      const { data: studentsList, error: sErr } = await supabase
+        .from("students")
+        .select("*")
+        .order("full_name");
+      if (sErr) throw sErr;
 
+      // 3. Fetch sections for current year if present
       let sectionsList: Sec[] = [];
       if (year?.id) {
-        try {
-          const { data: secData } = await supabase
-            .from("sections")
-            .select("id,name,grade_id,grade:grades(name,level_order),track:tracks(name)")
-            .eq("academic_year_id", year.id);
-          sectionsList = (secData ?? []).map((sec: any) => ({
-            id: sec.id,
-            name: sec.name,
-            grade_id: sec.grade_id,
-            grade: sec.grade ?? null,
-            track: sec.track ?? null,
-            spec: null,
-          }));
-        } catch (err) {
-          console.warn("Could not fetch sections:", err);
-        }
+        const { data: secData, error: secErr } = await supabase
+          .from("sections")
+          .select("id,name,grade_id,grade:grades(name,level_order),track:tracks(name),spec:specializations(name)")
+          .eq("academic_year_id", year.id);
+        if (secErr) throw secErr;
+        sectionsList = (secData ?? []).map((sec: any) => ({
+          id: sec.id,
+          name: sec.name,
+          grade_id: sec.grade_id,
+          grade: sec.grade ?? null,
+          track: sec.track ?? null,
+          spec: sec.spec ?? null,
+        }));
       }
 
+      // 4. Fetch enrollments for current year if present
       let enrollmentsList: Array<{ student_id: string; section_id: string; enrollment_type: string }> = [];
       if (year?.id) {
-        try {
-          const { data: enrData } = await supabase
-            .from("enrollments")
-            .select("student_id,section_id,enrollment_type")
-            .eq("academic_year_id", year.id);
-          enrollmentsList = (enrData ?? []) as any[];
-        } catch (err) {
-          console.warn("Could not fetch enrollments:", err);
-        }
+        const { data: enrData, error: enrErr } = await supabase
+          .from("enrollments")
+          .select("student_id,section_id,enrollment_type")
+          .eq("academic_year_id", year.id);
+        if (enrErr) throw enrErr;
+        enrollmentsList = (enrData ?? []) as any[];
       }
 
-      let gradesList: any[] = [];
-      try {
-        const { data: grData } = await supabase.from("grades").select("*").order("level_order");
-        gradesList = grData ?? [];
-      } catch (err) {
-        console.warn("Could not fetch grades:", err);
-      }
+      // 5. Fetch grades
+      const { data: gradesList, error: grErr } = await supabase
+        .from("grades")
+        .select("*")
+        .order("level_order");
+      if (grErr) throw grErr;
 
       return {
         year,
-        students: studentsList,
+        students: studentsList ?? [],
         sections: sectionsList,
         enr: enrollmentsList,
-        grades: gradesList,
+        grades: gradesList ?? [],
       };
     },
   });
@@ -166,6 +167,14 @@ function Students() {
 
   function exportCsv() {
     const head = ["الرقم", "الاسم", "النوع", "الصف/الشعبة", "ولي الأمر", "الهاتف", "الحالة"];
+    const sanitizeCsv = (val: any) => {
+      let str = String(val ?? "").replace(/"/g, '""');
+      if (/^[=+\-@\t\r]/.test(str)) {
+        str = "'" + str;
+      }
+      return `"${str}"`;
+    };
+
     const lines = rows.map((s) => [
       s.student_number ?? "",
       s.full_name ?? "",
@@ -175,17 +184,21 @@ function Students() {
       s.guardian_phone ?? "",
       s.status ?? "",
     ]);
-    const csv = "\uFEFF" + [head, ...lines].map((r) => r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(",")).join("\n");
+    const csv = "\uFEFF" + [head, ...lines].map((r) => r.map(sanitizeCsv).join(",")).join("\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
-    a.href = URL.createObjectURL(new Blob([csv], { type: "text/csv" }));
+    a.href = url;
     a.download = "students.csv";
     a.click();
+    URL.revokeObjectURL(url);
   }
 
   if (isError) {
     return (
       <div className="py-20 flex flex-col items-center justify-center text-center p-6 card-surface">
-        <p className="text-sm text-destructive font-medium mb-3">حدث خطأ أثناء تحميل سجل الطلاب من الخادم.</p>
+        <p className="text-sm text-destructive font-medium mb-1">حدث خطأ أثناء تحميل سجل الطلاب من الخادم.</p>
+        <p className="text-xs text-muted-foreground mb-4 font-mono">{errMsg(queryError)}</p>
         <Button variant="outline" size="sm" onClick={() => refetch()} className="text-xs">
           إعادة المحاولة
         </Button>
@@ -229,6 +242,22 @@ function Students() {
           </>
         }
       />
+
+      {!data?.year && (
+        <div className="p-4 rounded-lg bg-amber-50/90 border border-amber-200 text-amber-900 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs">
+          <div>
+            <strong className="font-semibold block mb-0.5">تنبيه إداري: لا يوجد عام دراسي حالي معتمد</strong>
+            <span>لبدء تسجيل وتوزيع الطلاب على الشعب، يرجى تفعيل العام الدراسي الحالي من لوحة الهيكل الأكاديمي.</span>
+          </div>
+          {manager && (
+            <Link to="/structure">
+              <Button size="sm" variant="outline" className="border-amber-300 text-amber-900 bg-white hover:bg-amber-100 text-xs shrink-0">
+                تهيئة العام الدراسي
+              </Button>
+            </Link>
+          )}
+        </div>
+      )}
 
       {/* Filter Panel (Notion Design Guide Pattern) */}
       <FilterPanel
