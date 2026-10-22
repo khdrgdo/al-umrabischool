@@ -8,7 +8,7 @@ import { useMe, canManage, errMsg } from "@/lib/staff";
 import { PageHead, StatCard, Empty } from "@/components/app/kit";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Users, UserCheck, UserX, Percent, Calendar, CheckCheck, Save } from "lucide-react";
+import { Users, UserCheck, UserX, Percent, Calendar, CheckCheck, Save, Clock, AlertCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/_authenticated/attendance")({
@@ -174,9 +174,11 @@ function AttendancePage() {
 
   const students = rosterData?.students ?? [];
   const totalCount = students.length;
+  const sessionExists = rosterData?.sessionExists ?? false;
+  const isSessionRecorded = sessionExists || isDirty;
   const absentCount = absences.size;
-  const presentCount = Math.max(0, totalCount - absentCount);
-  const attendanceRate = totalCount > 0 ? Math.round((presentCount / totalCount) * 100) : 100;
+  const presentCount = isSessionRecorded ? Math.max(0, totalCount - absentCount) : 0;
+  const attendanceRate = totalCount > 0 && isSessionRecorded ? Math.round((presentCount / totalCount) * 100) : null;
 
   function toggleStatus(studentId: string) {
     if (!manager) return;
@@ -243,7 +245,7 @@ function AttendancePage() {
         }
       />
 
-      {/* KPI Stats Grid */}
+      {/* KPI Stats Grid (Notion Rule 6: No 100% presence claimed when session is not yet recorded) */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <StatCard
           label="إجمالي طلاب الشعبة"
@@ -253,26 +255,59 @@ function AttendancePage() {
         />
         <StatCard
           label="الحاضرون اليوم"
-          value={rosterLoading ? "…" : presentCount}
-          note="في الفصل الدراسي"
+          value={rosterLoading ? "…" : isSessionRecorded ? presentCount : "لم يُسجل بعد"}
+          note={isSessionRecorded ? "في الفصل الدراسي" : "بانتظار توثيق الجلسة"}
           icon={<UserCheck className="h-4 w-4" />}
-          variant="success"
+          variant={isSessionRecorded ? "success" : "default"}
         />
         <StatCard
           label="الغياب المسجل"
-          value={rosterLoading ? "…" : absentCount}
-          note={absentCount > 0 ? "يتطلب مراجعة العذر" : "لا يوجد غياب"}
+          value={rosterLoading ? "…" : isSessionRecorded ? absentCount : "—"}
+          note={!isSessionRecorded ? "لم تُوثق الجلسة بعد" : absentCount > 0 ? "يتطلب مراجعة العذر" : "لا يوجد غياب"}
           icon={<UserX className="h-4 w-4" />}
-          variant={absentCount > 0 ? "warning" : "default"}
+          variant={isSessionRecorded && absentCount > 0 ? "warning" : "default"}
         />
         <StatCard
           label="نسبة الحضور"
-          value={rosterLoading ? "…" : `${attendanceRate}%`}
-          note={attendanceRate >= 90 ? "ممتازة" : "منخفضة"}
+          value={rosterLoading ? "…" : attendanceRate !== null ? `${attendanceRate}%` : "—"}
+          note={!isSessionRecorded ? "لم يُسجل الحضور اليوم" : attendanceRate !== null && attendanceRate >= 90 ? "ممتازة" : "منخفضة"}
           icon={<Percent className="h-4 w-4" />}
-          variant={attendanceRate >= 90 ? "primary" : "warning"}
+          variant={attendanceRate !== null && attendanceRate >= 90 ? "primary" : "default"}
         />
       </div>
+
+      {/* Session Recording Status Banner (Notion Bug Fixes Rule 6) */}
+      {!rosterLoading && students.length > 0 && (
+        <div className={`p-3 rounded-lg border text-xs flex items-center justify-between ${
+          sessionExists
+            ? "bg-emerald-50 border-emerald-200 text-emerald-900"
+            : isDirty
+            ? "bg-amber-50 border-amber-200 text-amber-900"
+            : "bg-muted/70 border-border text-muted-foreground"
+        }`}>
+          <div className="flex items-center gap-2">
+            {sessionExists ? (
+              <CheckCheck className="h-4 w-4 text-emerald-600" />
+            ) : isDirty ? (
+              <AlertCircle className="h-4 w-4 text-amber-600" />
+            ) : (
+              <Clock className="h-4 w-4 text-muted-foreground" />
+            )}
+            <span>
+              {sessionExists
+                ? "تم توثيق واعتماد جلسة الحضور لهذا اليوم بنجاح في قاعدة البيانات."
+                : isDirty
+                ? "توجد تعديلات حضور قيد الإعداد (مسودة غير محفوظة). اضغط \"حفظ سجل الحضور\" لتوثيق الجلسة."
+                : "لم يُسجل الحضور لهذا اليوم والشعبة حتى الآن. الحالة ليست 100% حضور حتى يتم الحفظ والاعتماد."}
+            </span>
+          </div>
+          {sessionExists && (
+            <span className="text-[10px] font-mono bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded">
+              جلسة معتمدة
+            </span>
+          )}
+        </div>
+      )}
 
       {/* Selector / Filter Box */}
       <div className="card-surface p-4 md:p-5">
