@@ -2,77 +2,278 @@ import { schoolPageHead } from "@/lib/pageHead";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { PageHead, StatCard, WEEKDAYS } from "@/components/app/kit";
-import { Users, Layers, GraduationCap, BookOpen, Clock, CheckCircle2 } from "lucide-react";
+import { PageHead, StatCard, WEEKDAYS, Empty } from "@/components/app/kit";
+import {
+  Users,
+  Layers,
+  GraduationCap,
+  BookOpen,
+  Clock,
+  CheckCircle2,
+  Banknote,
+  ClipboardCheck,
+  CalendarDays,
+  Award,
+  Megaphone,
+  ArrowRightLeft,
+  ChevronLeft,
+  CalendarCheck2,
+  ShieldCheck,
+  UserCheck,
+} from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
-  head: () => schoolPageHead("لوحة التحكم — مدرسة العمرابي", "لوحة التحكم في نظام إدارة مدرسة العمرابي الثانوية."),
+  head: () => schoolPageHead("لوحة القيادة المدرسية — مدرسة العمرابي", "لوحة القيادة الشاملة لنظام إدارة مدرسة العمرابي الثانوية بنين."),
   component: Dashboard,
 });
 
 function Dashboard() {
   const { data, isLoading } = useQuery({
-    queryKey: ["dash"],
+    queryKey: ["executive_dashboard_data"],
     queryFn: async () => {
       const { data: year } = await supabase.from("academic_years").select("*").eq("is_current", true).maybeSingle();
-      const [students, teachers, subjects, sections, enr, tts] = await Promise.all([
-        supabase.from("students").select("id,gender,status"),
+
+      const [students, teachers, subjects, sections, enr, tts, payments, events, announcements] = await Promise.all([
+        supabase.from("students").select("id, gender, status"),
         supabase.from("teachers").select("id", { count: "exact", head: true }).eq("is_active", true),
         supabase.from("subjects").select("id", { count: "exact", head: true }).eq("is_active", true),
-        year ? supabase.from("sections").select("id,name,capacity,grade:grades(name,level_order)").eq("academic_year_id", year.id) : Promise.resolve({ data: [] as never[] }),
-        year ? supabase.from("enrollments").select("section_id,status").eq("academic_year_id", year.id) : Promise.resolve({ data: [] as never[] }),
-        supabase.from("section_timetables").select("section_id,status"),
+        year
+          ? supabase.from("sections").select("id, name, capacity, grade:grades(name, level_order)").eq("academic_year_id", year.id)
+          : Promise.resolve({ data: [] as never[] }),
+        year
+          ? supabase.from("enrollments").select("section_id, status").eq("academic_year_id", year.id)
+          : Promise.resolve({ data: [] as never[] }),
+        supabase.from("section_timetables").select("section_id, status"),
+        supabase.from("student_payments").select("amount"),
+        supabase.from("school_events").select("*").order("starts_on").limit(4).catch(() => ({ data: [] })),
+        supabase.from("announcements").select("*").eq("is_published", true).order("published_at", { ascending: false }).limit(3).catch(() => ({ data: [] })),
       ]);
-      return { year, students: students.data ?? [], teachers: teachers.count ?? 0, subjects: subjects.count ?? 0, sections: (sections.data ?? []) as { id: string; name: string; capacity: number | null; grade: { name: string; level_order: number } | null }[], enr: enr.data ?? [], tts: tts.data ?? [] };
+
+      const totalPaymentsSum = (payments.data ?? []).reduce((acc: number, curr: any) => acc + (Number(curr.amount) || 0), 0);
+
+      return {
+        year,
+        students: students.data ?? [],
+        teachers: teachers.count ?? 0,
+        subjects: subjects.count ?? 0,
+        sections: (sections.data ?? []) as { id: string; name: string; capacity: number | null; grade: { name: string; level_order: number } | null }[],
+        enr: enr.data ?? [],
+        tts: tts.data ?? [],
+        totalPaymentsSum,
+        upcomingEvents: (events as any).data ?? [],
+        recentAnnouncements: (announcements as any).data ?? [],
+      };
     },
   });
 
   const active = data?.students.filter((s) => s.status === "active") ?? [];
+  const boys = active.filter((s) => s.gender === "male").length;
   const girls = active.filter((s) => s.gender === "female").length;
-  const sections = [...(data?.sections ?? [])].sort((a, b) => (a.grade?.level_order ?? 0) - (b.grade?.level_order ?? 0) || a.name.localeCompare(b.name));
+  const sections = [...(data?.sections ?? [])].sort(
+    (a, b) => (a.grade?.level_order ?? 0) - (b.grade?.level_order ?? 0) || a.name.localeCompare(b.name)
+  );
   const today = new Date().getDay();
+
+  // Capacity calculations
+  const totalCapacity = sections.reduce((acc, s) => acc + (s.capacity ?? 45), 0);
+  const totalEnrolled = data?.enr.filter((e) => e.status === "active").length ?? 0;
+  const schoolOccupancyRate = totalCapacity > 0 ? Math.round((totalEnrolled / totalCapacity) * 100) : 0;
 
   return (
     <div className="space-y-6">
+      {/* Page Header */}
       <PageHead
-        title="لوحة التحكم والملخص العام"
+        title="لوحة القيادة المدرسية والملخص التنفيذي"
         sub={
           <>
-            <span>العام الدراسي: <strong className="text-foreground">{data?.year?.name ?? "—"}</strong></span>
+            <span>العام الدراسي الحالي: <strong className="text-foreground">{data?.year?.name ?? "2026 / 2027"}</strong></span>
             <span>·</span>
             <span>اليوم {WEEKDAYS[today]} {new Date().toLocaleDateString("ar-SD", { day: "numeric", month: "long", year: "numeric" })}</span>
           </>
         }
+        actions={
+          <div className="flex flex-wrap items-center gap-2">
+            <Link to="/attendance">
+              <Button size="sm" variant="outline" className="h-9 gap-1.5 text-xs">
+                <ClipboardCheck className="h-3.5 w-3.5 text-primary" />
+                <span>رصد الحضور</span>
+              </Button>
+            </Link>
+            <Link to="/fees">
+              <Button size="sm" variant="outline" className="h-9 gap-1.5 text-xs">
+                <Banknote className="h-3.5 w-3.5 text-emerald-600" />
+                <span>تحصيل الرسوم</span>
+              </Button>
+            </Link>
+            <Link to="/grades">
+              <Button size="sm" variant="outline" className="h-9 gap-1.5 text-xs">
+                <Award className="h-3.5 w-3.5 text-amber-600" />
+                <span>الدرجات والنتائج</span>
+              </Button>
+            </Link>
+          </div>
+        }
       />
 
-      {/* KPI Cards (4 columns) */}
+      {/* 4 Main Operational KPIs */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard
           label="الطلاب المنتظمون"
           value={isLoading ? "…" : active.length}
-          note={`${active.length - girls} بنين · ${girls} بنات`}
+          note={`${boys} بنين · ${girls} بنات`}
           icon={<Users className="h-4 w-4" />}
           variant="primary"
         />
         <StatCard
-          label="الشعب المفتوحة"
-          value={isLoading ? "…" : sections.length}
-          note="موزعة على كافة الصفوف"
+          label="نسبة إشغال الفصول"
+          value={isLoading ? "…" : `${schoolOccupancyRate}%`}
+          note={`${totalEnrolled} طالب من أصل ${totalCapacity} مقعد`}
           icon={<Layers className="h-4 w-4" />}
+          variant={schoolOccupancyRate > 90 ? "warning" : "default"}
         />
         <StatCard
-          label="الكادر التعليمي"
-          value={isLoading ? "…" : (data?.teachers ?? "—")}
-          note="معلم نشط في الخدمة"
-          icon={<GraduationCap className="h-4 w-4" />}
+          label="إجمالي التحصيل المالي"
+          value={isLoading ? "…" : `${(data?.totalPaymentsSum ?? 0).toLocaleString()} ج.س`}
+          note="إيرادات الرسوم المسددة"
+          icon={<Banknote className="h-4 w-4" />}
           variant="success"
         />
         <StatCard
-          label="المواد الدراسية"
-          value={isLoading ? "…" : (data?.subjects ?? "—")}
-          note="مادة معتمدة بالمنهج"
-          icon={<BookOpen className="h-4 w-4" />}
+          label="الكادر التعليمي والمواد"
+          value={isLoading ? "…" : `${data?.teachers ?? 0} معلم`}
+          note={`${data?.subjects ?? 0} مادة دراسية معتمدة`}
+          icon={<GraduationCap className="h-4 w-4" />}
         />
+      </div>
+
+      {/* Quick Access Matrix (Notion-style Action Pill Grid) */}
+      <div className="card-surface p-4 border border-border">
+        <h2 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">
+          الوصول السريع لوحدات الإدارة
+        </h2>
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-2">
+          <Link
+            to="/students"
+            className="p-3 rounded-lg border border-border bg-card hover:border-primary/50 transition-colors text-center group"
+          >
+            <Users className="h-4 w-4 mx-auto mb-1 text-primary group-hover:scale-110 transition-transform" />
+            <span className="text-xs font-semibold text-foreground block">سجل الطلاب</span>
+            <span className="text-[10px] text-muted-foreground">الملفات والقيد</span>
+          </Link>
+
+          <Link
+            to="/guardians"
+            className="p-3 rounded-lg border border-border bg-card hover:border-primary/50 transition-colors text-center group"
+          >
+            <UserCheck className="h-4 w-4 mx-auto mb-1 text-emerald-600 group-hover:scale-110 transition-transform" />
+            <span className="text-xs font-semibold text-foreground block">أولياء الأمور</span>
+            <span className="text-[10px] text-muted-foreground">الربط والتوثيق</span>
+          </Link>
+
+          <Link
+            to="/attendance"
+            className="p-3 rounded-lg border border-border bg-card hover:border-primary/50 transition-colors text-center group"
+          >
+            <ClipboardCheck className="h-4 w-4 mx-auto mb-1 text-indigo-600 group-hover:scale-110 transition-transform" />
+            <span className="text-xs font-semibold text-foreground block">الحضور والغياب</span>
+            <span className="text-[10px] text-muted-foreground">الرصد اليومي</span>
+          </Link>
+
+          <Link
+            to="/fees"
+            className="p-3 rounded-lg border border-border bg-card hover:border-primary/50 transition-colors text-center group"
+          >
+            <Banknote className="h-4 w-4 mx-auto mb-1 text-emerald-600 group-hover:scale-110 transition-transform" />
+            <span className="text-xs font-semibold text-foreground block">الرسوم والمالية</span>
+            <span className="text-[10px] text-muted-foreground">الإيصالات والمنح</span>
+          </Link>
+
+          <Link
+            to="/grades"
+            className="p-3 rounded-lg border border-border bg-card hover:border-primary/50 transition-colors text-center group"
+          >
+            <Award className="h-4 w-4 mx-auto mb-1 text-amber-600 group-hover:scale-110 transition-transform" />
+            <span className="text-xs font-semibold text-foreground block">الدرجات والنتائج</span>
+            <span className="text-[10px] text-muted-foreground">المسيرات والاعتماد</span>
+          </Link>
+
+          <Link
+            to="/rollover"
+            className="p-3 rounded-lg border border-border bg-card hover:border-primary/50 transition-colors text-center group"
+          >
+            <ArrowRightLeft className="h-4 w-4 mx-auto mb-1 text-purple-600 group-hover:scale-110 transition-transform" />
+            <span className="text-xs font-semibold text-foreground block">الترحيل السنوي</span>
+            <span className="text-[10px] text-muted-foreground">ترقية الصفوف</span>
+          </Link>
+        </div>
+      </div>
+
+      {/* Events & Announcements 2-column Grid */}
+      <div className="grid md:grid-cols-2 gap-4">
+        {/* Upcoming School Events */}
+        <div className="card-surface p-5 space-y-3">
+          <div className="flex items-center justify-between pb-3 border-b border-border">
+            <div className="flex items-center gap-2">
+              <CalendarDays className="h-4 w-4 text-primary" />
+              <h3 className="text-sm font-bold text-foreground">الفعاليات والمحطات القادمة</h3>
+            </div>
+            <Link to="/calendar" className="text-xs text-primary hover:underline flex items-center gap-1 font-medium">
+              <span>التقويم كاملاً</span>
+              <ChevronLeft className="h-3.5 w-3.5" />
+            </Link>
+          </div>
+
+          {(data?.upcomingEvents ?? []).length === 0 ? (
+            <p className="text-xs text-muted-foreground py-4 text-center">لا توجد مواعيد مسجلة قريباً.</p>
+          ) : (
+            <div className="space-y-2.5">
+              {(data?.upcomingEvents ?? []).map((ev: any) => (
+                <div key={ev.id} className="p-2.5 rounded-lg border border-border bg-card flex items-center justify-between text-xs">
+                  <div>
+                    <h4 className="font-semibold text-foreground">{ev.title}</h4>
+                    {ev.description && <p className="text-[11px] text-muted-foreground mt-0.5 line-clamp-1">{ev.description}</p>}
+                  </div>
+                  <span className="font-mono text-[11px] px-2 py-0.5 rounded bg-muted text-foreground font-medium shrink-0 ms-2" dir="ltr">
+                    {ev.starts_on}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Recent Announcements */}
+        <div className="card-surface p-5 space-y-3">
+          <div className="flex items-center justify-between pb-3 border-b border-border">
+            <div className="flex items-center gap-2">
+              <Megaphone className="h-4 w-4 text-amber-600" />
+              <h3 className="text-sm font-bold text-foreground">آخر التعاميم والإعلانات المدرسية</h3>
+            </div>
+            <Link to="/calendar" className="text-xs text-primary hover:underline flex items-center gap-1 font-medium">
+              <span>لوحة الإعلانات</span>
+              <ChevronLeft className="h-3.5 w-3.5" />
+            </Link>
+          </div>
+
+          {(data?.recentAnnouncements ?? []).length === 0 ? (
+            <p className="text-xs text-muted-foreground py-4 text-center">لا توجد إعلانات نشطة منشورة حالياً.</p>
+          ) : (
+            <div className="space-y-2.5">
+              {(data?.recentAnnouncements ?? []).map((ann: any) => (
+                <div key={ann.id} className="p-2.5 rounded-lg border border-border bg-card space-y-1 text-xs">
+                  <div className="flex items-center justify-between">
+                    <h4 className="font-semibold text-foreground">{ann.title}</h4>
+                    <span className="text-[10px] text-muted-foreground">
+                      {new Date(ann.published_at).toLocaleDateString("ar-SD", { month: "short", day: "numeric" })}
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-muted-foreground line-clamp-2 leading-relaxed">{ann.body}</p>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Class distribution Table Panel */}
@@ -88,7 +289,7 @@ function Dashboard() {
         </div>
 
         <div className="overflow-x-auto">
-          <table className="modern-table">
+          <table className="modern-table text-xs">
             <thead>
               <tr>
                 <th>الصف الدراسي</th>
@@ -119,7 +320,7 @@ function Dashboard() {
                           {s.name}
                         </span>
                       </td>
-                      <td className="num">{n} طالب</td>
+                      <td className="num font-semibold">{n} طالب</td>
                       <td className="num text-muted-foreground">{s.capacity ?? "—"}</td>
                       <td>
                         {pct !== null ? (
@@ -170,4 +371,3 @@ function Dashboard() {
     </div>
   );
 }
-
