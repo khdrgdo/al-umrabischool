@@ -56,7 +56,7 @@ function ErrorComponent({ error, reset }: ErrorComponentProps) {
         <p className="text-sm text-muted-foreground">
           حدث خطأ أثناء معالجة البيانات. يمكنك المحاولة مجددًا أو العودة للوحة التحكم.
         </p>
-        {error?.message && (
+        {error instanceof Error && error.message && (
           <div className="p-3 bg-muted rounded-lg text-xs font-mono text-destructive text-start break-words overflow-x-auto" dir="ltr">
             {error.message}
           </div>

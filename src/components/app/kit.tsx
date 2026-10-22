@@ -14,12 +14,12 @@ export function PageHead({
   actions?: ReactNode;
 }) {
   return (
-    <header className="flex flex-wrap items-center justify-between gap-4 pb-4 mb-6 border-b border-border">
-      <div>
-        <h1 className="text-2xl md:text-3xl font-bold tracking-tight text-foreground">{title}</h1>
-        {sub && <div className="text-xs md:text-sm text-muted-foreground mt-1 flex items-center gap-2">{sub}</div>}
+    <header className="grid min-w-0 grid-cols-1 gap-4 pb-4 mb-6 border-b border-border sm:flex sm:flex-wrap sm:items-center sm:justify-between">
+      <div className="min-w-0">
+        <h1 className="text-2xl md:text-3xl font-bold text-foreground">{title}</h1>
+        {sub && <div className="text-xs md:text-sm text-muted-foreground mt-1 flex flex-wrap items-center gap-2">{sub}</div>}
       </div>
-      {actions && <div className="flex flex-wrap items-center gap-2">{actions}</div>}
+      {actions && <div className="page-heading-actions flex min-w-0 flex-wrap items-center gap-2">{actions}</div>}
     </header>
   );
 }
@@ -73,7 +73,7 @@ export function Field({
   className?: string;
 }) {
   return (
-    <div className={cn("space-y-1.5", className)}>
+    <div className={cn("min-w-0 space-y-1.5", className)}>
       <Label className="text-xs text-muted-foreground font-medium block">{label}</Label>
       {children}
     </div>
@@ -116,8 +116,8 @@ export function Stat({
   const accentBorder = {
     default: "border-border",
     primary: "border-primary/40",
-    success: "border-emerald-500/40",
-    warning: "border-rose-500/40",
+    success: "border-success/40",
+    warning: "border-warning/40",
   }[variant];
 
   let renderedIcon = icon;
@@ -136,7 +136,7 @@ export function Stat({
         {renderedIcon && <div className="text-muted-foreground/70">{renderedIcon}</div>}
       </div>
       <div className="my-2">
-        <div className="text-2xl md:text-3xl font-bold tabular-nums text-foreground tracking-tight">{value}</div>
+        <div className="text-2xl md:text-3xl font-bold tabular-nums text-foreground break-words">{value}</div>
       </div>
       {(note || sub) && <div className="text-xs text-muted-foreground mt-0.5">{note ?? sub}</div>}
     </div>

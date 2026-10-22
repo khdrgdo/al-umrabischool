@@ -48,7 +48,7 @@ interface GradeEntry {
   notes: string;
 }
 
-async function safeFetch<T>(promise: Promise<{ data: T | null; error: any }>): Promise<T | null> {
+async function safeFetch<T>(promise: PromiseLike<{ data: T | null; error: any }>): Promise<T | null> {
   try {
     const res = await promise;
     if (res.error) {
@@ -118,13 +118,13 @@ function GradesPage() {
   // Automatically select first section and subject when meta loads
   useMemo(() => {
     if (meta?.sections.length && !selectedSection) {
-      setSelectedSection(meta.sections[0].id);
-      if (meta.sections[0].grade_id) {
+      setSelectedSection(meta.sections[0]?.id ?? "");
+      if (meta.sections[0]?.grade_id) {
         setSelectedGrade(meta.sections[0].grade_id);
       }
     }
     if (meta?.subjects.length && !selectedSubject) {
-      setSelectedSubject(meta.subjects[0].id);
+      setSelectedSubject(meta.subjects[0]?.id ?? "");
     }
   }, [meta, selectedSection, selectedSubject]);
 
@@ -325,8 +325,9 @@ function GradesPage() {
       }
 
       // 2. Batch upsert student_grades
+      if (!assessmentId) throw new Error("تعذر تحديد كشف الدرجات");
       const gradeRows = Object.values(entries).map((item) => ({
-        assessment_id: assessmentId!,
+        assessment_id: assessmentId,
         student_id: item.studentId,
         score: item.isAbsent ? null : item.score,
         is_absent: item.isAbsent,
@@ -687,10 +688,11 @@ function GradesPage() {
                           onChange={(e) => {
                             setIsDirty(true);
                             const val = e.target.value;
-                            setEntries((prev) => ({
-                              ...prev,
-                              [student.id]: { ...prev[student.id], notes: val },
-                            }));
+                            setEntries((prev) => {
+                              const current = prev[student.id];
+                              if (!current) return prev;
+                              return { ...prev, [student.id]: { ...current, notes: val } };
+                            });
                           }}
                           className="h-8 text-xs"
                         />

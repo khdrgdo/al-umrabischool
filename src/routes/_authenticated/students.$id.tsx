@@ -39,7 +39,7 @@ function StudentPage() {
         supabase.from("enrollments").select("*, year:academic_years(name,is_current), section:sections(name, grade:grades(name), track:tracks(name), spec:specializations(name))").eq("student_id", id).order("created_at", { ascending: false }),
         supabase.from("student_status_history").select("*").eq("student_id", id).order("changed_at", { ascending: false }),
         year ? supabase.from("sections").select("id,name,grade:grades(name,level_order)").eq("academic_year_id", year.id) : Promise.resolve({ data: [] }),
-        supabase.from("student_payments").select("*").eq("student_id", id).order("created_at", { ascending: false }).then((r) => r.data ?? []).catch(() => []),
+        Promise.resolve(supabase.from("student_payments").select("*").eq("student_id", id).order("created_at", { ascending: false })).then((r) => r.data ?? []).catch(() => []),
       ]);
       if (s.error) throw s.error;
 
@@ -57,7 +57,7 @@ function StudentPage() {
         }
       }
 
-      const paymentList = Array.isArray(pays) ? pays : ((pays as any)?.data ?? []);
+      const paymentList = pays;
 
       return {
         year,

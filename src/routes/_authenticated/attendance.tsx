@@ -67,7 +67,7 @@ function AttendancePage() {
   // Automatically select first section when loaded
   useMemo(() => {
     if (!selectedSection && meta?.sections?.length) {
-      setSelectedSection(meta.sections[0].id);
+      setSelectedSection(meta.sections[0]?.id ?? "");
     }
   }, [meta, selectedSection]);
 
