@@ -36,3 +36,11 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Android build & Gradle caches
+.gradle/
+local.properties
+android-parent-app/.gradle/
+android-parent-app/local.properties
+android-parent-app/**/build/
+android-parent-app/build/

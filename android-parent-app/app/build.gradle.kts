@@ -7,12 +7,12 @@ plugins {
 
 android {
     namespace = "sd.alumrabi.parent"
-    compileSdk = 35
+    compileSdk = 34
 
     defaultConfig {
         applicationId = "sd.alumrabi.parent"
         minSdk = 24
-        targetSdk = 35
+        targetSdk = 34
         versionCode = 1
         versionName = "1.0.0"
 
