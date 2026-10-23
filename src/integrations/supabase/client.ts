@@ -47,10 +47,23 @@ function createSupabaseFetch(supabaseUrl: string, supabaseKey: string): typeof f
 
 
 function createSupabaseClient() {
-  // Use import.meta.env for client-side (Vite build-time replacement)
-  // Fall back to process.env for SSR (server-side rendering)
-  const SUPABASE_URL = import.meta.env['VITE_SUPABASE_URL'] || process.env['SUPABASE_URL'];
-  const SUPABASE_PUBLISHABLE_KEY = import.meta.env['VITE_SUPABASE_PUBLISHABLE_KEY'] || process.env['SUPABASE_PUBLISHABLE_KEY'];
+  // Use import.meta.env.VITE_* with dot-notation for Vite build-time static string replacement
+  // Also check non-prefixed and process.env for SSR (server-side rendering) and Nitro runtime
+  const SUPABASE_URL =
+    import.meta.env.VITE_SUPABASE_URL ||
+    (import.meta.env as any).SUPABASE_URL ||
+    import.meta.env['VITE_SUPABASE_URL'] ||
+    (typeof process !== 'undefined'
+      ? process.env?.['VITE_SUPABASE_URL'] || process.env?.['SUPABASE_URL']
+      : undefined);
+
+  const SUPABASE_PUBLISHABLE_KEY =
+    import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY ||
+    (import.meta.env as any).SUPABASE_PUBLISHABLE_KEY ||
+    import.meta.env['VITE_SUPABASE_PUBLISHABLE_KEY'] ||
+    (typeof process !== 'undefined'
+      ? process.env?.['VITE_SUPABASE_PUBLISHABLE_KEY'] || process.env?.['SUPABASE_PUBLISHABLE_KEY']
+      : undefined);
 
   if (!SUPABASE_URL || !SUPABASE_PUBLISHABLE_KEY) {
     const missing = [
@@ -62,7 +75,7 @@ function createSupabaseClient() {
     throw new Error(message);
   }
 
-  return createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
+  return createClient<any>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
     global: {
       fetch: createSupabaseFetch(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY),
     },

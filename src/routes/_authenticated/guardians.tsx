@@ -32,6 +32,7 @@ import {
   Copy,
   Check,
   ShieldAlert,
+  RefreshCw,
 } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/guardians")({
@@ -163,7 +164,7 @@ function GuardiansPage() {
         if (sec) {
           studentSecMap.set(e.student_id, {
             section_name: sec.name,
-            grade_name: sec.grade?.name ?? "",
+            grade_name: (Array.isArray(sec.grade) ? sec.grade[0]?.name : (sec.grade as any)?.name) ?? "",
           });
         }
       }
@@ -233,7 +234,7 @@ function GuardiansPage() {
           guardiansList.push({
             id: gid,
             school_id: "default",
-            full_name: first.guardian_name || `ولي أمر (${phone})`,
+            full_name: first?.guardian_name || `ولي أمر (${phone})`,
             phone: phone,
             national_id: null,
             email: null,

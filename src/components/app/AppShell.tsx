@@ -10,7 +10,7 @@ type NavDestination = "/dashboard" | "/students" | "/guardians" | "/attendance" 
 export type SchoolNavItem = { to: NavDestination; label: string; icon: LucideIcon };
 
 export function AppShell({ email, roleName, navItems, onSignOut, children }: {
-  email?: string; roleName: string; navItems: readonly SchoolNavItem[]; onSignOut: () => void; children: ReactNode;
+  email?: string | undefined; roleName: string; navItems: readonly SchoolNavItem[]; onSignOut: () => void; children: ReactNode;
 }) {
   const location = useLocation();
   const [mobileOpen, setMobileOpen] = useState(false);

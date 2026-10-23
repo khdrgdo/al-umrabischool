@@ -146,11 +146,11 @@ function Structure() {
           {(data?.grades ?? []).map((g) => (
             <div key={g.id} className="sheet p-4">
               <EditableName value={g.name} disabled={!manager} onSave={(name) => run(() => supabase.from("grades").update({ name }).eq("id", g.id), "حُفظ")()} className="font-display text-lg" />
-              {data.tracks.filter((t) => t.grade_id === g.id).map((t) => (
+              {(data?.tracks ?? []).filter((t) => t.grade_id === g.id).map((t) => (
                 <div key={t.id} className="mt-3 border-s-2 border-primary ps-3">
                   <EditableName value={t.name} disabled={!manager} onSave={(name) => run(() => supabase.from("tracks").update({ name }).eq("id", t.id), "حُفظ")()} className="text-sm font-medium" />
                   <ul className="text-sm text-muted-foreground mt-1 space-y-0.5">
-                    {data.specs.filter((s) => s.track_id === t.id).map((s) => (
+                    {(data?.specs ?? []).filter((s) => s.track_id === t.id).map((s) => (
                       <li key={s.id}>— <EditableName value={s.name} disabled={!manager} onSave={(name) => run(() => supabase.from("specializations").update({ name }).eq("id", s.id), "حُفظ")()} /></li>
                     ))}
                   </ul>
