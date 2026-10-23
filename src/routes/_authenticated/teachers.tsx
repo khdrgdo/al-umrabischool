@@ -28,18 +28,29 @@ function Teachers() {
   const { data } = useQuery({
     queryKey: ["teachers"],
     queryFn: async () => {
-      const { data: year } = await supabase.from("academic_years").select("id").eq("is_current", true).maybeSingle();
+      const { data: year, error: yErr } = await supabase.from("academic_years").select("id").eq("is_current", true).maybeSingle();
+      if (yErr) throw yErr;
+
       const [t, a] = await Promise.all([
         supabase.from("teachers").select("*").order("full_name"),
-        supabase.from("teaching_assignments").select("teacher_id,weekly_periods,subject:subjects(name),section:sections(name,grade:grades(name))").eq("academic_year_id", year?.id ?? "00000000-0000-0000-0000-000000000000"),
+        year?.id
+          ? supabase.from("teaching_assignments").select("teacher_id,weekly_periods,subject:subjects(name),section:sections(name,grade:grades(name))").eq("academic_year_id", year.id)
+          : Promise.resolve({ data: [] }),
       ]);
       return { teachers: t.data ?? [], assigns: (a.data ?? []) as { teacher_id: string; weekly_periods: number | null; subject: { name: string } | null; section: { name: string; grade: { name: string } | null } | null }[] };
     },
   });
   const save = useMutation({
     mutationFn: async () => {
+      let targetSchoolId = school?.id;
+      if (!targetSchoolId) {
+        const { data: s } = await supabase.from("schools").select("id").limit(1).maybeSingle();
+        targetSchoolId = s?.id;
+      }
+      if (!targetSchoolId) throw new Error("تعذر تحديد المدرسة المسجلة في النظام");
+
       const row = { full_name: f!.full_name, phone: f!.phone || null, qualification: f!.qualification || null, hired_on: f!.hired_on || null, notes: f!.notes || null, is_active: f!.is_active };
-      const { error } = f!.id ? await supabase.from("teachers").update(row).eq("id", f!.id) : await supabase.from("teachers").insert({ ...row, school_id: school!.id });
+      const { error } = f!.id ? await supabase.from("teachers").update(row).eq("id", f!.id) : await supabase.from("teachers").insert({ ...row, school_id: targetSchoolId });
       if (error) throw error;
     },
     onSuccess: () => { setF(null); qc.invalidateQueries(); toast.success("حُفظت بيانات المعلم"); },

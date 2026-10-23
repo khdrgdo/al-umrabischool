@@ -286,8 +286,15 @@ function RolloverPage() {
     mutationFn: async () => {
       if (!data?.selectedFrom || !toYearId) throw new Error("يرجى تحديد العام الدراسي المستهدف");
 
+      let targetSchoolId = school?.id;
+      if (!targetSchoolId) {
+        const { data: s } = await supabase.from("schools").select("id").limit(1).maybeSingle();
+        targetSchoolId = s?.id;
+      }
+      if (!targetSchoolId) throw new Error("تعذر تحديد المدرسة المسجلة في النظام");
+
       const upsertPayload = studentRows.map((r) => ({
-        school_id: school?.id ?? "00000000-0000-0000-0000-000000000000",
+        school_id: targetSchoolId,
         student_id: r.student_id,
         from_academic_year_id: data.selectedFrom,
         to_academic_year_id: toYearId,
@@ -296,14 +303,10 @@ function RolloverPage() {
         notes: r.notes || null,
       }));
 
-      try {
-        const { error } = await supabase
-          .from("student_promotions")
-          .upsert(upsertPayload, { onConflict: "student_id,from_academic_year_id" });
-        if (error) throw error;
-      } catch (err: any) {
-        console.warn("student_promotions upsert error:", err?.message);
-      }
+      const { error } = await supabase
+        .from("student_promotions")
+        .upsert(upsertPayload, { onConflict: "student_id,from_academic_year_id" });
+      if (error) throw error;
     },
     onSuccess: () => {
       toast.success("تم حفظ قرارات الترقية والترحيل كمسودة معتمدة");

@@ -23,16 +23,23 @@ function useTT() {
   return useQuery({
     queryKey: ["tt"],
     queryFn: async () => {
-      const { data: year } = await supabase.from("academic_years").select("*").eq("is_current", true).maybeSingle();
-      const y = year?.id ?? "00000000-0000-0000-0000-000000000000";
+      const { data: year, error: yErr } = await supabase.from("academic_years").select("*").eq("is_current", true).maybeSingle();
+      if (yErr) throw yErr;
+
       const [periods, days, sections, subjects, teachers, assigns, entries, status] = await Promise.all([
         supabase.from("periods").select("*").order("period_order"),
         supabase.from("school_days").select("*").order("weekday"),
-        supabase.from("sections").select("id,name,grade:grades(name,level_order)").eq("academic_year_id", y),
+        year?.id
+          ? supabase.from("sections").select("id,name,grade:grades(name,level_order)").eq("academic_year_id", year.id)
+          : Promise.resolve({ data: [] }),
         supabase.from("subjects").select("id,name,code").order("name"),
         supabase.from("teachers").select("id,full_name,is_active").order("full_name"),
-        supabase.from("teaching_assignments").select("*").eq("academic_year_id", y),
-        supabase.from("timetable_entries").select("*").eq("academic_year_id", y),
+        year?.id
+          ? supabase.from("teaching_assignments").select("*").eq("academic_year_id", year.id)
+          : Promise.resolve({ data: [] }),
+        year?.id
+          ? supabase.from("timetable_entries").select("*").eq("academic_year_id", year.id)
+          : Promise.resolve({ data: [] }),
         supabase.from("section_timetables").select("*"),
       ]);
       const secs = ((sections.data ?? []) as { id: string; name: string; grade: { name: string; level_order: number } | null }[])

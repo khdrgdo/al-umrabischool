@@ -67,17 +67,14 @@ interface StudentFeeRow {
 }
 
 async function safeFetchList<T>(promise: PromiseLike<{ data: T[] | null; error: any }>): Promise<T[]> {
-  try {
-    const res = await promise;
-    if (res.error) {
-      console.warn("Financial query notice:", res.error.message);
+  const res = await promise;
+  if (res.error) {
+    if (res.error.code === "42P01" || res.error.message?.includes("does not exist")) {
       return [];
     }
-    return res.data ?? [];
-  } catch (err) {
-    console.warn("Financial query exception caught safely:", err);
-    return [];
+    throw res.error;
   }
+  return res.data ?? [];
 }
 
 function FeesPage() {
@@ -116,25 +113,23 @@ function FeesPage() {
     queryKey: ["fees-overview"],
     queryFn: async () => {
       let year: any = null;
-      try {
-        const { data: curYear } = await supabase
+      const { data: curYear, error: curYearErr } = await supabase
+        .from("academic_years")
+        .select("*")
+        .eq("is_current", true)
+        .maybeSingle();
+      if (curYearErr) throw curYearErr;
+      if (curYear) {
+        year = curYear;
+      } else {
+        const { data: latestYear, error: latErr } = await supabase
           .from("academic_years")
           .select("*")
-          .eq("is_current", true)
+          .order("starts_on", { ascending: false })
+          .limit(1)
           .maybeSingle();
-        if (curYear) {
-          year = curYear;
-        } else {
-          const { data: latestYear } = await supabase
-            .from("academic_years")
-            .select("*")
-            .order("starts_on", { ascending: false })
-            .limit(1)
-            .maybeSingle();
-          year = latestYear ?? null;
-        }
-      } catch (err) {
-        console.warn("Academic year fetch error:", err);
+        if (latErr) throw latErr;
+        year = latestYear ?? null;
       }
 
       const [

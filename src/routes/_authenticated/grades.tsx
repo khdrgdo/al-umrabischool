@@ -49,17 +49,14 @@ interface GradeEntry {
 }
 
 async function safeFetch<T>(promise: PromiseLike<{ data: T | null; error: any }>): Promise<T | null> {
-  try {
-    const res = await promise;
-    if (res.error) {
-      console.warn("Assessments query notice:", res.error.message);
+  const res = await promise;
+  if (res.error) {
+    if (res.error.code === "42P01" || res.error.message?.includes("does not exist")) {
       return null;
     }
-    return res.data;
-  } catch (err) {
-    console.warn("Assessments query error:", err);
-    return null;
+    throw res.error;
   }
+  return res.data;
 }
 
 function GradesPage() {
@@ -248,6 +245,10 @@ function GradesPage() {
 
   // Handle Score Input
   const updateScore = (studentId: string, val: string) => {
+    if (currentStatus === "published") {
+      toast.warning("كشف الدرجات منشور ومعتمد حالياً. يُرجى إلغاء النشر أولاً لتعديل الرصد.");
+      return;
+    }
     setIsDirty(true);
     setEntries((prev) => {
       const cur = prev[studentId];
@@ -265,6 +266,10 @@ function GradesPage() {
 
   // Handle Absent Toggle
   const toggleAbsent = (studentId: string) => {
+    if (currentStatus === "published") {
+      toast.warning("كشف الدرجات منشور ومعتمد حالياً. يُرجى إلغاء النشر أولاً لتعديل الرصد.");
+      return;
+    }
     setIsDirty(true);
     setEntries((prev) => {
       const cur = prev[studentId];
@@ -287,6 +292,19 @@ function GradesPage() {
       if (!meta?.year) throw new Error("لا يوجد عام دراسي حالي");
       if (!selectedSection) throw new Error("اختر الشعبة");
       if (!selectedSubject) throw new Error("اختر المادة الدراسية");
+
+      // Rule 10 Enforcement: Do not publish unapproved grades
+      if (targetStatus === "published") {
+        if (!manager) {
+          throw new Error("نشر النتائج مخصص للمدير المشرف فقط");
+        }
+        if (currentStatus !== "approved" && currentStatus !== "published") {
+          throw new Error("لا يمكن نشر درجات غير معتمدة. يجب اعتماد كشف الدرجات أولاً قبل النشر.");
+        }
+      }
+      if (targetStatus === "approved" && !manager) {
+        throw new Error("اعتماد كشف الدرجات يتطلب صلاحية الإدارة");
+      }
 
       // 1. Ensure assessment record exists or create it
       let assessmentId = assessmentData?.assessment?.id;
@@ -433,13 +451,24 @@ function GradesPage() {
                 <Button
                   size="sm"
                   onClick={() => saveMutation.mutate("draft")}
-                  disabled={saveMutation.isPending}
+                  disabled={saveMutation.isPending || currentStatus === "published"}
                   className="h-9 gap-1.5 text-xs bg-muted text-foreground hover:bg-muted/80 border border-border"
                 >
                   <Save className="h-3.5 w-3.5" />
                   <span>حفظ المسودة</span>
                 </Button>
-                {currentStatus !== "published" && (
+                {currentStatus !== "approved" && currentStatus !== "published" && (
+                  <Button
+                    size="sm"
+                    onClick={() => saveMutation.mutate("approved")}
+                    disabled={saveMutation.isPending}
+                    className="h-9 gap-1.5 text-xs bg-emerald-700 text-white hover:bg-emerald-800"
+                  >
+                    <CheckCircle2 className="h-3.5 w-3.5" />
+                    <span>اعتماد الكشف</span>
+                  </Button>
+                )}
+                {currentStatus === "approved" && (
                   <Button
                     size="sm"
                     onClick={() => saveMutation.mutate("published")}
@@ -447,7 +476,19 @@ function GradesPage() {
                     className="h-9 gap-1.5 text-xs bg-primary text-primary-foreground"
                   >
                     <Send className="h-3.5 w-3.5" />
-                    <span>اعتماد ونشر النتائج</span>
+                    <span>نشر النتائج رسمياً</span>
+                  </Button>
+                )}
+                {currentStatus === "published" && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => saveMutation.mutate("draft")}
+                    disabled={saveMutation.isPending}
+                    className="h-9 gap-1.5 text-xs text-amber-700 border-amber-300 hover:bg-amber-50"
+                  >
+                    <Lock className="h-3.5 w-3.5" />
+                    <span>إلغاء النشر وإعادة للمسودة</span>
                   </Button>
                 )}
               </>

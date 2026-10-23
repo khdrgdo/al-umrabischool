@@ -78,6 +78,13 @@ BEGIN
         RAISE EXCEPTION 'يجب تحديد الشعبة المستهدفة لجميع الطلاب المترقين';
       END IF;
 
+      IF NOT EXISTS (
+        SELECT 1 FROM public.sections
+        WHERE id = rec.target_section_id AND academic_year_id = _to_year
+      ) THEN
+        RAISE EXCEPTION 'الشعبة المستهدفة للطالب غير مرتبطة بالسنة الدراسية الجديدة';
+      END IF;
+
       INSERT INTO public.enrollments (student_id, academic_year_id, section_id, enrollment_type, status)
       VALUES (rec.student_id, _to_year, rec.target_section_id, 'continuing', 'active')
       ON CONFLICT (student_id, academic_year_id) DO NOTHING;
@@ -90,6 +97,13 @@ BEGIN
     ELSIF rec.decision = 'repeat' THEN
       IF rec.target_section_id IS NULL THEN
         RAISE EXCEPTION 'يجب تحديد شعبة الإعادة لجميع الطلاب المعيدين';
+      END IF;
+
+      IF NOT EXISTS (
+        SELECT 1 FROM public.sections
+        WHERE id = rec.target_section_id AND academic_year_id = _to_year
+      ) THEN
+        RAISE EXCEPTION 'شعبة الإعادة للطالب غير مرتبطة بالسنة الدراسية الجديدة';
       END IF;
 
       INSERT INTO public.enrollments (student_id, academic_year_id, section_id, enrollment_type, status)

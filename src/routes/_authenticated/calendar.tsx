@@ -90,115 +90,6 @@ const PRIORITY_LABELS: Record<Priority, { label: string; badge: string }> = {
 
 const WEEKDAY_NAMES = ["الأحد", "الإثنين", "الثلاثاء", "الأربعاء", "الخميس", "الجمعة", "السبت"];
 
-// Fallback seed events if database table is not yet populated
-const DEFAULT_EVENTS: SchoolEvent[] = [
-  {
-    id: "def-1",
-    school_id: "default",
-    academic_year_id: null,
-    title: "انطلاق العام الدراسي وبداية الفصل الأول",
-    description: "استقبال جميع الطلاب وتوزيع الجداول المدرسية وحصص اليوم الأول",
-    event_type: "term_date",
-    starts_on: "2026-09-01",
-    ends_on: null,
-    target_audience: "all",
-    is_published: true,
-    created_at: new Date().toISOString(),
-  },
-  {
-    id: "def-2",
-    school_id: "default",
-    academic_year_id: null,
-    title: "امتحانات منتصف الفصل الدراسي الأول",
-    description: "فترة الامتحانات النصفية لجميع الصفوف الدراسية الأولى والثانية والثالثة",
-    event_type: "exam",
-    starts_on: "2026-10-25",
-    ends_on: "2026-11-05",
-    target_audience: "students",
-    is_published: true,
-    created_at: new Date().toISOString(),
-  },
-  {
-    id: "def-3",
-    school_id: "default",
-    academic_year_id: null,
-    title: "عطلة المولد النبوي الشريف",
-    description: "إجازة رسمية لجميع الطلاب والعاملين بالمدرسة",
-    event_type: "holiday",
-    starts_on: "2026-11-12",
-    ends_on: null,
-    target_audience: "all",
-    is_published: true,
-    created_at: new Date().toISOString(),
-  },
-  {
-    id: "def-4",
-    school_id: "default",
-    academic_year_id: null,
-    title: "اجتماع مجلس الآباء والمعلمين الدوري",
-    description: "مناقشة أداء الطلاب والتحضير لامتحانات نهاية الفصل",
-    event_type: "meeting",
-    starts_on: "2026-11-20",
-    ends_on: null,
-    target_audience: "parents",
-    is_published: true,
-    created_at: new Date().toISOString(),
-  },
-  {
-    id: "def-5",
-    school_id: "default",
-    academic_year_id: null,
-    title: "امتحانات نهاية الفصل الدراسي الأول",
-    description: "الاختبارات التحريرية الشاملة لجميع المواد الدراسية",
-    event_type: "exam",
-    starts_on: "2026-12-15",
-    ends_on: "2026-12-30",
-    target_audience: "all",
-    is_published: true,
-    created_at: new Date().toISOString(),
-  },
-  {
-    id: "def-6",
-    school_id: "default",
-    academic_year_id: null,
-    title: "إعلان نتائج الفصل الأول وتوزيع الشهادات",
-    description: "اعتماد ونشر مسيرات الدرجات وتسليم بطاقات الأداء لأولياء الأمور",
-    event_type: "result",
-    starts_on: "2027-01-10",
-    ends_on: null,
-    target_audience: "all",
-    is_published: true,
-    created_at: new Date().toISOString(),
-  },
-];
-
-const DEFAULT_ANNOUNCEMENTS: Announcement[] = [
-  {
-    id: "ann-1",
-    school_id: "default",
-    title: "الالتزام بالزي المدرسي الموحد والمواعيد الصباحية",
-    body: "نهيب بأبنائنا الطلاب الكرام الالتزام التام بالزي المدرسي المعتمد والحضور لطابور الصباح في تمام الساعة 7:30 صباحًا.",
-    priority: "important",
-    target_audience: "all",
-    is_published: true,
-    published_at: new Date().toISOString(),
-    expires_at: null,
-    created_at: new Date().toISOString(),
-  },
-  {
-    id: "ann-2",
-    school_id: "default",
-    title: "جدول مراجعات المواد العلمية لطلاب الصف الثالث الثانوي",
-    body: "تقرر عقد جلسات تقوية ومراجعة مكثفة لمواد الفيزياء والأحياء والرياضيات كل يوم سبت تحت إشراف أساتذة المواد.",
-    priority: "normal",
-    target_audience: "students",
-    is_published: true,
-    published_at: new Date().toISOString(),
-    expires_at: null,
-    created_at: new Date().toISOString(),
-  },
-];
-
 function CalendarPage() {
   const qc = useQueryClient();
   const { data: school } = useSchool();
@@ -237,39 +128,44 @@ function CalendarPage() {
   const [annPublished, setAnnPublished] = useState(true);
 
   // Query: Events and Announcements
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ["school_calendar_and_announcements"],
     queryFn: async () => {
-      const { data: year } = await supabase.from("academic_years").select("*").eq("is_current", true).maybeSingle();
+      const { data: year, error: yErr } = await supabase
+        .from("academic_years")
+        .select("*")
+        .eq("is_current", true)
+        .maybeSingle();
+      if (yErr) throw yErr;
 
       let events: SchoolEvent[] = [];
-      try {
-        const { data: evs, error } = await supabase
-          .from("school_events")
-          .select("*")
-          .order("starts_on", { ascending: true });
-        if (!error && evs && evs.length > 0) {
-          events = evs as SchoolEvent[];
+      const { data: evs, error: evsError } = await supabase
+        .from("school_events")
+        .select("*")
+        .order("starts_on", { ascending: true });
+      if (evsError) {
+        if (evsError.code === "42P01" || evsError.message?.includes("does not exist")) {
+          events = [];
         } else {
-          events = DEFAULT_EVENTS;
+          throw evsError;
         }
-      } catch {
-        events = DEFAULT_EVENTS;
+      } else {
+        events = (evs ?? []) as SchoolEvent[];
       }
 
       let announcements: Announcement[] = [];
-      try {
-        const { data: anns, error } = await supabase
-          .from("announcements")
-          .select("*")
-          .order("published_at", { ascending: false });
-        if (!error && anns && anns.length > 0) {
-          announcements = anns as Announcement[];
+      const { data: anns, error: annsError } = await supabase
+        .from("announcements")
+        .select("*")
+        .order("published_at", { ascending: false });
+      if (annsError) {
+        if (annsError.code === "42P01" || annsError.message?.includes("does not exist")) {
+          announcements = [];
         } else {
-          announcements = DEFAULT_ANNOUNCEMENTS;
+          throw annsError;
         }
-      } catch {
-        announcements = DEFAULT_ANNOUNCEMENTS;
+      } else {
+        announcements = (anns ?? []) as Announcement[];
       }
 
       return { year, events, announcements };
@@ -278,29 +174,34 @@ function CalendarPage() {
 
   const refresh = () => qc.invalidateQueries({ queryKey: ["school_calendar_and_announcements"] });
 
+  // Helper to ensure valid school ID
+  const getSchoolId = async () => {
+    if (school?.id) return school.id;
+    const { data: s } = await supabase.from("schools").select("id").limit(1).maybeSingle();
+    if (s?.id) return s.id;
+    throw new Error("تعذر تحديد المدرسة المسجلة في النظام");
+  };
+
   // Create Event Mutation
   const createEvent = useMutation({
     mutationFn: async () => {
       if (!eventTitle.trim()) throw new Error("يرجى كتابة عنوان الفعالية أو الحدث");
       if (!eventStart) throw new Error("يرجى تحديد تاريخ البداية");
 
-      try {
-        const { error } = await supabase.from("school_events").insert({
-          school_id: school?.id ?? "00000000-0000-0000-0000-000000000000",
-          academic_year_id: data?.year?.id ?? null,
-          title: eventTitle.trim(),
-          description: eventDesc.trim() || null,
-          event_type: eventType,
-          starts_on: eventStart,
-          ends_on: eventEnd || null,
-          target_audience: eventAudience,
-          is_published: eventPublished,
-        });
-        if (error) throw error;
-      } catch (err: any) {
-        // If table doesn't exist remotely, mutate local view gracefully
-        console.warn("school_events remote insert failed:", err?.message);
-      }
+      const schoolId = await getSchoolId();
+
+      const { error } = await supabase.from("school_events").insert({
+        school_id: schoolId,
+        academic_year_id: data?.year?.id ?? null,
+        title: eventTitle.trim(),
+        description: eventDesc.trim() || null,
+        event_type: eventType,
+        starts_on: eventStart,
+        ends_on: eventEnd || null,
+        target_audience: eventAudience,
+        is_published: eventPublished,
+      });
+      if (error) throw error;
     },
     onSuccess: () => {
       toast.success("تمت إضافة الحدث إلى التقويم بنجاح");
@@ -319,19 +220,17 @@ function CalendarPage() {
       if (!annTitle.trim()) throw new Error("يرجى كتابة عنوان الإعلان");
       if (!annBody.trim()) throw new Error("يرجى كتابة نص الإعلان");
 
-      try {
-        const { error } = await supabase.from("announcements").insert({
-          school_id: school?.id ?? "00000000-0000-0000-0000-000000000000",
-          title: annTitle.trim(),
-          body: annBody.trim(),
-          priority: annPriority,
-          target_audience: annAudience,
-          is_published: annPublished,
-        });
-        if (error) throw error;
-      } catch (err: any) {
-        console.warn("announcements remote insert failed:", err?.message);
-      }
+      const schoolId = await getSchoolId();
+
+      const { error } = await supabase.from("announcements").insert({
+        school_id: schoolId,
+        title: annTitle.trim(),
+        body: annBody.trim(),
+        priority: annPriority,
+        target_audience: annAudience,
+        is_published: annPublished,
+      });
+      if (error) throw error;
     },
     onSuccess: () => {
       toast.success("تم نشر الإعلان المدرسي بنجاح");
@@ -346,14 +245,14 @@ function CalendarPage() {
   // Toggle Event Publish
   const toggleEventPublish = useMutation({
     mutationFn: async ({ id, is_published }: { id: string; is_published: boolean }) => {
-      try {
-        await supabase.from("school_events").update({ is_published }).eq("id", id);
-      } catch {}
+      const { error } = await supabase.from("school_events").update({ is_published }).eq("id", id);
+      if (error) throw error;
     },
     onSuccess: () => {
       toast.success("تم تحديث حالة النشر");
       refresh();
     },
+    onError: (e) => toast.error(errMsg(e)),
   });
 
   // Filtered Events
@@ -443,6 +342,17 @@ function CalendarPage() {
     link.download = `school_calendar_${new Date().toISOString().split("T")[0]}.csv`;
     link.click();
   };
+
+  if (isError) {
+    return (
+      <div className="py-20 flex flex-col items-center justify-center text-center p-6 card-surface">
+        <p className="text-sm text-destructive font-medium mb-3">حدث خطأ أثناء تحميل التقويم المدرسي والإعلانات.</p>
+        <Button variant="outline" size="sm" onClick={() => refetch()} className="text-xs">
+          إعادة المحاولة
+        </Button>
+      </div>
+    );
+  }
 
   if (isLoading) {
     return (
