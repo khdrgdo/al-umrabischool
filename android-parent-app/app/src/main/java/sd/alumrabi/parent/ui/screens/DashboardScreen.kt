@@ -116,10 +116,10 @@ fun DashboardScreen(
                             ) {
                                 Row(
                                     modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
-                                    verticalAlignment = Alignment.CenterHorizontally
+                                    verticalAlignment = Alignment.CenterVertically
                                 ) {
                                     Icon(
-                                        Icons.Default.School,
+                                        Icons.Default.Person,
                                         contentDescription = null,
                                         tint = if (isSelected) Color.White else BurgundyPrimary,
                                         modifier = Modifier.size(18.dp)
@@ -163,7 +163,7 @@ fun DashboardScreen(
                         QuickActionCard(
                             title = "النتائج المعتمدة",
                             subtitle = "عرض درجات الاختبارات",
-                            icon = Icons.Default.Assessment,
+                            icon = Icons.Default.Star,
                             color = BurgundyPrimary,
                             modifier = Modifier.weight(1f),
                             onClick = onNavigateToGrades
@@ -172,7 +172,7 @@ fun DashboardScreen(
                         QuickActionCard(
                             title = "سجل الحضور",
                             subtitle = "سجل الغياب والتأخير",
-                            icon = Icons.Default.FactCheck,
+                            icon = Icons.Default.CheckCircle,
                             color = StatusSuccess,
                             modifier = Modifier.weight(1f),
                             onClick = onNavigateToAttendance
@@ -188,7 +188,7 @@ fun DashboardScreen(
                         QuickActionCard(
                             title = "الجدول الدراسي",
                             subtitle = "جدول الحصص الأسبوعي",
-                            icon = Icons.Default.Schedule,
+                            icon = Icons.Default.DateRange,
                             color = Color(0xFF1D4ED8),
                             modifier = Modifier.weight(1f),
                             onClick = onNavigateToSchedule
@@ -197,7 +197,7 @@ fun DashboardScreen(
                         QuickActionCard(
                             title = "الإعلانات والتقويم",
                             subtitle = "أحداث ومواعيد المدرسة",
-                            icon = Icons.Default.Campaign,
+                            icon = Icons.Default.Notifications,
                             color = StatusWarning,
                             modifier = Modifier.weight(1f),
                             onClick = onNavigateToAnnouncements
