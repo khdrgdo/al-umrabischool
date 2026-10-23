@@ -1,6 +1,7 @@
-# UI identity and responsive implementation
-- [ ] Inspect original logo assets, existing shell and admin pages.
-- [ ] Apply burgundy header, calm tokens and accessible right-side mobile drawer.
-- [ ] Correct shared/page responsive layouts without changing business behavior.
-- [ ] Verify existing tests, automatic build and live desktop/mobile layouts.
-- [ ] Update design guide, status and handoff with accurate results and limitations.
+# School audit and safe repairs
+- [ ] Audit live authentication, roles, RLS and exposed entry points; repair safe code paths.
+- [ ] Match live schema, constraints, functions and migration history.
+- [ ] Repair frontend errors and distinguish unavailable modules from empty data.
+- [ ] Run regression tests and live core read flows; inspect automatic build results.
+- [ ] Record evidence, remaining risks and accurate status/handoff.
+- [ ] Apply reviewed database repairs only after the user saves a backup (blocked: no backup saved).
