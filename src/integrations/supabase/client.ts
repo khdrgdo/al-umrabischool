@@ -47,10 +47,13 @@ function createSupabaseFetch(supabaseUrl: string, supabaseKey: string): typeof f
 
 
 function createSupabaseClient() {
+  const cfEnv = (typeof globalThis !== 'undefined' ? (globalThis as any).__CF_ENV__ : undefined) ?? {};
   // Use import.meta.env.VITE_* with dot-notation for Vite build-time static string replacement
-  // Also check non-prefixed and process.env for SSR (server-side rendering) and Nitro runtime
+  // Also check Cloudflare Worker runtime env, non-prefixed, and process.env for SSR
   const SUPABASE_URL =
     import.meta.env.VITE_SUPABASE_URL ||
+    (cfEnv?.VITE_SUPABASE_URL as string | undefined) ||
+    (cfEnv?.SUPABASE_URL as string | undefined) ||
     (import.meta.env as any).SUPABASE_URL ||
     import.meta.env['VITE_SUPABASE_URL'] ||
     (typeof process !== 'undefined'
@@ -59,6 +62,8 @@ function createSupabaseClient() {
 
   const SUPABASE_PUBLISHABLE_KEY =
     import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY ||
+    (cfEnv?.VITE_SUPABASE_PUBLISHABLE_KEY as string | undefined) ||
+    (cfEnv?.SUPABASE_PUBLISHABLE_KEY as string | undefined) ||
     (import.meta.env as any).SUPABASE_PUBLISHABLE_KEY ||
     import.meta.env['VITE_SUPABASE_PUBLISHABLE_KEY'] ||
     (typeof process !== 'undefined'
@@ -66,6 +71,14 @@ function createSupabaseClient() {
       : undefined);
 
   if (!SUPABASE_URL || !SUPABASE_PUBLISHABLE_KEY) {
+    if (typeof window === 'undefined') {
+      // In SSR runtime, provide safe placeholder so server rendering does not crash
+      // the initial HTML shell before client bundle hydrates in the browser.
+      return createClient<any>("https://placeholder.supabase.co", "placeholder-key", {
+        auth: { persistSession: false, autoRefreshToken: false },
+      });
+    }
+
     const missing = [
       ...(!SUPABASE_URL ? ['SUPABASE_URL'] : []),
       ...(!SUPABASE_PUBLISHABLE_KEY ? ['SUPABASE_PUBLISHABLE_KEY'] : []),
