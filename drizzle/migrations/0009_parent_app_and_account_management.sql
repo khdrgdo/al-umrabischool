@@ -204,10 +204,10 @@ BEGIN
         -- Approved attendance records
         SELECT jsonb_agg(
           jsonb_build_object(
-            'date', att_s.session_date,
+            'date', att_s.attendance_date,
             'status', ar.status,
             'reason', ar.reason
-          ) ORDER BY att_s.session_date DESC
+          ) ORDER BY att_s.attendance_date DESC
         )
         FROM public.attendance_records ar
         JOIN public.attendance_sessions att_s ON att_s.id = ar.session_id
