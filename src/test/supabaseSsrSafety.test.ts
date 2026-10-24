@@ -3,10 +3,10 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 // Server-Side Rendering (SSR) Cloudflare Worker Safety Specification
 // Resolves Lovable Cloud initial render 500 crashes
 interface SupabaseClientConfig {
-  supabaseUrl?: string;
-  supabaseKey?: string;
+  supabaseUrl?: string | undefined;
+  supabaseKey?: string | undefined;
   isServer: boolean;
-  cfEnv?: Record<string, string>;
+  cfEnv?: Record<string, string> | undefined;
 }
 
 function resolveSupabaseConfig(config: SupabaseClientConfig): {
@@ -15,14 +15,14 @@ function resolveSupabaseConfig(config: SupabaseClientConfig): {
   isFallback: boolean;
 } {
   const url =
-    config.cfEnv?.SUPABASE_URL ||
-    config.cfEnv?.VITE_SUPABASE_URL ||
+    config.cfEnv?.["SUPABASE_URL"] ||
+    config.cfEnv?.["VITE_SUPABASE_URL"] ||
     config.supabaseUrl ||
     (config.isServer ? "https://placeholder-ssr.supabase.co" : "");
 
   const key =
-    config.cfEnv?.SUPABASE_PUBLISHABLE_KEY ||
-    config.cfEnv?.VITE_SUPABASE_PUBLISHABLE_KEY ||
+    config.cfEnv?.["SUPABASE_PUBLISHABLE_KEY"] ||
+    config.cfEnv?.["VITE_SUPABASE_PUBLISHABLE_KEY"] ||
     config.supabaseKey ||
     (config.isServer ? "placeholder-ssr-key" : "");
 

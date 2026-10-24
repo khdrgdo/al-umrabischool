@@ -43,6 +43,7 @@ function validateTimetableSchedule(slots: TimetableSlot[]): ConflictReport {
     for (let j = i + 1; j < slots.length; j++) {
       const a = slots[i];
       const b = slots[j];
+      if (!a || !b) continue;
 
       // Only check slots occurring on the same day and period
       if (a.day !== b.day || a.period !== b.period) continue;
@@ -103,8 +104,8 @@ describe("Suite 9: Timetable Integrity & Collision Detection", () => {
 
     const report = validateTimetableSchedule(invalidSlots);
     expect(report.hasConflict).toBe(true);
-    expect(report.conflicts[0].type).toBe("teacher_double_booked");
-    expect(report.conflicts[0].slotIds).toEqual(["slot-a", "slot-b"]);
+    expect(report.conflicts[0]?.type).toBe("teacher_double_booked");
+    expect(report.conflicts[0]?.slotIds).toEqual(["slot-a", "slot-b"]);
   });
 
   it("detects section double-booking collision (two subjects for one section at the same time)", () => {
@@ -115,7 +116,7 @@ describe("Suite 9: Timetable Integrity & Collision Detection", () => {
 
     const report = validateTimetableSchedule(invalidSlots);
     expect(report.hasConflict).toBe(true);
-    expect(report.conflicts[0].type).toBe("section_double_booked");
+    expect(report.conflicts[0]?.type).toBe("section_double_booked");
   });
 
   it("flags invalid period index outside the 1 to 7 range", () => {
@@ -125,6 +126,6 @@ describe("Suite 9: Timetable Integrity & Collision Detection", () => {
 
     const report = validateTimetableSchedule(outOfBoundsSlot);
     expect(report.hasConflict).toBe(true);
-    expect(report.conflicts[0].type).toBe("invalid_period");
+    expect(report.conflicts[0]?.type).toBe("invalid_period");
   });
 });

@@ -144,5 +144,77 @@ BEGIN
 END;
 $$;
 
+-- 5. RPC: Parent App Login with Anti-Enumeration & Privilege Verification
+CREATE OR REPLACE FUNCTION public.parent_app_login(_account_code text, _code_or_pin text)
+RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE
+  v_guardian RECORD;
+  v_clean_code text;
+  v_clean_pin text;
+BEGIN
+  v_clean_code := upper(trim(COALESCE(_account_code, '')));
+  v_clean_pin := trim(COALESCE(_code_or_pin, ''));
+
+  IF v_clean_code = '' OR v_clean_pin = '' THEN
+    RETURN jsonb_build_object(
+      'success', false, 
+      'error', 'INVALID_CREDENTIALS', 
+      'message', 'بيانات الدخول غير صحيحة. يرجى التأكد من المعرّف أو مراجعة إدارة المدرسة.'
+    );
+  END IF;
+
+  -- 1. Anti-enumeration: look up guardian by account_code
+  SELECT * INTO v_guardian 
+  FROM public.guardians 
+  WHERE upper(account_code) = v_clean_code 
+  LIMIT 1;
+
+  IF NOT FOUND THEN
+    RETURN jsonb_build_object(
+      'success', false, 
+      'error', 'INVALID_CREDENTIALS', 
+      'message', 'بيانات الدخول غير صحيحة. يرجى التأكد من المعرّف أو مراجعة إدارة المدرسة.'
+    );
+  END IF;
+
+  -- 2. Lifecycle status enforcement
+  IF v_guardian.status = 'suspended' THEN
+    RETURN jsonb_build_object(
+      'success', false, 
+      'error', 'ACCOUNT_SUSPENDED', 
+      'message', 'تم إيقاف حساب ولي الأمر من قبل إدارة المدرسة. يرجى مراجعة إدارة المدرسة.'
+    );
+  END IF;
+
+  IF v_guardian.status = 'revoked' OR v_guardian.status = 'pending_activation' THEN
+    RETURN jsonb_build_object(
+      'success', false, 
+      'error', 'ACCOUNT_INACTIVE', 
+      'message', 'الحساب غير مفعّل بعد. يرجى مراجعة إدارة المدرسة لتفعيل الحساب.'
+    );
+  END IF;
+
+  -- 3. Password / PIN Verification
+  IF v_guardian.temp_password_code IS NOT NULL AND v_guardian.temp_password_code <> '' THEN
+    IF v_guardian.temp_password_code <> v_clean_pin THEN
+      RETURN jsonb_build_object(
+        'success', false, 
+        'error', 'INVALID_CREDENTIALS', 
+        'message', 'بيانات الدخول غير صحيحة. يرجى التأكد من المعرّف أو مراجعة إدارة المدرسة.'
+      );
+    END IF;
+  END IF;
+
+  RETURN jsonb_build_object(
+    'success', true,
+    'guardian_id', v_guardian.id,
+    'account_code', v_guardian.account_code,
+    'full_name', v_guardian.full_name,
+    'phone', v_guardian.phone,
+    'status', v_guardian.status
+  );
+END;
+$$;
+
 GRANT EXECUTE ON FUNCTION public.parent_get_portal_data TO anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.parent_app_login TO anon, authenticated;

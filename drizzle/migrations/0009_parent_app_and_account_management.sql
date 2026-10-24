@@ -12,6 +12,7 @@ ALTER TABLE public.guardians
   ADD COLUMN IF NOT EXISTS account_code text UNIQUE,
   ADD COLUMN IF NOT EXISTS status text NOT NULL DEFAULT 'pending_activation' 
     CHECK (status IN ('pending_activation', 'active', 'suspended', 'revoked')),
+  ADD COLUMN IF NOT EXISTS temp_password_code text,
   ADD COLUMN IF NOT EXISTS activated_at timestamptz,
   ADD COLUMN IF NOT EXISTS activated_by uuid REFERENCES public.profiles(id);
 
@@ -70,10 +71,9 @@ BEGIN
   WHERE id = _guardian_id;
 
   -- Log security event
-  INSERT INTO public.audit_log (school_id, user_id, action, table_name, record_id, details)
-  SELECT school_id, auth.uid(), 'ACTIVATE_GUARDIAN_ACCOUNT', 'guardians', _guardian_id, 
-    jsonb_build_object('account_code', v_code, 'status', 'active')
-  FROM public.guardians WHERE id = _guardian_id;
+  INSERT INTO public.audit_log (table_name, record_id, action, new_data, actor_id)
+  VALUES ('guardians', _guardian_id::text, 'ACTIVATE_GUARDIAN_ACCOUNT', 
+    jsonb_build_object('account_code', v_code, 'status', 'active'), auth.uid());
 
   RETURN jsonb_build_object(
     'account_code', v_code,
@@ -94,10 +94,9 @@ BEGIN
   SET status = 'suspended'
   WHERE id = _guardian_id;
 
-  INSERT INTO public.audit_log (school_id, user_id, action, table_name, record_id, details)
-  SELECT school_id, auth.uid(), 'SUSPEND_GUARDIAN_ACCOUNT', 'guardians', _guardian_id, 
-    jsonb_build_object('reason', _reason, 'status', 'suspended')
-  FROM public.guardians WHERE id = _guardian_id;
+  INSERT INTO public.audit_log (table_name, record_id, action, new_data, actor_id)
+  VALUES ('guardians', _guardian_id::text, 'SUSPEND_GUARDIAN_ACCOUNT', 
+    jsonb_build_object('reason', _reason, 'status', 'suspended'), auth.uid());
 
   RETURN true;
 END;
@@ -118,10 +117,9 @@ BEGIN
     RAISE EXCEPTION 'الحساب غير مفعّل بعد. يرجى تفعيل الحساب أولاً.';
   END IF;
 
-  INSERT INTO public.audit_log (school_id, user_id, action, table_name, record_id, details)
-  SELECT school_id, auth.uid(), 'RESET_GUARDIAN_PASSWORD', 'guardians', _guardian_id, 
-    jsonb_build_object('action', 'in_person_reset_initiated')
-  FROM public.guardians WHERE id = _guardian_id;
+  INSERT INTO public.audit_log (table_name, record_id, action, new_data, actor_id)
+  VALUES ('guardians', _guardian_id::text, 'RESET_GUARDIAN_PASSWORD', 
+    jsonb_build_object('action', 'in_person_reset_initiated'), auth.uid());
 
   RETURN jsonb_build_object(
     'account_code', v_code,

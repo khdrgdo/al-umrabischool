@@ -34,13 +34,15 @@ function getLinkedStudentsForGuardian(authenticatedGuardianId: string): StudentR
     .filter((link) => link.guardianId === authenticatedGuardianId)
     .map((link) => link.studentId);
 
-  return allowedStudentIds.map((id) => DATABASE_STUDENTS[id]).filter(Boolean);
+  return allowedStudentIds
+    .map((id) => DATABASE_STUDENTS[id])
+    .filter((s): s is StudentRecord => Boolean(s));
 }
 
 function getStudentDetailsForGuardian(
   authenticatedGuardianId: string,
   requestedStudentId: string
-): { authorized: boolean; student?: StudentRecord; error?: string } {
+): { authorized: boolean; student?: StudentRecord | undefined; error?: string | undefined } {
   const isLinked = GUARDIAN_STUDENT_LINKS.some(
     (link) => link.guardianId === authenticatedGuardianId && link.studentId === requestedStudentId
   );
@@ -68,8 +70,8 @@ describe("Suite 5: Guardian Data Isolation & IDOR/BOLA Protection", () => {
   it("isolates single-child family records without cross-leakage", () => {
     const children = getLinkedStudentsForGuardian("guard-2");
     expect(children).toHaveLength(1);
-    expect(children[0].id).toBe("std-3");
-    expect(children[0].fullName).toBe("عمر عثمان علي");
+    expect(children[0]?.id).toBe("std-3");
+    expect(children[0]?.fullName).toBe("عمر عثمان علي");
   });
 
   it("returns empty list for guardian with no linked students", () => {

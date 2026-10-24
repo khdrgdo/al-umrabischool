@@ -49,7 +49,7 @@ CREATE INDEX IF NOT EXISTS student_grades_student_idx ON public.student_grades (
 
 -- F-016 & F-012: Grade Score Validation and Published Lock Triggers
 CREATE OR REPLACE FUNCTION public.check_grade_score_and_status()
-RETURNS TRIGGER LANGUAGE plpgsql AS $$
+RETURNS TRIGGER LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 DECLARE
   v_max_score numeric(5, 2);
   v_status text;
@@ -63,7 +63,7 @@ BEGIN
   END IF;
 
   -- F-012: Prevent grade modification once published
-  IF v_status = 'published' AND NOT is_admin(auth.uid()) THEN
+  IF v_status = 'published' AND NOT public.can_manage(auth.uid()) THEN
     RAISE EXCEPTION 'لا يمكن تعديل أو رصد درجات لاختبار معتمد ومنشور رسمياً. فك النشر أولاً لإجراء أي تعديل.';
   END IF;
 

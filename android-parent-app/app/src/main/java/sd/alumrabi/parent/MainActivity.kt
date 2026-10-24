@@ -1,6 +1,7 @@
 package sd.alumrabi.parent
 
 import android.os.Bundle
+import android.view.WindowManager
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.animation.AnimatedContentTransitionScope
@@ -28,6 +29,11 @@ import sd.alumrabi.parent.ui.theme.LavenderCanvas
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        // OWASP MASVS-PLATFORM: Prevent recents snapshot and screenshot data leakage of academic/financial records
+        window.setFlags(
+            WindowManager.LayoutParams.FLAG_SECURE,
+            WindowManager.LayoutParams.FLAG_SECURE
+        )
         setContent {
             // Strict Arabic RTL Layout
             CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
