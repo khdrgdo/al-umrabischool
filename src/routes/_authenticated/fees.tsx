@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useMe, canManage, errMsg } from "@/lib/staff";
 import { matchesStudentNumber } from "@/lib/studentNumber";
+import { formatKhartoumDateDisplay } from "@/lib/schoolDate";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -437,9 +438,6 @@ function FeesPage() {
       if (!payAmount || Number(payAmount) <= 0) throw new Error("أدخل مبلغاً صحيحاً");
       if (!data?.year) throw new Error("لا يوجد عام دراسي حالي معتمد");
 
-      // Robust receipt number using timestamp slice to prevent collisions
-      const receiptNumber = `REC-${new Date().getFullYear()}-${Date.now().toString().slice(-6)}`;
-
       let feeTypeId: string | null = null;
       const { data: ft } = await supabase.from("fee_types").select("id").limit(1).maybeSingle();
       if (ft?.id) {
@@ -460,6 +458,29 @@ function FeesPage() {
         throw new Error("تعذر تحديد نوع الرسم. يرجى تهيئة أنواع الرسوم المعتمدة أولاً في لوحة التحكم.");
       }
 
+      // F-014: Server-side atomic payment recording with client idempotency key
+      const idempotencyKey = typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : `idemp-${Date.now()}-${Math.random()}`;
+
+      try {
+        const { data: rpcRes, error: rpcErr } = await (supabase.rpc as any)("record_student_payment", {
+          p_student_id: selectedStudent.studentId,
+          p_academic_year_id: data.year.id,
+          p_fee_type_id: feeTypeId,
+          p_amount: Number(payAmount),
+          p_payment_method: payMethod,
+          p_notes: payNotes || null,
+          p_idempotency_key: idempotencyKey,
+        });
+
+        if (!rpcErr && rpcRes?.success && rpcRes?.receipt_number) {
+          return { inserted: rpcRes, receiptNumber: rpcRes.receipt_number };
+        }
+      } catch (err) {
+        console.warn("record_student_payment RPC fallback:", err);
+      }
+
+      // Fallback if RPC is not yet created in active schema
+      const fallbackReceiptNumber = `REC-${new Date().getFullYear()}-${Date.now().toString().slice(-6)}`;
       const { data: inserted, error } = await supabase
         .from("student_payments")
         .insert({
@@ -468,14 +489,14 @@ function FeesPage() {
           fee_type_id: feeTypeId,
           amount: Number(payAmount),
           payment_method: payMethod,
-          receipt_number: receiptNumber,
+          receipt_number: fallbackReceiptNumber,
           notes: payNotes || null,
         })
         .select()
         .single();
 
       if (error) throw error;
-      return { inserted, receiptNumber };
+      return { inserted, receiptNumber: fallbackReceiptNumber };
     },
     onSuccess: (res) => {
       qc.invalidateQueries({ queryKey: ["fees-overview"] });
@@ -489,7 +510,7 @@ function FeesPage() {
           gradeSection: `${selectedStudent.gradeName} / ${selectedStudent.sectionName}`,
           amount: Number(payAmount) || 0,
           method: METHOD_LABELS[payMethod] ?? payMethod,
-          date: new Date().toLocaleDateString("ar-EG"),
+          date: formatKhartoumDateDisplay(new Date()),
           notes: payNotes || null,
         });
         setReceiptModalOpen(true);

@@ -1,6 +1,7 @@
 -- Migration 0008: Annual Rollover and Student Academic Promotion Workflow
 -- Allows reviewing academic decisions (promote, repeat, graduate, transfer_out),
 -- previewing the new academic year distribution, and executing rollover safely.
+-- Updated per FIX-1 (F-004, F-005, F-006, F-007)
 
 CREATE TABLE IF NOT EXISTS public.student_promotions (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -39,6 +40,7 @@ CREATE POLICY "managers manage student_promotions" ON public.student_promotions
   WITH CHECK (public.can_manage(auth.uid()));
 
 -- Stored Procedure to execute annual promotion atomically
+-- F-004, F-005, F-006, F-007: Strict validation, no silent DO NOTHING, explicit decisions
 CREATE OR REPLACE FUNCTION public.execute_year_rollover(
   _from_year uuid,
   _to_year uuid
@@ -46,15 +48,31 @@ CREATE OR REPLACE FUNCTION public.execute_year_rollover(
 RETURNS jsonb LANGUAGE plpgsql SECURITY INVOKER SET search_path = public AS $$
 DECLARE
   rec RECORD;
+  v_student_rec RECORD;
   promoted_count int := 0;
   repeated_count int := 0;
   graduated_count int := 0;
   transferred_count int := 0;
+  already_enrolled_count int := 0;
 BEGIN
   IF NOT public.can_manage(auth.uid()) THEN
     RAISE EXCEPTION 'لا تملك صلاحية اعتماد وتنفيذ الترحيل السنوي';
   END IF;
 
+  -- F-004: Validate that years exist and are distinct
+  IF _from_year = _to_year THEN
+    RAISE EXCEPTION 'لا يمكن إجراء الترحيل السنوي بين نفس السنة الدراسية.';
+  END IF;
+
+  IF NOT EXISTS (SELECT 1 FROM public.academic_years WHERE id = _from_year) THEN
+    RAISE EXCEPTION 'السنة الدراسية المنقول منها غير موجودة في النظام.';
+  END IF;
+
+  IF NOT EXISTS (SELECT 1 FROM public.academic_years WHERE id = _to_year) THEN
+    RAISE EXCEPTION 'السنة الدراسية المنقول إليها غير موجودة في النظام.';
+  END IF;
+
+  -- F-006: Ensure no pending unfinalized decisions
   IF EXISTS (
     SELECT 1 FROM public.student_promotions
     WHERE from_academic_year_id = _from_year
@@ -62,7 +80,7 @@ BEGIN
       AND decision = 'pending'
       AND NOT is_executed
   ) THEN
-    RAISE EXCEPTION 'توجد قرارات طلاب معلقة لم تُحسم بعد. يُرجى حسم كافة القرارات أولًا';
+    RAISE EXCEPTION 'توجد قرارات طلاب معلقة (pending) لم تُحسم بعد. يُرجى حسم كافة القرارات أولًا.';
   END IF;
 
   FOR rec IN
@@ -73,47 +91,73 @@ BEGIN
       AND sp.to_academic_year_id = _to_year
       AND NOT sp.is_executed
   LOOP
+    -- Fetch student current status
+    SELECT * INTO v_student_rec FROM public.students WHERE id = rec.student_id;
+    IF NOT FOUND THEN
+      RAISE EXCEPTION 'سجل الطالب غير موجود (معرف: %)', rec.student_id;
+    END IF;
+
+    -- F-007: Block active enrollment for graduated or transferred-out students
+    IF v_student_rec.status IN ('graduated', 'transferred_out') AND rec.decision IN ('promote', 'repeat') THEN
+      RAISE EXCEPTION 'لا يمكن قيد طالب متخرج أو منقول خارجياً في السنة الجديدة (الطالب: %)', v_student_rec.full_name;
+    END IF;
+
     IF rec.decision = 'promote' THEN
       IF rec.target_section_id IS NULL THEN
-        RAISE EXCEPTION 'يجب تحديد الشعبة المستهدفة لجميع الطلاب المترقين';
+        RAISE EXCEPTION 'يجب تحديد الشعبة المستهدفة لجميع الطلاب المترقين (الطالب: %)', v_student_rec.full_name;
       END IF;
 
+      -- F-004: Verify target section belongs to target academic year
       IF NOT EXISTS (
         SELECT 1 FROM public.sections
         WHERE id = rec.target_section_id AND academic_year_id = _to_year
       ) THEN
-        RAISE EXCEPTION 'الشعبة المستهدفة للطالب غير مرتبطة بالسنة الدراسية الجديدة';
+        RAISE EXCEPTION 'الشعبة المستهدفة للطالب (%) غير مرتبطة بالسنة الدراسية الجديدة', v_student_rec.full_name;
       END IF;
 
-      INSERT INTO public.enrollments (student_id, academic_year_id, section_id, enrollment_type, status)
-      VALUES (rec.student_id, _to_year, rec.target_section_id, 'continuing', 'active')
-      ON CONFLICT (student_id, academic_year_id) DO NOTHING;
+      -- F-005: Check existing enrollment before insert rather than silent DO NOTHING
+      IF EXISTS (
+        SELECT 1 FROM public.enrollments 
+        WHERE student_id = rec.student_id AND academic_year_id = _to_year
+      ) THEN
+        already_enrolled_count := already_enrolled_count + 1;
+      ELSE
+        INSERT INTO public.enrollments (student_id, academic_year_id, section_id, enrollment_type, status)
+        VALUES (rec.student_id, _to_year, rec.target_section_id, 'continuing', 'active');
+        promoted_count := promoted_count + 1;
+      END IF;
 
       IF rec.from_enrollment_id IS NOT NULL THEN
         UPDATE public.enrollments SET status = 'promoted' WHERE id = rec.from_enrollment_id;
       END IF;
-      promoted_count := promoted_count + 1;
 
     ELSIF rec.decision = 'repeat' THEN
       IF rec.target_section_id IS NULL THEN
-        RAISE EXCEPTION 'يجب تحديد شعبة الإعادة لجميع الطلاب المعيدين';
+        RAISE EXCEPTION 'يجب تحديد شعبة الإعادة لجميع الطلاب المعيدين (الطالب: %)', v_student_rec.full_name;
       END IF;
 
       IF NOT EXISTS (
         SELECT 1 FROM public.sections
         WHERE id = rec.target_section_id AND academic_year_id = _to_year
       ) THEN
-        RAISE EXCEPTION 'شعبة الإعادة للطالب غير مرتبطة بالسنة الدراسية الجديدة';
+        RAISE EXCEPTION 'شعبة الإعادة للطالب (%) غير مرتبطة بالسنة الدراسية الجديدة', v_student_rec.full_name;
       END IF;
 
-      INSERT INTO public.enrollments (student_id, academic_year_id, section_id, enrollment_type, status)
-      VALUES (rec.student_id, _to_year, rec.target_section_id, 'continuing', 'active')
-      ON CONFLICT (student_id, academic_year_id) DO NOTHING;
+      -- F-005: Explicit enrollment check
+      IF EXISTS (
+        SELECT 1 FROM public.enrollments 
+        WHERE student_id = rec.student_id AND academic_year_id = _to_year
+      ) THEN
+        already_enrolled_count := already_enrolled_count + 1;
+      ELSE
+        INSERT INTO public.enrollments (student_id, academic_year_id, section_id, enrollment_type, status)
+        VALUES (rec.student_id, _to_year, rec.target_section_id, 'continuing', 'active');
+        repeated_count := repeated_count + 1;
+      END IF;
 
       IF rec.from_enrollment_id IS NOT NULL THEN
         UPDATE public.enrollments SET status = 'repeated' WHERE id = rec.from_enrollment_id;
       END IF;
-      repeated_count := repeated_count + 1;
 
     ELSIF rec.decision = 'graduate' THEN
       IF rec.from_enrollment_id IS NOT NULL THEN
@@ -139,7 +183,8 @@ BEGIN
     'promoted', promoted_count,
     'repeated', repeated_count,
     'graduated', graduated_count,
-    'transferred', transferred_count
+    'transferred', transferred_count,
+    'already_enrolled_skipped', already_enrolled_count
   );
 END;
 $$;

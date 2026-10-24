@@ -4,6 +4,7 @@ import React, { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useSchool, useMe, canManage, errMsg } from "@/lib/staff";
+import { getKhartoumDateString } from "@/lib/schoolDate";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
@@ -547,7 +548,7 @@ function GuardiansPage() {
     const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
     const link = document.createElement("a");
     link.href = URL.createObjectURL(blob);
-    link.download = `guardians_directory_${new Date().toISOString().split("T")[0]}.csv`;
+    link.download = `guardians_directory_${getKhartoumDateString()}.csv`;
     link.click();
   };
 

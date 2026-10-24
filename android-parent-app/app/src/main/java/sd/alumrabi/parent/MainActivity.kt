@@ -3,6 +3,10 @@ package sd.alumrabi.parent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.compose.animation.AnimatedContentTransitionScope
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.*
@@ -12,7 +16,10 @@ import androidx.compose.ui.unit.LayoutDirection
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
-import sd.alumrabi.parent.data.model.DashboardPayload
+import kotlinx.coroutines.launch
+import sd.alumrabi.parent.data.api.ParentApiClient
+import sd.alumrabi.parent.data.model.AnnouncementItem
+import sd.alumrabi.parent.data.model.CalendarEventItem
 import sd.alumrabi.parent.data.model.GuardianInfo
 import sd.alumrabi.parent.data.model.LinkedChild
 import sd.alumrabi.parent.ui.screens.*
@@ -41,12 +48,10 @@ class MainActivity : ComponentActivity() {
 @Composable
 fun ParentAppNavHost() {
     val navController = rememberNavController()
+    val coroutineScope = rememberCoroutineScope()
+    val apiClient = remember { ParentApiClient() }
 
-    // State
-    var isLoggedIn by remember { mutableStateOf(false) }
-    var selectedChildIndex by remember { mutableIntStateOf(0) }
-
-    // Mock/Initial Authenticated Guardian data placeholder
+    // Session State
     var currentGuardian by remember {
         mutableStateOf(
             GuardianInfo(
@@ -63,17 +68,71 @@ fun ParentAppNavHost() {
         mutableStateOf<List<LinkedChild>>(emptyList())
     }
 
-    val startDestination = if (isLoggedIn) "dashboard" else "login"
+    var announcements by remember {
+        mutableStateOf<List<AnnouncementItem>>(emptyList())
+    }
+
+    var events by remember {
+        mutableStateOf<List<CalendarEventItem>>(emptyList())
+    }
+
+    var selectedChildIndex by remember { mutableIntStateOf(0) }
+
+    // Fetch announcements and events in background
+    LaunchedEffect(Unit) {
+        coroutineScope.launch {
+            val annResult = apiClient.fetchAnnouncements()
+            announcements = annResult.getOrDefault(emptyList())
+
+            val evResult = apiClient.fetchEvents()
+            events = evResult.getOrDefault(emptyList())
+        }
+    }
 
     NavHost(
         navController = navController,
-        startDestination = startDestination
+        startDestination = "splash",
+        enterTransition = {
+            slideIntoContainer(
+                AnimatedContentTransitionScope.SlideDirection.Start,
+                animationSpec = tween(320)
+            ) + fadeIn(animationSpec = tween(320))
+        },
+        exitTransition = {
+            slideOutOfContainer(
+                AnimatedContentTransitionScope.SlideDirection.Start,
+                animationSpec = tween(320)
+            ) + fadeOut(animationSpec = tween(320))
+        },
+        popEnterTransition = {
+            slideIntoContainer(
+                AnimatedContentTransitionScope.SlideDirection.End,
+                animationSpec = tween(320)
+            ) + fadeIn(animationSpec = tween(320))
+        },
+        popExitTransition = {
+            slideOutOfContainer(
+                AnimatedContentTransitionScope.SlideDirection.End,
+                animationSpec = tween(320)
+            ) + fadeOut(animationSpec = tween(320))
+        }
     ) {
+        composable("splash") {
+            AnimatedSplashScreen(
+                onSplashFinished = {
+                    navController.navigate("login") {
+                        popUpTo("splash") { inclusive = true }
+                    }
+                }
+            )
+        }
+
         composable("login") {
             LoginScreen(
-                onLoginSuccess = { accountCode ->
-                    currentGuardian = currentGuardian.copy(accountCode = accountCode)
-                    isLoggedIn = true
+                onLoginSuccess = { guardian, children ->
+                    currentGuardian = guardian
+                    currentChildren = children
+                    selectedChildIndex = 0
                     navController.navigate("dashboard") {
                         popUpTo("login") { inclusive = true }
                     }
@@ -82,8 +141,6 @@ fun ParentAppNavHost() {
         }
 
         composable("dashboard") {
-            val activeChild = currentChildren.getOrNull(selectedChildIndex)
-
             DashboardScreen(
                 guardian = currentGuardian,
                 children = currentChildren,
@@ -115,7 +172,7 @@ fun ParentAppNavHost() {
 
         composable("schedule") {
             val activeChild = currentChildren.getOrNull(selectedChildIndex)
-            AttendanceScreen( // Using same structure for schedule periods
+            ScheduleScreen(
                 child = activeChild,
                 onBack = { navController.popBackStack() }
             )
@@ -123,8 +180,8 @@ fun ParentAppNavHost() {
 
         composable("announcements") {
             AnnouncementsScreen(
-                announcements = emptyList(),
-                events = emptyList(),
+                announcements = announcements,
+                events = events,
                 onBack = { navController.popBackStack() }
             )
         }
@@ -134,7 +191,8 @@ fun ParentAppNavHost() {
                 guardian = currentGuardian,
                 onBack = { navController.popBackStack() },
                 onLogout = {
-                    isLoggedIn = false
+                    currentGuardian = currentGuardian.copy(id = "", accountCode = "")
+                    currentChildren = emptyList()
                     navController.navigate("login") {
                         popUpTo("dashboard") { inclusive = true }
                     }

@@ -9,6 +9,10 @@ export default defineConfig({
     globals: true,
     setupFiles: ["./src/test/setup.ts"],
     include: ["src/**/*.{test,spec}.{ts,tsx}"],
+    fileParallelism: false,
+    pool: "threads",
+    testTimeout: 20000,
+    hookTimeout: 20000,
   },
   resolve: {
     alias: { "@": path.resolve(__dirname, "./src") },

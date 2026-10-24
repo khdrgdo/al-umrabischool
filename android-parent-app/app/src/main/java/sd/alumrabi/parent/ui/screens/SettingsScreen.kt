@@ -143,7 +143,7 @@ fun SettingsScreen(
                         .fillMaxWidth()
                         .height(48.dp)
                 ) {
-                    Icon(Icons.Default.ExitToApp, contentDescription = null, tint = Color.White)
+                    Icon(Icons.Filled.ExitToApp, contentDescription = null, tint = Color.White)
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
                         text = "تسجيل الخروج من التطبيق",

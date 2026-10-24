@@ -5,6 +5,7 @@ import React, { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useSchool, useMe, canManage, errMsg } from "@/lib/staff";
+import { getKhartoumDateString } from "@/lib/schoolDate";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -115,7 +116,7 @@ function CalendarPage() {
   const [eventTitle, setEventTitle] = useState("");
   const [eventDesc, setEventDesc] = useState("");
   const [eventType, setEventType] = useState<EventType>("term_date");
-  const [eventStart, setEventStart] = useState(new Date().toISOString().split("T")[0]);
+  const [eventStart, setEventStart] = useState(getKhartoumDateString());
   const [eventEnd, setEventEnd] = useState("");
   const [eventAudience, setEventAudience] = useState<TargetAudience>("all");
   const [eventPublished, setEventPublished] = useState(true);
@@ -339,7 +340,7 @@ function CalendarPage() {
     const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
     const link = document.createElement("a");
     link.href = URL.createObjectURL(blob);
-    link.download = `school_calendar_${new Date().toISOString().split("T")[0]}.csv`;
+    link.download = `school_calendar_${getKhartoumDateString()}.csv`;
     link.click();
   };
 
@@ -600,8 +601,7 @@ function CalendarPage() {
               const day = i + 1;
               const dateStr = `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
               const dayEvents = eventsByDate.get(dateStr) ?? [];
-              const isToday =
-                new Date().toISOString().split("T")[0] === dateStr;
+              const isToday = getKhartoumDateString() === dateStr;
               const isSelected = selectedDayDate === dateStr;
 
               return (

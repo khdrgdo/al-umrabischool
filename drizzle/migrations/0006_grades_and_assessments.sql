@@ -1,5 +1,6 @@
 -- Migration 0006: Grades, Assessments, Exams, and Results Lifecycle
 -- Workflow: draft -> review -> approved -> published
+-- Updated per FIX-1 (F-012, F-016, F-022)
 
 CREATE TABLE IF NOT EXISTS public.assessment_categories (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -46,6 +47,45 @@ CREATE INDEX IF NOT EXISTS assessments_section_idx ON public.assessments (sectio
 CREATE INDEX IF NOT EXISTS student_grades_assessment_idx ON public.student_grades (assessment_id);
 CREATE INDEX IF NOT EXISTS student_grades_student_idx ON public.student_grades (student_id);
 
+-- F-016 & F-012: Grade Score Validation and Published Lock Triggers
+CREATE OR REPLACE FUNCTION public.check_grade_score_and_status()
+RETURNS TRIGGER LANGUAGE plpgsql AS $$
+DECLARE
+  v_max_score numeric(5, 2);
+  v_status text;
+BEGIN
+  SELECT max_score, status INTO v_max_score, v_status
+  FROM public.assessments
+  WHERE id = NEW.assessment_id;
+
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'الاختبار المحدد غير موجود';
+  END IF;
+
+  -- F-012: Prevent grade modification once published
+  IF v_status = 'published' AND NOT is_admin(auth.uid()) THEN
+    RAISE EXCEPTION 'لا يمكن تعديل أو رصد درجات لاختبار معتمد ومنشور رسمياً. فك النشر أولاً لإجراء أي تعديل.';
+  END IF;
+
+  -- F-016: Score bound check
+  IF NEW.score IS NOT NULL AND NEW.score > v_max_score THEN
+    RAISE EXCEPTION 'الدرجة المرصودة (%) تتجاوز النهاية العظمى المعتمدة للاختبار (%)', NEW.score, v_max_score;
+  END IF;
+
+  NEW.updated_at := now();
+  IF auth.uid() IS NOT NULL THEN
+    NEW.updated_by := auth.uid();
+  END IF;
+
+  RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS trg_check_grade_score_and_status ON public.student_grades;
+CREATE TRIGGER trg_check_grade_score_and_status
+  BEFORE INSERT OR UPDATE ON public.student_grades
+  FOR EACH ROW EXECUTE FUNCTION public.check_grade_score_and_status();
+
 -- RLS & Grants
 GRANT SELECT, INSERT, UPDATE ON public.assessment_categories TO authenticated;
 GRANT SELECT, INSERT, UPDATE ON public.assessments TO authenticated;
@@ -70,3 +110,12 @@ CREATE POLICY "staff update assessments" ON public.assessments FOR UPDATE TO aut
 CREATE POLICY "staff read student_grades" ON public.student_grades FOR SELECT TO authenticated USING (public.is_staff(auth.uid()));
 CREATE POLICY "staff insert student_grades" ON public.student_grades FOR INSERT TO authenticated WITH CHECK (public.is_staff(auth.uid()));
 CREATE POLICY "staff update student_grades" ON public.student_grades FOR UPDATE TO authenticated USING (public.is_staff(auth.uid())) WITH CHECK (public.is_staff(auth.uid()));
+
+-- F-022: Audit triggers on assessments and student_grades
+CREATE OR REPLACE TRIGGER audit_assessments
+  AFTER INSERT OR UPDATE OR DELETE ON public.assessments
+  FOR EACH ROW EXECUTE FUNCTION public.audit_trigger();
+
+CREATE OR REPLACE TRIGGER audit_student_grades
+  AFTER INSERT OR UPDATE OR DELETE ON public.student_grades
+  FOR EACH ROW EXECUTE FUNCTION public.audit_trigger();

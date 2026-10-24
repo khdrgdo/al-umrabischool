@@ -1,9 +1,11 @@
 -- Migration 0009: Parent Mobile App Backend & Account Management
--- Implements specifications from Notion "تطبيق العمرابي":
+-- Implements specifications from FIX-1 and APP-2:
 -- 1. Unpredictable random account identifiers (account_code)
 -- 2. Explicit lifecycle: pending_activation, active, suspended, revoked
 -- 3. Principal-only activation & password reset workflow with audit logging
 -- 4. Server-enforced data isolation for multi-child parent accounts (prevents BOLA/IDOR)
+-- Note: Per FIX-1 (3.3), parent_app_login and plaintext temp_password_code are removed.
+-- Auth design follows APP-2 Section 6 (Supabase Auth + Edge Functions).
 
 -- 1. Extend guardians table with account lifecycle fields
 ALTER TABLE public.guardians 
@@ -11,9 +13,7 @@ ALTER TABLE public.guardians
   ADD COLUMN IF NOT EXISTS status text NOT NULL DEFAULT 'pending_activation' 
     CHECK (status IN ('pending_activation', 'active', 'suspended', 'revoked')),
   ADD COLUMN IF NOT EXISTS activated_at timestamptz,
-  ADD COLUMN IF NOT EXISTS activated_by uuid REFERENCES public.profiles(id),
-  ADD COLUMN IF NOT EXISTS temp_password_code text,
-  ADD COLUMN IF NOT EXISTS temp_code_expires_at timestamptz;
+  ADD COLUMN IF NOT EXISTS activated_by uuid REFERENCES public.profiles(id);
 
 CREATE INDEX IF NOT EXISTS guardians_account_code_idx ON public.guardians (account_code);
 CREATE INDEX IF NOT EXISTS guardians_status_idx ON public.guardians (status);
@@ -38,7 +38,6 @@ CREATE OR REPLACE FUNCTION public.admin_activate_guardian_account(_guardian_id u
 RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 DECLARE
   v_code text;
-  v_temp text;
   v_exists boolean;
   v_cur_code text;
 BEGIN
@@ -62,17 +61,12 @@ BEGIN
     v_code := v_cur_code;
   END IF;
 
-  -- Generate 6-digit one-time activation code
-  v_temp := lpad(floor(random() * 900000 + 100000)::text, 6, '0');
-
   UPDATE public.guardians
   SET 
     account_code = v_code,
     status = 'active',
     activated_at = now(),
-    activated_by = auth.uid(),
-    temp_password_code = v_temp,
-    temp_code_expires_at = now() + interval '7 days'
+    activated_by = auth.uid()
   WHERE id = _guardian_id;
 
   -- Log security event
@@ -83,7 +77,6 @@ BEGIN
 
   RETURN jsonb_build_object(
     'account_code', v_code,
-    'temp_code', v_temp,
     'status', 'active'
   );
 END;
@@ -110,11 +103,10 @@ BEGIN
 END;
 $$;
 
--- 5. RPC: Principal resets guardian password (in-person request)
+-- 5. RPC: Principal initiates guardian password reset workflow (APP-2 Section 6)
 CREATE OR REPLACE FUNCTION public.admin_reset_guardian_password(_guardian_id uuid)
 RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 DECLARE
-  v_temp text;
   v_code text;
 BEGIN
   IF NOT public.can_manage(auth.uid()) THEN
@@ -126,23 +118,14 @@ BEGIN
     RAISE EXCEPTION 'الحساب غير مفعّل بعد. يرجى تفعيل الحساب أولاً.';
   END IF;
 
-  v_temp := lpad(floor(random() * 900000 + 100000)::text, 6, '0');
-
-  UPDATE public.guardians
-  SET 
-    temp_password_code = v_temp,
-    temp_code_expires_at = now() + interval '24 hours'
-  WHERE id = _guardian_id;
-
   INSERT INTO public.audit_log (school_id, user_id, action, table_name, record_id, details)
   SELECT school_id, auth.uid(), 'RESET_GUARDIAN_PASSWORD', 'guardians', _guardian_id, 
-    jsonb_build_object('action', 'in_person_reset')
+    jsonb_build_object('action', 'in_person_reset_initiated')
   FROM public.guardians WHERE id = _guardian_id;
 
   RETURN jsonb_build_object(
     'account_code', v_code,
-    'temp_code', v_temp,
-    'expires_in_hours', 24
+    'status', 'reset_initiated'
   );
 END;
 $$;
@@ -267,56 +250,13 @@ BEGIN
 END;
 $$;
 
--- 7. RPC: Parent App Authentication via Account Code & PIN (OWASP Compliant: No Account Enumeration)
-CREATE OR REPLACE FUNCTION public.parent_app_login(_account_code text, _code_or_pin text)
-RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
-DECLARE
-  v_guardian RECORD;
-BEGIN
-  -- Strict input check
-  IF _account_code IS NULL OR _code_or_pin IS NULL OR trim(_account_code) = '' OR trim(_code_or_pin) = '' THEN
-    RETURN jsonb_build_object('success', false, 'message', 'يرجى إدخال معرّف الحساب ورمز المرور');
-  END IF;
+-- Security Hardening: Revoke from PUBLIC and anon on management RPCs
+REVOKE EXECUTE ON FUNCTION public.admin_activate_guardian_account(uuid) FROM PUBLIC, anon;
+REVOKE EXECUTE ON FUNCTION public.admin_suspend_guardian_account(uuid, text) FROM PUBLIC, anon;
+REVOKE EXECUTE ON FUNCTION public.admin_reset_guardian_password(uuid) FROM PUBLIC, anon;
+REVOKE EXECUTE ON FUNCTION public.parent_get_dashboard_data() FROM PUBLIC, anon;
 
-  -- Lookup guardian by unguessable account_code
-  SELECT * INTO v_guardian FROM public.guardians 
-  WHERE upper(account_code) = upper(trim(_account_code)) 
-  LIMIT 1;
-
-  -- Generic error on mismatch to prevent account enumeration (Notion Sec 2.5)
-  IF NOT FOUND THEN
-    RETURN jsonb_build_object('success', false, 'message', 'بيانات الدخول غير صحيحة. يرجى التأكد من المعرّف أو مراجعة إدارة المدرسة.');
-  END IF;
-
-  -- Status check
-  IF v_guardian.status = 'suspended' THEN
-    RETURN jsonb_build_object('success', false, 'message', 'تم إيقاف حساب ولي الأمر. يرجى مراجعة إدارة المدرسة.');
-  END IF;
-
-  IF v_guardian.status = 'revoked' THEN
-    RETURN jsonb_build_object('success', false, 'message', 'تم إلغاء هذا الحساب. يرجى مراجعة إدارة المدرسة.');
-  END IF;
-
-  -- PIN / Password match (supports initial temp_code or configured password)
-  IF v_guardian.temp_password_code IS NOT NULL AND v_guardian.temp_password_code = trim(_code_or_pin) THEN
-    -- If temp code has expired
-    IF v_guardian.temp_code_expires_at IS NOT NULL AND v_guardian.temp_code_expires_at < now() THEN
-      RETURN jsonb_build_object('success', false, 'message', 'انتهت صلاحية رمز التفعيل المؤقت. يرجى طلب رمز جديد من إدارة المدرسة.');
-    END IF;
-
-    RETURN jsonb_build_object(
-      'success', true,
-      'guardian_id', v_guardian.id,
-      'account_code', v_guardian.account_code,
-      'full_name', v_guardian.full_name,
-      'phone', v_guardian.phone,
-      'status', v_guardian.status,
-      'requires_new_password', true
-    );
-  END IF;
-
-  -- If neither matches, return generic error
-  RETURN jsonb_build_object('success', false, 'message', 'بيانات الدخول غير صحيحة. يرجى التأكد من المعرّف أو مراجعة إدارة المدرسة.');
-END;
-$$;
-
+GRANT EXECUTE ON FUNCTION public.admin_activate_guardian_account(uuid) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.admin_suspend_guardian_account(uuid, text) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.admin_reset_guardian_password(uuid) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.parent_get_dashboard_data() TO authenticated;

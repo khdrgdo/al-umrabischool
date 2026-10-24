@@ -1,5 +1,8 @@
 package sd.alumrabi.parent.ui.screens
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -19,12 +22,19 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import kotlinx.coroutines.launch
+import sd.alumrabi.parent.data.api.ParentApiClient
+import sd.alumrabi.parent.data.model.GuardianInfo
+import sd.alumrabi.parent.data.model.LinkedChild
 import sd.alumrabi.parent.ui.theme.*
 
 @Composable
 fun LoginScreen(
-    onLoginSuccess: (accountCode: String) -> Unit
+    onLoginSuccess: (guardian: GuardianInfo, children: List<LinkedChild>) -> Unit
 ) {
+    val coroutineScope = rememberCoroutineScope()
+    val apiClient = remember { ParentApiClient() }
+
     var accountCode by remember { mutableStateOf("") }
     var passwordOrPin by remember { mutableStateOf("") }
     var isLoading by remember { mutableStateOf(false) }
@@ -38,18 +48,18 @@ fun LoginScreen(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
-        // School Brand Header
+        // Institutional Heraldic Emblem
         Surface(
-            shape = RoundedCornerShape(16.dp),
+            shape = RoundedCornerShape(18.dp),
             color = BurgundyPrimary,
-            modifier = Modifier.size(72.dp),
-            shadowElevation = 4.dp
+            modifier = Modifier.size(76.dp),
+            shadowElevation = 6.dp
         ) {
             Box(contentAlignment = Alignment.Center) {
                 Text(
                     text = "ع",
                     color = Color.White,
-                    fontSize = 36.sp,
+                    fontSize = 40.sp,
                     fontWeight = FontWeight.Bold
                 )
             }
@@ -65,13 +75,13 @@ fun LoginScreen(
         )
 
         Text(
-            text = "تطبيق أولياء الأمور والمتابعة الأكاديمية",
+            text = "بوابة أولياء الأمور والمتابعة الأكاديمية",
             fontSize = 12.sp,
             color = TextSecondary,
             modifier = Modifier.padding(top = 4.dp)
         )
 
-        Spacer(modifier = Modifier.height(32.dp))
+        Spacer(modifier = Modifier.height(30.dp))
 
         Card(
             shape = RoundedCornerShape(16.dp),
@@ -82,11 +92,11 @@ fun LoginScreen(
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(20.dp)
+                    .padding(22.dp)
             ) {
                 Text(
                     text = "تسجيل الدخول والتفعيل",
-                    fontSize = 14.sp,
+                    fontSize = 15.sp,
                     fontWeight = FontWeight.Bold,
                     color = TextPrimary
                 )
@@ -99,7 +109,7 @@ fun LoginScreen(
                         accountCode = it.uppercase()
                         errorMessage = null
                     },
-                    label = { Text("معرّف الحساب (مثال: PAR-XXXXXX)") },
+                    label = { Text("معرّف الحساب (مثال: PAR-10101)") },
                     leadingIcon = { Icon(Icons.Default.Person, contentDescription = null, tint = BurgundyPrimary) },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth(),
@@ -114,7 +124,7 @@ fun LoginScreen(
                         passwordOrPin = it
                         errorMessage = null
                     },
-                    label = { Text("كلمة المرور أو رمز التفعيل") },
+                    label = { Text("كلمة المرور أو رمز التفعيل (PIN)") },
                     leadingIcon = { Icon(Icons.Default.Lock, contentDescription = null, tint = BurgundyPrimary) },
                     visualTransformation = PasswordVisualTransformation(),
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
@@ -123,26 +133,73 @@ fun LoginScreen(
                     shape = RoundedCornerShape(12.dp)
                 )
 
-                if (errorMessage != null) {
-                    Spacer(modifier = Modifier.height(12.dp))
-                    Text(
-                        text = errorMessage ?: "",
-                        color = StatusDanger,
-                        fontSize = 12.sp,
-                        textAlign = TextAlign.Start
-                    )
+                AnimatedVisibility(
+                    visible = errorMessage != null,
+                    enter = fadeIn(),
+                    exit = fadeOut()
+                ) {
+                    errorMessage?.let { msg ->
+                        Column {
+                            Spacer(modifier = Modifier.height(12.dp))
+                            Surface(
+                                shape = RoundedCornerShape(8.dp),
+                                color = StatusDangerBg,
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Text(
+                                    text = msg,
+                                    color = StatusDanger,
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Medium,
+                                    modifier = Modifier.padding(10.dp),
+                                    textAlign = TextAlign.Start,
+                                    lineHeight = 16.sp
+                                )
+                            }
+                        }
+                    }
                 }
 
                 Spacer(modifier = Modifier.height(20.dp))
 
                 Button(
                     onClick = {
-                        if (accountCode.isBlank() || passwordOrPin.isBlank()) {
+                        val trimmedCode = accountCode.trim()
+                        val trimmedPin = passwordOrPin.trim()
+
+                        if (trimmedCode.isBlank() || trimmedPin.isBlank()) {
                             errorMessage = "يرجى إدخال معرّف الحساب ورمز المرور"
-                        } else {
-                            isLoading = true
-                            // Direct mock/live flow transition
-                            onLoginSuccess(accountCode)
+                            return@Button
+                        }
+
+                        isLoading = true
+                        errorMessage = null
+
+                        coroutineScope.launch {
+                            val loginResult = apiClient.login(trimmedCode, trimmedPin)
+                            loginResult.onSuccess { response ->
+                                if (response.success) {
+                                    val guardian = GuardianInfo(
+                                        id = response.guardianId ?: "g-${System.currentTimeMillis()}",
+                                        accountCode = response.accountCode ?: trimmedCode,
+                                        fullName = response.fullName ?: "ولي الأمر",
+                                        phone = "",
+                                        status = response.status ?: "active"
+                                    )
+
+                                    val childrenResult = apiClient.fetchChildrenForGuardian(guardian.id)
+                                    val children = childrenResult.getOrDefault(emptyList())
+
+                                    isLoading = false
+                                    onLoginSuccess(guardian, children)
+                                } else {
+                                    isLoading = false
+                                    errorMessage = response.message ?: "بيانات الدخول غير صحيحة. يرجى التأكد من المعرّف أو مراجعة إدارة المدرسة."
+                                }
+                            }.onFailure { err ->
+                                isLoading = false
+                                errorMessage = "تعذر الاتصال بالخادم حالياً. يرجى التأكد من اتصال الإنترنت والمحاولة لاحقاً."
+                            }
                         }
                     },
                     modifier = Modifier
@@ -166,12 +223,42 @@ fun LoginScreen(
                         )
                     }
                 }
+
+                Spacer(modifier = Modifier.height(14.dp))
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.Center,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "تجربة حساب معتمد:",
+                        fontSize = 11.sp,
+                        color = TextSecondary
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    TextButton(
+                        onClick = {
+                            accountCode = "PAR-10101"
+                            passwordOrPin = "449210"
+                            errorMessage = null
+                        },
+                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp)
+                    ) {
+                        Text(
+                            text = "PAR-10101 (د. عبدالله)",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = BurgundyPrimary
+                        )
+                    }
+                }
             }
         }
 
         Spacer(modifier = Modifier.height(20.dp))
 
-        // Security Notice adhering to Notion Sec 2
+        // Institutional Security Notice
         Card(
             shape = RoundedCornerShape(12.dp),
             colors = CardDefaults.cardColors(containerColor = BurgundyContainer.copy(alpha = 0.5f)),

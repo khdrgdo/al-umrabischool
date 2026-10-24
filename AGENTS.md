@@ -10,6 +10,7 @@
 <!-- LOVABLE:END -->
 
 ## Project rules
+- **Binding Reference**: `FIX-1` (system, security, database) and `APP-2` (Android parent app) in Notion are the sole binding references. Older Notion docs are historical archives.
 - Roles live in `public.user_roles`; authorization is enforced by RLS using `has_role`/`is_staff`/`can_manage` — UI checks are hints only. Why: the future parent app must not bypass rules.
 - Student identity (`students`) is separate from yearly `enrollments`; never delete students or enrollments, change status instead. Why: preserve academic history.
 - Core tables carry the `audit_trigger`; add it to every new sensitive table. Why: auditable changes.
