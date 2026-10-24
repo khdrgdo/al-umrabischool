@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.navigation.compose.NavHost
@@ -18,10 +19,8 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import kotlinx.coroutines.launch
 import sd.alumrabi.parent.data.api.ParentApiClient
-import sd.alumrabi.parent.data.model.AnnouncementItem
-import sd.alumrabi.parent.data.model.CalendarEventItem
-import sd.alumrabi.parent.data.model.GuardianInfo
-import sd.alumrabi.parent.data.model.LinkedChild
+import sd.alumrabi.parent.data.local.SessionManager
+import sd.alumrabi.parent.data.model.*
 import sd.alumrabi.parent.ui.screens.*
 import sd.alumrabi.parent.ui.theme.AlUmrabiParentTheme
 import sd.alumrabi.parent.ui.theme.LavenderCanvas
@@ -47,14 +46,16 @@ class MainActivity : ComponentActivity() {
 
 @Composable
 fun ParentAppNavHost() {
+    val context = LocalContext.current
+    val sessionManager = remember { SessionManager(context) }
     val navController = rememberNavController()
     val coroutineScope = rememberCoroutineScope()
     val apiClient = remember { ParentApiClient() }
 
-    // Session State
+    // Session State initialized from persistent local storage
     var currentGuardian by remember {
         mutableStateOf(
-            GuardianInfo(
+            sessionManager.getGuardian() ?: GuardianInfo(
                 id = "",
                 accountCode = "",
                 fullName = "ولي الأمر",
@@ -65,7 +66,7 @@ fun ParentAppNavHost() {
     }
 
     var currentChildren by remember {
-        mutableStateOf<List<LinkedChild>>(emptyList())
+        mutableStateOf(sessionManager.getChildren())
     }
 
     var announcements by remember {
@@ -76,16 +77,32 @@ fun ParentAppNavHost() {
         mutableStateOf<List<CalendarEventItem>>(emptyList())
     }
 
+    var connectionState by remember {
+        mutableStateOf(BackendConnectionState.CONNECTING)
+    }
+
     var selectedChildIndex by remember { mutableIntStateOf(0) }
 
-    // Fetch announcements and events in background
+    // Background Network Health & Live Sync
     LaunchedEffect(Unit) {
         coroutineScope.launch {
+            connectionState = apiClient.checkConnection()
             val annResult = apiClient.fetchAnnouncements()
             announcements = annResult.getOrDefault(emptyList())
 
             val evResult = apiClient.fetchEvents()
             events = evResult.getOrDefault(emptyList())
+
+            // If guardian has saved credentials, refresh portal data silently
+            val savedGuardian = sessionManager.getGuardian()
+            if (savedGuardian != null && !savedGuardian.accountCode.isNullOrBlank()) {
+                val portalResult = apiClient.fetchPortalData(savedGuardian.id, savedGuardian.accountCode)
+                portalResult.getOrNull()?.let { payload ->
+                    currentGuardian = payload.guardian
+                    currentChildren = payload.children
+                    sessionManager.saveSession(payload.guardian, payload.children)
+                }
+            }
         }
     }
 
@@ -120,7 +137,8 @@ fun ParentAppNavHost() {
         composable("splash") {
             AnimatedSplashScreen(
                 onSplashFinished = {
-                    navController.navigate("login") {
+                    val target = if (sessionManager.isLoggedIn() && currentChildren.isNotEmpty()) "dashboard" else "login"
+                    navController.navigate(target) {
                         popUpTo("splash") { inclusive = true }
                     }
                 }
@@ -133,6 +151,7 @@ fun ParentAppNavHost() {
                     currentGuardian = guardian
                     currentChildren = children
                     selectedChildIndex = 0
+                    sessionManager.saveSession(guardian, children)
                     navController.navigate("dashboard") {
                         popUpTo("login") { inclusive = true }
                     }
@@ -145,12 +164,25 @@ fun ParentAppNavHost() {
                 guardian = currentGuardian,
                 children = currentChildren,
                 selectedChildIndex = selectedChildIndex,
+                connectionState = connectionState,
                 onSelectChild = { index -> selectedChildIndex = index },
                 onNavigateToGrades = { navController.navigate("grades") },
                 onNavigateToAttendance = { navController.navigate("attendance") },
                 onNavigateToSchedule = { navController.navigate("schedule") },
                 onNavigateToAnnouncements = { navController.navigate("announcements") },
+                onNavigateToAiAssistant = { navController.navigate("ai_assistant") },
                 onNavigateToSettings = { navController.navigate("settings") }
+            )
+        }
+
+        composable("ai_assistant") {
+            val activeChild = currentChildren.getOrNull(selectedChildIndex)
+            AiAssistantScreen(
+                guardian = currentGuardian,
+                activeChild = activeChild,
+                announcements = announcements,
+                events = events,
+                onBack = { navController.popBackStack() }
             )
         }
 
@@ -191,7 +223,8 @@ fun ParentAppNavHost() {
                 guardian = currentGuardian,
                 onBack = { navController.popBackStack() },
                 onLogout = {
-                    currentGuardian = currentGuardian.copy(id = "", accountCode = "")
+                    sessionManager.clearSession()
+                    currentGuardian = GuardianInfo(id = "", accountCode = "", fullName = "ولي الأمر", phone = "", status = "active")
                     currentChildren = emptyList()
                     navController.navigate("login") {
                         popUpTo("dashboard") { inclusive = true }

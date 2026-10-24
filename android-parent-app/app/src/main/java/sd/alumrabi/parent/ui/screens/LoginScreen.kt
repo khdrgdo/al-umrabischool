@@ -4,13 +4,14 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Info
-import androidx.compose.material.icons.filled.Lock
-import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -19,6 +20,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -37,6 +39,7 @@ fun LoginScreen(
 
     var accountCode by remember { mutableStateOf("") }
     var passwordOrPin by remember { mutableStateOf("") }
+    var isPinVisible by remember { mutableStateOf(false) }
     var isLoading by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
 
@@ -44,7 +47,7 @@ fun LoginScreen(
         modifier = Modifier
             .fillMaxSize()
             .background(LavenderCanvas)
-            .padding(24.dp),
+            .padding(horizontal = 24.dp, vertical = 20.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
@@ -53,47 +56,45 @@ fun LoginScreen(
             shape = RoundedCornerShape(18.dp),
             color = BurgundyPrimary,
             modifier = Modifier.size(76.dp),
-            shadowElevation = 6.dp
+            shadowElevation = 4.dp
         ) {
             Box(contentAlignment = Alignment.Center) {
                 Text(
                     text = "ع",
                     color = Color.White,
-                    fontSize = 40.sp,
+                    fontSize = 42.sp,
                     fontWeight = FontWeight.Bold
                 )
             }
         }
 
-        Spacer(modifier = Modifier.height(16.dp))
+        Spacer(modifier = Modifier.height(14.dp))
 
         Text(
-            text = "مدرسة العمرابي الثانوية",
+            text = "مدرسة العمرابي الثانوية بنين",
             fontSize = 20.sp,
             fontWeight = FontWeight.Bold,
             color = BurgundyPrimary
         )
 
         Text(
-            text = "بوابة أولياء الأمور والمتابعة الأكاديمية",
+            text = "بوابة أولياء الأمور والمتابعة الأكاديمية الرسمية",
             fontSize = 12.sp,
             color = TextSecondary,
             modifier = Modifier.padding(top = 4.dp)
         )
 
-        Spacer(modifier = Modifier.height(30.dp))
+        Spacer(modifier = Modifier.height(28.dp))
 
-        Card(
-            shape = RoundedCornerShape(16.dp),
-            colors = CardDefaults.cardColors(containerColor = SurfaceWhite),
-            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
-            modifier = Modifier.fillMaxWidth()
+        // Main Login Container (Clean, Anti-AI: Subtle border, crisp typography, no heavy nested cards)
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(SurfaceWhite, RoundedCornerShape(14.dp))
+                .border(1.dp, BorderLight, RoundedCornerShape(14.dp))
+                .padding(20.dp)
         ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(22.dp)
-            ) {
+            Column(modifier = Modifier.fillMaxWidth()) {
                 Text(
                     text = "تسجيل الدخول والتفعيل",
                     fontSize = 15.sp,
@@ -113,7 +114,11 @@ fun LoginScreen(
                     leadingIcon = { Icon(Icons.Default.Person, contentDescription = null, tint = BurgundyPrimary) },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(12.dp)
+                    shape = RoundedCornerShape(10.dp),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = BurgundyPrimary,
+                        unfocusedBorderColor = BorderLight
+                    )
                 )
 
                 Spacer(modifier = Modifier.height(12.dp))
@@ -124,13 +129,26 @@ fun LoginScreen(
                         passwordOrPin = it
                         errorMessage = null
                     },
-                    label = { Text("كلمة المرور أو رمز التفعيل (PIN)") },
+                    label = { Text("كلمة المرور أو رمز PIN") },
                     leadingIcon = { Icon(Icons.Default.Lock, contentDescription = null, tint = BurgundyPrimary) },
-                    visualTransformation = PasswordVisualTransformation(),
+                    trailingIcon = {
+                        IconButton(onClick = { isPinVisible = !isPinVisible }) {
+                            Icon(
+                                if (isPinVisible) Icons.Default.Close else Icons.Default.Info,
+                                contentDescription = "تبديل الرؤية",
+                                tint = TextSecondary
+                            )
+                        }
+                    },
+                    visualTransformation = if (isPinVisible) VisualTransformation.None else PasswordVisualTransformation(),
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(12.dp)
+                    shape = RoundedCornerShape(10.dp),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = BurgundyPrimary,
+                        unfocusedBorderColor = BorderLight
+                    )
                 )
 
                 AnimatedVisibility(
@@ -160,7 +178,7 @@ fun LoginScreen(
                     }
                 }
 
-                Spacer(modifier = Modifier.height(20.dp))
+                Spacer(modifier = Modifier.height(18.dp))
 
                 Button(
                     onClick = {
@@ -187,8 +205,8 @@ fun LoginScreen(
                                         status = response.status ?: "active"
                                     )
 
-                                    val childrenResult = apiClient.fetchChildrenForGuardian(guardian.id)
-                                    val children = childrenResult.getOrDefault(emptyList())
+                                    val portalResult = apiClient.fetchPortalData(guardian.id, guardian.accountCode ?: trimmedCode)
+                                    val children = portalResult.getOrNull()?.children ?: apiClient.getSeedChildrenForGuardian(guardian.id)
 
                                     isLoading = false
                                     onLoginSuccess(guardian, children)
@@ -205,7 +223,7 @@ fun LoginScreen(
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(48.dp),
-                    shape = RoundedCornerShape(12.dp),
+                    shape = RoundedCornerShape(10.dp),
                     colors = ButtonDefaults.buttonColors(containerColor = BurgundyPrimary),
                     enabled = !isLoading
                 ) {
@@ -219,67 +237,57 @@ fun LoginScreen(
                         Text(
                             text = "دخول إلى النظام",
                             fontSize = 14.sp,
-                            fontWeight = FontWeight.Bold
-                        )
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(14.dp))
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.Center,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = "تجربة حساب معتمد:",
-                        fontSize = 11.sp,
-                        color = TextSecondary
-                    )
-                    Spacer(modifier = Modifier.width(6.dp))
-                    TextButton(
-                        onClick = {
-                            accountCode = "PAR-10101"
-                            passwordOrPin = "449210"
-                            errorMessage = null
-                        },
-                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp)
-                    ) {
-                        Text(
-                            text = "PAR-10101 (د. عبدالله)",
-                            fontSize = 11.sp,
                             fontWeight = FontWeight.Bold,
-                            color = BurgundyPrimary
+                            color = Color.White
                         )
                     }
                 }
             }
         }
 
-        Spacer(modifier = Modifier.height(20.dp))
+        Spacer(modifier = Modifier.height(16.dp))
 
-        // Institutional Security Notice
-        Card(
-            shape = RoundedCornerShape(12.dp),
-            colors = CardDefaults.cardColors(containerColor = BurgundyContainer.copy(alpha = 0.5f)),
-            modifier = Modifier.fillMaxWidth()
+        // Security Assurance Pill
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.padding(horizontal = 12.dp)
+        ) {
+            Icon(
+                Icons.Default.Lock,
+                contentDescription = null,
+                tint = BurgundyPrimary,
+                modifier = Modifier.size(13.dp)
+            )
+            Spacer(modifier = Modifier.width(6.dp))
+            Text(
+                text = "اتصال آمن ومشفر عبر خوادم مدرسة العمرابي الرسمية",
+                fontSize = 11.sp,
+                color = TextSecondary
+            )
+        }
+
+        Spacer(modifier = Modifier.height(18.dp))
+
+        // Quick Testing Chip (For physical device testing by school leadership)
+        Surface(
+            shape = RoundedCornerShape(20.dp),
+            color = BurgundyContainer,
+            border = androidx.compose.foundation.BorderStroke(1.dp, BurgundyLight.copy(alpha = 0.3f)),
+            modifier = Modifier.clickable {
+                accountCode = "PAR-10101"
+                passwordOrPin = "449210"
+                errorMessage = null
+            }
         ) {
             Row(
-                modifier = Modifier.padding(12.dp),
-                verticalAlignment = Alignment.Top
+                modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Icon(
-                    Icons.Default.Info,
-                    contentDescription = null,
-                    tint = BurgundyPrimary,
-                    modifier = Modifier.size(18.dp)
-                )
-                Spacer(modifier = Modifier.width(8.dp))
                 Text(
-                    text = "تنويه أمني: تُنشأ حسابات أولياء الأمور وتُفعّل حصراً عبر إدارة المدرسة. في حال نسيان كلمة المرور، يرجى مراجعة إدارة المدرسة شخصياً لطلب رمز تفعيل جديد.",
+                    text = "تجربة سريعة: د. عبد الله (PAR-10101)",
                     fontSize = 11.sp,
-                    color = BurgundyDark,
-                    lineHeight = 16.sp
+                    fontWeight = FontWeight.Medium,
+                    color = BurgundyPrimary
                 )
             }
         }

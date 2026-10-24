@@ -31,6 +31,26 @@ data class AttendanceRecord(
 )
 
 @Serializable
+data class PaymentRecord(
+    val amount: Double,
+    @SerialName("payment_method") val paymentMethod: String,
+    @SerialName("receipt_number") val receiptNumber: String,
+    @SerialName("created_at") val createdAt: String
+)
+
+@Serializable
+data class FeeStatement(
+    @SerialName("total_due") val totalDue: Double = 0.0,
+    @SerialName("total_discounts") val totalDiscounts: Double = 0.0,
+    @SerialName("total_paid") val totalPaid: Double = 0.0,
+    val payments: List<PaymentRecord> = emptyList()
+) {
+    val netDue: Double get() = (totalDue - totalDiscounts).coerceAtLeast(0.0)
+    val remainingBalance: Double get() = (netDue - totalPaid).coerceAtLeast(0.0)
+    val isFullyPaid: Boolean get() = remainingBalance <= 0.0
+}
+
+@Serializable
 data class LinkedChild(
     val id: String,
     @SerialName("student_number") val studentNumber: String,
@@ -42,7 +62,8 @@ data class LinkedChild(
     @SerialName("grade_name") val gradeName: String = "غير محدد",
     @SerialName("section_name") val sectionName: String = "غير محدد",
     val grades: List<PublishedGrade>? = emptyList(),
-    val attendance: List<AttendanceRecord>? = emptyList()
+    val attendance: List<AttendanceRecord>? = emptyList(),
+    val fees: FeeStatement? = null
 )
 
 @Serializable
@@ -82,3 +103,23 @@ data class LoginResponse(
     val status: String? = null,
     @SerialName("requires_new_password") val requiresNewPassword: Boolean = false
 )
+
+enum class MessageSender {
+    USER, ASSISTANT, SYSTEM
+}
+
+@Serializable
+data class AiChatMessage(
+    val id: String,
+    val sender: MessageSender,
+    val text: String,
+    val timestamp: Long = System.currentTimeMillis(),
+    val isTyping: Boolean = false,
+    val relatedAction: String? = null
+)
+
+enum class BackendConnectionState {
+    CONNECTED_LIVE,
+    SYNCED_LOCAL,
+    CONNECTING
+}
