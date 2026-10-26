@@ -64,7 +64,7 @@ function StudentPage() {
         s: s.data,
         enr: enr.data ?? [],
         hist: hist.data ?? [],
-        secs: (secs.data ?? []) as { id: string; name: string; grade: { name: string; level_order: number } | null }[],
+        secs: (secs.data ?? []) as unknown as { id: string; name: string; grade: { name: string; level_order: number } | null }[],
         payments: paymentList,
         siblings,
       };

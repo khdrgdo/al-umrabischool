@@ -137,7 +137,7 @@ function RolloverPage() {
         selectedFrom,
         selectedTo,
         grades: gradesRes.data ?? [],
-        fromSections: fromSectionsRes.data ?? [],
+        fromSections: (fromSectionsRes.data ?? []) as unknown as Array<{ id: string; name: string; grade_id: string; grade: { name: string; level_order: number } | null }>,
         toSections: toSectionsRes.data ?? [],
         enrollments: enrollmentsRes.data ?? [],
         existingPromotions,

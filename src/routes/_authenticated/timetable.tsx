@@ -42,7 +42,7 @@ function useTT() {
           : Promise.resolve({ data: [] }),
         supabase.from("section_timetables").select("*"),
       ]);
-      const secs = ((sections.data ?? []) as { id: string; name: string; grade: { name: string; level_order: number } | null }[])
+      const secs = ((sections.data ?? []) as unknown as { id: string; name: string; grade: { name: string; level_order: number } | null }[])
         .sort((a, b) => (a.grade?.level_order ?? 0) - (b.grade?.level_order ?? 0) || a.name.localeCompare(b.name));
       return { year, periods: periods.data ?? [], days: (days.data ?? []).map((d) => d.weekday), sections: secs, subjects: subjects.data ?? [], teachers: teachers.data ?? [], assigns: assigns.data ?? [], entries: entries.data ?? [], status: status.data ?? [] };
     },

@@ -142,7 +142,7 @@ function GradesPage() {
 
       const students = (enrollments ?? [])
         .map((e) => e.student)
-        .filter(Boolean) as Array<{ id: string; student_number: string; full_name: string; status: string }>;
+        .filter(Boolean) as unknown as Array<{ id: string; student_number: string; full_name: string; status: string }>;
 
       // 2. Look for existing assessment
       const existing = await safeFetch(
