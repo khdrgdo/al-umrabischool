@@ -145,7 +145,7 @@ function GradesPage() {
         .filter(Boolean) as unknown as Array<{ id: string; student_number: string; full_name: string; status: string }>;
 
       // 2. Look for existing assessment
-      const existing = await safeFetch(
+      const existing = await safeFetch<{ id: string; max_score: number; pass_score: number; status: string } | null>(
         supabase
           .from("assessments")
           .select("*")
@@ -373,7 +373,7 @@ function GradesPage() {
         approved: "تم اعتماد كشف الدرجات رسمياً",
         published: "تم نشر النتائج للطلاب والشهادات",
       };
-      toast.success(labelMap[res.status] ?? "تم حفظ الدرجات");
+      toast.success((labelMap as Record<string, string>)[String(res.status)] ?? "تم حفظ الدرجات");
     },
     onError: (e) => toast.error(errMsg(e)),
   });
