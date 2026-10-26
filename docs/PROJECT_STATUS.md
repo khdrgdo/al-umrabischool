@@ -37,3 +37,9 @@
 - تم فحص وتطهير سكريبتات الاختبار وحذف `scripts/test_auth.ts` لحماية بيانات الاعتماد.
 - تم نقل وثائق Notion القديمة إلى الأرشيف التاريخي `docs/archive/` لتوحيد مرجعية العمل.
 - المرجع الفني والإداري الملزم والمعتمد الوحيد هو: `FIX-1` و `APP-2`.
+
+## Audit 2026-10-26
+- Fixed: 27 TypeScript errors in dashboard, attendance, fees, grades, rollover, students detail, teachers, timetable (type casts only, no behavior change). Typecheck 0 errors; tests 49/49 passed.
+- Live database contains migrations 0000–0004 only. Tables from 0005–0011 (fees, guardians, assessments, calendar, rollover, parent app) do not exist, so those pages cannot load real data.
+- No database change made: backup existence could not be verified by the agent.
+- Open: remove first-user-owner grant in handle_new_user; apply 0005–0011 after backup and review; seed migration 0010 must never run in production.
