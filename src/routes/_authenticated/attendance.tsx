@@ -84,7 +84,7 @@ function AttendancePage() {
       if (enrErr) throw enrErr;
 
       const students: EnrolledStudent[] = (enrollments ?? [])
-        .map((e) => e.student as EnrolledStudent)
+        .map((e) => e.student as unknown as EnrolledStudent)
         .filter(Boolean)
         .sort((a, b) => a.full_name.localeCompare(b.full_name));
 

@@ -101,7 +101,7 @@ function GradesPage() {
       return {
         year,
         grades: gradesRes.data ?? [],
-        sections: (sectionsRes.data ?? []) as Array<{
+        sections: (sectionsRes.data ?? []) as unknown as Array<{
           id: string;
           name: string;
           grade_id: string;

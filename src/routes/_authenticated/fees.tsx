@@ -184,7 +184,7 @@ function FeesPage() {
       return {
         year,
         students,
-        sections: sectionsRes as Array<{
+        sections: sectionsRes as unknown as Array<{
           id: string;
           name: string;
           grade_id: string;
