@@ -46,8 +46,8 @@ function Dashboard() {
           : Promise.resolve({ data: [] as never[] }),
         supabase.from("section_timetables").select("section_id, status"),
         supabase.from("student_payments").select("amount"),
-        supabase.from("school_events").select("*").order("starts_on").limit(4).catch(() => ({ data: [] })),
-        supabase.from("announcements").select("*").eq("is_published", true).order("published_at", { ascending: false }).limit(3).catch(() => ({ data: [] })),
+        supabase.from("school_events").select("*").order("starts_on").limit(4).then((r) => r, () => ({ data: [] })),
+        supabase.from("announcements").select("*").eq("is_published", true).order("published_at", { ascending: false }).limit(3).then((r) => r, () => ({ data: [] })),
       ]);
 
       const totalPaymentsSum = (payments.data ?? []).reduce((acc: number, curr: any) => acc + (Number(curr.amount) || 0), 0);
@@ -57,7 +57,7 @@ function Dashboard() {
         students: students.data ?? [],
         teachers: teachers.count ?? 0,
         subjects: subjects.count ?? 0,
-        sections: (sections.data ?? []) as { id: string; name: string; capacity: number | null; grade: { name: string; level_order: number } | null }[],
+        sections: (sections.data ?? []) as unknown as { id: string; name: string; capacity: number | null; grade: { name: string; level_order: number } | null }[],
         enr: enr.data ?? [],
         tts: tts.data ?? [],
         totalPaymentsSum,

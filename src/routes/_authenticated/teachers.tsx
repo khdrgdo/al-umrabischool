@@ -37,7 +37,7 @@ function Teachers() {
           ? supabase.from("teaching_assignments").select("teacher_id,weekly_periods,subject:subjects(name),section:sections(name,grade:grades(name))").eq("academic_year_id", year.id)
           : Promise.resolve({ data: [] }),
       ]);
-      return { teachers: t.data ?? [], assigns: (a.data ?? []) as { teacher_id: string; weekly_periods: number | null; subject: { name: string } | null; section: { name: string; grade: { name: string } | null } | null }[] };
+      return { teachers: t.data ?? [], assigns: (a.data ?? []) as unknown as { teacher_id: string; weekly_periods: number | null; subject: { name: string } | null; section: { name: string; grade: { name: string } | null } | null }[] };
     },
   });
   const save = useMutation({
