@@ -31,7 +31,6 @@ function Students() {
   const [status, setStatus] = useState("active");
   const [open, setOpen] = useState(false);
   const [newSec, setNewSec] = useState("");
-  const [newType, setNewType] = useState("new");
 
   const { data, isLoading, isError, error: queryError, refetch } = useQuery({
     queryKey: ["students"],
@@ -132,7 +131,20 @@ function Students() {
     mutationFn: async (v: typeof emptyStudent) => {
       if (!data?.year) throw new Error("لا يوجد عام دراسي حالي. حدّد العام الحالي في الهيكل أولًا.");
       if (!newSec) throw new Error("اختر الشعبة التي يُقيَّد فيها الطالب");
-      if (newType === "transfer_in" && !v.previous_school?.trim()) throw new Error("اذكر المدرسة السابقة للطالب المنقول");
+
+      const adm = v.admission_details ?? {
+        workflow: "new",
+        has_intermediate_cert: true,
+        has_prior_term_report: false,
+        has_birth_cert: true,
+        has_guardian_id: true,
+        waiver_reason: "",
+      };
+
+      const enrollType = adm.workflow === "transfer_in" ? "transfer_in" : "new";
+      if (enrollType === "transfer_in" && !v.previous_school?.trim()) {
+        throw new Error("اذكر المدرسة السابقة للطالب المنقول");
+      }
 
       let targetSchoolId = school?.id;
       if (!targetSchoolId) {
@@ -141,19 +153,55 @@ function Students() {
       }
       if (!targetSchoolId) throw new Error("تعذر التحقق من مدرسة الطالب");
 
-      const { data: id, error } = await supabase.rpc("create_student_with_enrollment", {
-        _student: { ...v, school_id: targetSchoolId },
+      const studentPayload = {
+        full_name: v.full_name,
+        gender: v.gender,
+        birth_date: v.birth_date,
+        national_id: v.national_id,
+        address: v.address,
+        guardian_name: v.guardian_name,
+        guardian_relation: v.guardian_relation,
+        guardian_phone: v.guardian_phone,
+        previous_school: v.previous_school,
+        notes: v.notes,
+        school_id: targetSchoolId,
+      };
+
+      // 1. Primary: enhanced RPC with admission document checklist & verification
+      const { data: rpcRes, error: rpcErr } = await supabase.rpc("create_student_with_admission" as any, {
+        _student: studentPayload,
         _academic_year: data.year.id,
         _section: newSec,
-        _enrollment_type: newType as "new" | "transfer_in",
+        _enrollment_type: enrollType,
+        _admission_details: {
+          has_intermediate_cert: adm.has_intermediate_cert,
+          has_prior_term_report: adm.has_prior_term_report,
+          waiver_reason: adm.waiver_reason,
+        },
       });
-      if (error) throw error;
-      return id as string;
+
+      if (!rpcErr && (rpcRes as any)?.student_id) {
+        return (rpcRes as any).student_id as string;
+      }
+
+      // 2. Resilient fallback if RPC not yet deployed
+      if (rpcErr && (rpcErr.message?.includes("does not exist") || (rpcErr as any).code === "42883")) {
+        const { data: id, error: fallbackErr } = await supabase.rpc("create_student_with_enrollment", {
+          _student: studentPayload,
+          _academic_year: data.year.id,
+          _section: newSec,
+          _enrollment_type: enrollType as "new" | "transfer_in",
+        });
+        if (fallbackErr) throw fallbackErr;
+        return id as string;
+      }
+
+      if (rpcErr) throw rpcErr;
+      return (rpcRes as any)?.student_id as string;
     },
     onSuccess: (id) => {
       setOpen(false);
       setNewSec("");
-      setNewType("new");
       qc.invalidateQueries();
       toast.success("تم فتح ملف الطالب وقيده بنجاح");
       navigate({ to: "/students/$id", params: { id } });
@@ -405,27 +453,21 @@ function Students() {
 
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="max-w-2xl">
-          <DialogHeader><DialogTitle className="font-display text-2xl">فتح ملف طالب جديد</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle className="font-display text-2xl">قبول وتسجيل طالب جديد</DialogTitle></DialogHeader>
           <StudentForm
             initial={emptyStudent}
             busy={create.isPending}
-            submitLabel="حفظ الملف"
+            submitLabel="حفظ واعتماد ملف الطالب"
+            existingStudents={data?.students ?? []}
             onSubmit={(v) => create.mutate(v)}
             extra={!data?.year ? (
               <p className="text-sm text-destructive border-t pt-4">لا يوجد عام دراسي حالي، لذلك لا يمكن فتح ملف الآن.</p>
             ) : (
-              <fieldset className="grid sm:grid-cols-2 gap-3 border-t pt-4">
-                <legend className="text-sm font-medium mb-2">القيد في العام {data?.year?.name ?? ""}</legend>
-                <Field label="تصنيف التسجيل *" className="sm:col-span-2">
-                  <div className="flex gap-4 text-sm">
-                    <label className="flex items-center gap-2"><input type="radio" name="etype" checked={newType === "new"} onChange={() => setNewType("new")} /> مستجد — أول مرة في المدرسة</label>
-                    <label className="flex items-center gap-2"><input type="radio" name="etype" checked={newType === "transfer_in"} onChange={() => setNewType("transfer_in")} /> منقول من مدرسة أخرى</label>
-                  </div>
-                  {newType === "transfer_in" && <p className="text-xs text-muted-foreground mt-1">املأ حقل «المدرسة السابقة» أعلاه.</p>}
-                </Field>
-                <Field label="الصف / المسار / التخصص / الشعبة *" className="sm:col-span-2">
-                  <select className="field-select w-full" value={newSec} onChange={(e) => setNewSec(e.target.value)} required>
-                    <option value="">اختر الشعبة…</option>
+              <fieldset className="border-t border-border pt-4">
+                <legend className="text-sm font-semibold mb-2 text-foreground">تحديد الشعبة المعتمدة ({data?.year?.name ?? ""})</legend>
+                <Field label="الصف / المسار / التخصص / الشعبة *">
+                  <select className="field-select w-full text-xs" value={newSec} onChange={(e) => setNewSec(e.target.value)} required>
+                    <option value="">اختر الشعبة المعتمدة…</option>
                     {(data?.sections ?? []).slice().sort((a, b) => (a.grade?.level_order ?? 0) - (b.grade?.level_order ?? 0)).map((s) => (
                       <option key={s.id} value={s.id}>{secFull(s)}</option>
                     ))}

@@ -16,12 +16,13 @@ export const Route = createFileRoute("/_authenticated/users")({
   component: UsersManagement,
 });
 
-const ROLES: AppRole[] = ["owner", "principal", "supervisor"];
+const ROLES: AppRole[] = ["owner", "principal", "accountant", "supervisor"];
 
 const ROLE_DESCRIPTIONS: Record<AppRole, string> = {
   owner: "المالك — صلاحيات مطلقة لإدارة المدرسة، المستخدمين، المالية، والهيكل",
   principal: "مدير المدرسة — إدارة الطلاب، الترحيل السنوي، الجداول، ورصد الدرجات والغياب",
-  supervisor: "مشرف أكاديمي — صلاحية القراءة والمراجعة وإدخال الحضور والدرجات دون صلاحية التعديل الهيكلي",
+  accountant: "المحاسب المالي — إدارة الرسوم، تسجيل الدفعات وسندات القبض، الخصومات وكشوفات الحساب",
+  supervisor: "مشرف أكاديمي — صلاحية القراءة والمراجعة وإدخال الحضور والدرجات دون صلاحية التعديل الهيكلي أو المالي",
 };
 
 function UsersManagement() {

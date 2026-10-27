@@ -23,6 +23,7 @@ import {
   Calendar,
   ArrowRightLeft,
   UserCheck,
+  FileText,
 } from "lucide-react";
 import { AppShell } from "@/components/app/AppShell";
 
@@ -91,6 +92,7 @@ function Layout() {
     { to: "/structure", label: "الصفوف والشعب", icon: Layers },
     { to: "/teachers", label: "المعلمون", icon: GraduationCap },
     { to: "/subjects", label: "المواد الدراسية", icon: BookOpen },
+    { to: "/templates", label: "استوديو المستندات والطباعة", icon: FileText },
     ...(manager ? [{ to: "/rollover", label: "الترحيل السنوي", icon: ArrowRightLeft } as const] : []),
     ...(manager ? [{ to: "/audit", label: "سجل التعديلات", icon: ShieldCheck } as const] : []),
     ...(me.roles.includes("owner") ? [{ to: "/users", label: "إدارة المستخدمين", icon: UserCog } as const] : []),

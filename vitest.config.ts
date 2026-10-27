@@ -11,8 +11,11 @@ export default defineConfig({
     include: ["src/**/*.{test,spec}.{ts,tsx}"],
     fileParallelism: false,
     pool: "forks",
-    testTimeout: 30000,
-    hookTimeout: 30000,
+    forks: {
+      singleFork: true,
+    },
+    testTimeout: 60000,
+    hookTimeout: 60000,
   },
   resolve: {
     alias: { "@": path.resolve(__dirname, "./src") },

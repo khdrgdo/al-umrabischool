@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useSchool, useMe, canManage, errMsg } from "@/lib/staff";
 import { getKhartoumDateString } from "@/lib/schoolDate";
+import { printTarget } from "@/lib/printHelper";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
@@ -1278,25 +1279,26 @@ function GuardiansPage() {
 
           {selectedGuardianForApp && (
             <div className="space-y-4 pt-2 text-xs">
-              {/* Guardian Info Card */}
-              <div className="p-3 rounded-lg bg-muted border border-border space-y-1">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs text-muted-foreground">ولي الأمر:</span>
-                  <span className="text-[11px] font-semibold text-foreground">{selectedGuardianForApp.full_name}</span>
+              <div id="guardian-card-print" className="printable-target space-y-3">
+                {/* Guardian Info Card */}
+                <div className="p-3 rounded-lg bg-muted border border-border space-y-1">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-muted-foreground">ولي الأمر:</span>
+                    <span className="text-[11px] font-semibold text-foreground">{selectedGuardianForApp.full_name}</span>
+                  </div>
+                  <div className="flex items-center justify-between font-mono" dir="ltr">
+                    <span className="text-xs text-muted-foreground font-sans">رقم الهاتف:</span>
+                    <span>{selectedGuardianForApp.phone}</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-muted-foreground">عدد الأبناء الموثقين:</span>
+                    <span className="font-semibold text-foreground">{selectedGuardianForApp.links.length} طالب</span>
+                  </div>
                 </div>
-                <div className="flex items-center justify-between font-mono" dir="ltr">
-                  <span className="text-xs text-muted-foreground font-sans">رقم الهاتف:</span>
-                  <span>{selectedGuardianForApp.phone}</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-xs text-muted-foreground">عدد الأبناء الموثقين:</span>
-                  <span className="font-semibold text-foreground">{selectedGuardianForApp.links.length} طالب</span>
-                </div>
-              </div>
 
-              {/* Status & Credentials */}
-              {selectedGuardianForApp.status === "active" || appCredentials?.status === "active" ? (
-                <div className="space-y-3">
+                {/* Status & Credentials */}
+                {selectedGuardianForApp.status === "active" || appCredentials?.status === "active" ? (
+                  <div className="space-y-3">
                   <div className="p-3.5 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-900 space-y-2.5">
                     <div className="flex items-center justify-between">
                       <span className="font-semibold flex items-center gap-1.5 text-xs text-emerald-800">
@@ -1434,6 +1436,8 @@ function GuardiansPage() {
                 </div>
               )}
 
+              </div>
+
               <DialogFooter className="gap-2 pt-3 border-t border-border">
                 <Button type="button" variant="outline" size="sm" onClick={() => setOpenAppModal(false)} className="h-9 text-xs">
                   إغلاق
@@ -1442,7 +1446,7 @@ function GuardiansPage() {
                   <Button
                     type="button"
                     size="sm"
-                    onClick={() => window.print()}
+                    onClick={() => printTarget("guardian-card-print", { documentTitle: `بطاقة_تسليم_${selectedGuardianForApp?.full_name ?? "ولي_الأمر"}` })}
                     className="h-9 text-xs gap-1.5"
                   >
                     <Printer className="h-3.5 w-3.5" />

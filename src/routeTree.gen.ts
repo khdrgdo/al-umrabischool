@@ -24,6 +24,7 @@ import { Route as AuthenticatedRolloverRouteImport } from './routes/_authenticat
 import { Route as AuthenticatedStructureRouteImport } from './routes/_authenticated/structure'
 import { Route as AuthenticatedSubjectsRouteImport } from './routes/_authenticated/subjects'
 import { Route as AuthenticatedTeachersRouteImport } from './routes/_authenticated/teachers'
+import { Route as AuthenticatedTemplatesRouteImport } from './routes/_authenticated/templates'
 import { Route as AuthenticatedTimetableRouteImport } from './routes/_authenticated/timetable'
 import { Route as AuthenticatedUsersRouteImport } from './routes/_authenticated/users'
 import { Route as AuthenticatedStudentsIndexRouteImport } from './routes/_authenticated/students.index'
@@ -103,6 +104,11 @@ const AuthenticatedTeachersRoute = AuthenticatedTeachersRouteImport.update({
   path: '/teachers',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedTemplatesRoute = AuthenticatedTemplatesRouteImport.update({
+  id: '/templates',
+  path: '/templates',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 const AuthenticatedTimetableRoute = AuthenticatedTimetableRouteImport.update({
   id: '/timetable',
   path: '/timetable',
@@ -140,6 +146,7 @@ export interface FileRoutesByFullPath {
   '/structure': typeof AuthenticatedStructureRoute
   '/subjects': typeof AuthenticatedSubjectsRoute
   '/teachers': typeof AuthenticatedTeachersRoute
+  '/templates': typeof AuthenticatedTemplatesRoute
   '/timetable': typeof AuthenticatedTimetableRoute
   '/users': typeof AuthenticatedUsersRoute
   '/students/$id': typeof AuthenticatedStudentsIdRoute
@@ -160,6 +167,7 @@ export interface FileRoutesByTo {
   '/structure': typeof AuthenticatedStructureRoute
   '/subjects': typeof AuthenticatedSubjectsRoute
   '/teachers': typeof AuthenticatedTeachersRoute
+  '/templates': typeof AuthenticatedTemplatesRoute
   '/timetable': typeof AuthenticatedTimetableRoute
   '/users': typeof AuthenticatedUsersRoute
   '/students/$id': typeof AuthenticatedStudentsIdRoute
@@ -182,6 +190,7 @@ export interface FileRoutesById {
   '/_authenticated/structure': typeof AuthenticatedStructureRoute
   '/_authenticated/subjects': typeof AuthenticatedSubjectsRoute
   '/_authenticated/teachers': typeof AuthenticatedTeachersRoute
+  '/_authenticated/templates': typeof AuthenticatedTemplatesRoute
   '/_authenticated/timetable': typeof AuthenticatedTimetableRoute
   '/_authenticated/users': typeof AuthenticatedUsersRoute
   '/_authenticated/students/$id': typeof AuthenticatedStudentsIdRoute
@@ -204,6 +213,7 @@ export interface FileRouteTypes {
     | '/structure'
     | '/subjects'
     | '/teachers'
+    | '/templates'
     | '/timetable'
     | '/users'
     | '/students/$id'
@@ -224,6 +234,7 @@ export interface FileRouteTypes {
     | '/structure'
     | '/subjects'
     | '/teachers'
+    | '/templates'
     | '/timetable'
     | '/users'
     | '/students/$id'
@@ -245,6 +256,7 @@ export interface FileRouteTypes {
     | '/_authenticated/structure'
     | '/_authenticated/subjects'
     | '/_authenticated/teachers'
+    | '/_authenticated/templates'
     | '/_authenticated/timetable'
     | '/_authenticated/users'
     | '/_authenticated/students/$id'
@@ -365,6 +377,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedTeachersRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/templates': {
+      id: '/_authenticated/templates'
+      path: '/templates'
+      fullPath: '/templates'
+      preLoaderRoute: typeof AuthenticatedTemplatesRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/timetable': {
       id: '/_authenticated/timetable'
       path: '/timetable'
@@ -408,6 +427,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedStructureRoute: typeof AuthenticatedStructureRoute
   AuthenticatedSubjectsRoute: typeof AuthenticatedSubjectsRoute
   AuthenticatedTeachersRoute: typeof AuthenticatedTeachersRoute
+  AuthenticatedTemplatesRoute: typeof AuthenticatedTemplatesRoute
   AuthenticatedTimetableRoute: typeof AuthenticatedTimetableRoute
   AuthenticatedUsersRoute: typeof AuthenticatedUsersRoute
   AuthenticatedStudentsIdRoute: typeof AuthenticatedStudentsIdRoute
@@ -426,6 +446,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedStructureRoute: AuthenticatedStructureRoute,
   AuthenticatedSubjectsRoute: AuthenticatedSubjectsRoute,
   AuthenticatedTeachersRoute: AuthenticatedTeachersRoute,
+  AuthenticatedTemplatesRoute: AuthenticatedTemplatesRoute,
   AuthenticatedTimetableRoute: AuthenticatedTimetableRoute,
   AuthenticatedUsersRoute: AuthenticatedUsersRoute,
   AuthenticatedStudentsIdRoute: AuthenticatedStudentsIdRoute,

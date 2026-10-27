@@ -4,9 +4,10 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
-import { useMe, canManage, errMsg } from "@/lib/staff";
+import { useMe, canManage, canFinance, errMsg } from "@/lib/staff";
 import { matchesStudentNumber } from "@/lib/studentNumber";
 import { formatKhartoumDateDisplay } from "@/lib/schoolDate";
+import { printTarget } from "@/lib/printHelper";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -82,6 +83,7 @@ function FeesPage() {
   const qc = useQueryClient();
   const { data: me } = useMe();
   const manager = canManage(me?.roles ?? []);
+  const isFinanceAuthorized = canFinance(me?.roles ?? []);
 
   // Filters
   const [q, setQ] = useState("");
@@ -622,7 +624,7 @@ function FeesPage() {
               <FileSpreadsheet className="h-4 w-4" />
               <span>تصدير كشف المبالغ (CSV)</span>
             </Button>
-            {manager && (
+            {isFinanceAuthorized && (
               <Button
                 size="sm"
                 onClick={() => {
@@ -963,7 +965,7 @@ function FeesPage() {
                   </td>
                   <td className="text-end">
                     <div className="flex items-center justify-end gap-1.5">
-                      {manager && row.balance > 0 && (
+                      {isFinanceAuthorized && row.balance > 0 && (
                         <Button
                           size="sm"
                           variant="outline"
@@ -1203,7 +1205,7 @@ function FeesPage() {
             <Button
               variant="outline"
               size="sm"
-              onClick={() => window.print()}
+              onClick={() => printTarget("school-receipt-print", { documentTitle: `إيصال_سداد_${activeReceipt?.receiptNumber ?? ""}` })}
               className="h-8 gap-1.5 text-xs text-foreground"
             >
               <Printer className="h-3.5 w-3.5" />

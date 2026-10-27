@@ -73,7 +73,11 @@ function StudentPage() {
   const refresh = () => qc.invalidateQueries();
 
   const save = useMutation({
-    mutationFn: async (v: StudentInput) => { const { error } = await supabase.from("students").update(v).eq("id", id); if (error) throw error; },
+    mutationFn: async (v: StudentInput) => {
+      const { admission_details, ...core } = v;
+      const { error } = await supabase.from("students").update(core).eq("id", id);
+      if (error) throw error;
+    },
     onSuccess: () => { setEditing(false); refresh(); toast.success("حُفظت التعديلات"); },
     onError: (e) => toast.error(errMsg(e)),
   });
@@ -148,6 +152,7 @@ function StudentPage() {
             <div className="card-surface p-6">
               <h2 className="text-sm font-semibold text-foreground mb-4">تعديل بيانات الطالب</h2>
               <StudentForm
+                mode="edit"
                 studentNumber={s.student_number}
                 initial={{
                   full_name: s.full_name,

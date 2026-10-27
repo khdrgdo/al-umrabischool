@@ -302,3 +302,136 @@
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
 }
+
+/* ==========================================================================
+   Print & Target-Only Printing Styles (Plan 1 - Section 8)
+   ========================================================================== */
+@media print {
+  @page {
+    size: A4 portrait;
+    margin: 12mm 14mm;
+  }
+
+  /* General print resets */
+  html, body {
+    background: #ffffff !important;
+    color: #111827 !important;
+    font-size: 11pt !important;
+    line-height: 1.45 !important;
+    width: 100% !important;
+    height: auto !important;
+    overflow: visible !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  /* Universal chrome and UI exclusion */
+  header,
+  nav,
+  aside,
+  .school-topbar,
+  .school-nav-drawer,
+  .no-print,
+  button,
+  .btn,
+  .filter-surface,
+  .page-heading-actions,
+  [data-sonner-toaster],
+  [role="dialog"] button[aria-label="Close"] {
+    display: none !important;
+  }
+
+  /* Prevent card shadow bleeding on paper */
+  .card-surface,
+  .sheet,
+  [role="dialog"] {
+    box-shadow: none !important;
+    border: 1px solid #e5e7eb !important;
+    background: #ffffff !important;
+    page-break-inside: avoid !important;
+  }
+
+  /* Table readability on paper */
+  .modern-table,
+  .ledger {
+    min-width: 100% !important;
+    width: 100% !important;
+    border-collapse: collapse !important;
+  }
+
+  .modern-table th,
+  .ledger th,
+  .modern-table td,
+  .ledger td {
+    border: 1px solid #d1d5db !important;
+    color: #111827 !important;
+    padding: 6px 10px !important;
+    font-size: 10pt !important;
+  }
+
+  .modern-table th,
+  .ledger th {
+    background-color: #f3f4f6 !important;
+    font-weight: 600 !important;
+  }
+
+  tr {
+    page-break-inside: avoid !important;
+  }
+
+  /* -------------------------------------------------------------------------
+     Target-Only Print Mode (Activated by printTarget helper)
+     Isolates ONLY the target container and hides everything else completely.
+     ------------------------------------------------------------------------- */
+  body.printing-target-mode * {
+    visibility: hidden !important;
+  }
+
+  body.printing-target-mode [data-print-target-active="true"],
+  body.printing-target-mode [data-print-target-active="true"] * {
+    visibility: visible !important;
+  }
+
+  body.printing-target-mode [data-print-target-active="true"] {
+    position: absolute !important;
+    top: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    background: #ffffff !important;
+    color: #000000 !important;
+    box-shadow: none !important;
+    border: none !important;
+  }
+
+  /* Neutralize Radix Dialog backdrops during target print */
+  [data-radix-portal] {
+    position: static !important;
+  }
+
+  [role="dialog"][data-state="open"] {
+    position: static !important;
+    inset: auto !important;
+    transform: none !important;
+    max-width: 100% !important;
+    width: 100% !important;
+    border: none !important;
+    box-shadow: none !important;
+    padding: 0 !important;
+  }
+
+  /* Specific print targets */
+  #school-receipt-print,
+  #guardian-card-print,
+  .printable-target,
+  .print-document-container {
+    width: 100% !important;
+    background: #ffffff !important;
+    border: none !important;
+    box-shadow: none !important;
+    padding: 10px 0 !important;
+  }
+}
+

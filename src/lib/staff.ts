@@ -1,17 +1,23 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 
-export type AppRole = "owner" | "principal" | "supervisor";
+export type AppRole = "owner" | "principal" | "supervisor" | "accountant";
 
 export const ROLE_LABELS: Record<AppRole, string> = {
   owner: "المالك",
   principal: "مدير المدرسة",
   supervisor: "المشرف",
+  accountant: "المحاسب المالي",
 };
 
 /** Mirrors the database can_manage() rule. UI hint only — the database enforces it. */
 export function canManage(roles: AppRole[]) {
   return roles.includes("owner") || roles.includes("principal");
+}
+
+/** Mirrors the database can_finance() rule. UI hint only — the database enforces it. */
+export function canFinance(roles: AppRole[]) {
+  return roles.includes("owner") || roles.includes("principal") || roles.includes("accountant");
 }
 
 export function useMe() {
