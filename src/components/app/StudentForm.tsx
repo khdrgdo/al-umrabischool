@@ -54,10 +54,10 @@ export const emptyStudent: StudentInput = {
   notes: null,
   admission_details: {
     workflow: "new",
-    has_intermediate_cert: true,
+    has_intermediate_cert: false,
     has_prior_term_report: false,
-    has_birth_cert: true,
-    has_guardian_id: true,
+    has_birth_cert: false,
+    has_guardian_id: false,
     waiver_reason: "",
     previous_grade: null,
     previous_term: null,
@@ -89,10 +89,10 @@ export function StudentForm({
   const [admission, setAdmission] = useState<StudentAdmissionDetails>(
     initial.admission_details ?? {
       workflow: "new",
-      has_intermediate_cert: true,
+      has_intermediate_cert: false,
       has_prior_term_report: false,
-      has_birth_cert: true,
-      has_guardian_id: true,
+      has_birth_cert: false,
+      has_guardian_id: false,
       waiver_reason: "",
       previous_grade: null,
       previous_term: null,

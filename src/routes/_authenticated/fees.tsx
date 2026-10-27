@@ -463,26 +463,36 @@ function FeesPage() {
       // F-014: Server-side atomic payment recording with client idempotency key
       const idempotencyKey = typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : `idemp-${Date.now()}-${Math.random()}`;
 
-      try {
-        const { data: rpcRes, error: rpcErr } = await (supabase.rpc as any)("record_student_payment", {
-          p_student_id: selectedStudent.studentId,
-          p_academic_year_id: data.year.id,
-          p_fee_type_id: feeTypeId,
-          p_amount: Number(payAmount),
-          p_payment_method: payMethod,
-          p_notes: payNotes || null,
-          p_idempotency_key: idempotencyKey,
-        });
+      const { data: rpcRes, error: rpcErr } = await (supabase.rpc as any)("record_student_payment", {
+        p_student_id: selectedStudent.studentId,
+        p_academic_year_id: data.year.id,
+        p_fee_type_id: feeTypeId,
+        p_amount: Number(payAmount),
+        p_payment_method: payMethod,
+        p_notes: payNotes || null,
+        p_idempotency_key: idempotencyKey,
+      });
 
-        if (!rpcErr && rpcRes?.success && rpcRes?.receipt_number) {
-          return { inserted: rpcRes, receiptNumber: rpcRes.receipt_number };
-        }
-      } catch (err) {
-        console.warn("record_student_payment RPC fallback:", err);
+      if (!rpcErr && rpcRes?.success && rpcRes?.receipt_number) {
+        return { inserted: rpcRes, receiptNumber: rpcRes.receipt_number };
       }
 
-      // Fallback if RPC is not yet created in active schema
-      const fallbackReceiptNumber = `REC-${new Date().getFullYear()}-${Date.now().toString().slice(-6)}`;
+      // If the RPC failed with a business rule violation, RLS refusal, or schema error (not a 42883 missing function),
+      // we MUST fail immediately and NEVER bypass validation via direct fallback insert.
+      const isMissingRpc = rpcErr && (rpcErr.code === "42883" || rpcErr.message?.includes("does not exist"));
+      if (rpcErr && !isMissingRpc) {
+        throw new Error(rpcErr.message || "فشل تسجيل الدفعة المالية من قِبل الخادم");
+      }
+
+      if (rpcRes && !rpcRes.success) {
+        throw new Error(rpcRes.message || "تم رفض الدفعة المالية من قِبل النظام");
+      }
+
+      // Fallback ONLY if RPC function has not been applied yet to the active database schema
+      const entropy = typeof crypto !== "undefined" && crypto.getRandomValues
+        ? Math.abs(((new Int32Array(crypto.getRandomValues(new Uint32Array(1))))[0] ?? 0) % 1000000).toString().padStart(6, "0")
+        : Math.floor(100000 + Math.random() * 900000).toString();
+      const fallbackReceiptNumber = `REC-${new Date().getFullYear()}-${entropy}`;
       const { data: inserted, error } = await supabase
         .from("student_payments")
         .insert({

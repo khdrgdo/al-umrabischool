@@ -6,7 +6,7 @@ import { Sheet, SheetContent, SheetTitle, SheetDescription } from "@/components/
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuItem } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 
-type NavDestination = "/dashboard" | "/students" | "/guardians" | "/attendance" | "/fees" | "/grades" | "/calendar" | "/timetable" | "/structure" | "/teachers" | "/subjects" | "/rollover" | "/audit" | "/users" | "/parent";
+type NavDestination = "/dashboard" | "/students" | "/guardians" | "/attendance" | "/fees" | "/grades" | "/calendar" | "/timetable" | "/structure" | "/teachers" | "/subjects" | "/templates" | "/rollover" | "/audit" | "/users" | "/parent";
 export type SchoolNavItem = { to: NavDestination; label: string; icon: LucideIcon };
 
 export function AppShell({ email, roleName, navItems, onSignOut, children }: {

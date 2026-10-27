@@ -5,6 +5,7 @@ import React, { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useSchool, useMe, canManage, errMsg } from "@/lib/staff";
+import { printTarget } from "@/lib/printHelper";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
@@ -401,7 +402,12 @@ function RolloverPage() {
         }
         actions={
           <div className="flex flex-wrap items-center gap-2">
-            <Button variant="outline" size="sm" onClick={() => window.print()} className="h-9 gap-1.5 text-xs">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => printTarget("rollover-print-area", { documentTitle: "كشف_الترحيل_السنوي_وترقية_الطلاب" })}
+              className="h-9 gap-1.5 text-xs"
+            >
               <Printer className="h-3.5 w-3.5" />
               <span>طباعة كشف الترحيل</span>
             </Button>
@@ -604,7 +610,7 @@ function RolloverPage() {
           </FilterPanel>
 
           {/* Student Decisions Table */}
-          <div className="card-surface overflow-hidden">
+          <div id="rollover-print-area" className="printable-target card-surface overflow-hidden">
             <div className="p-4 border-b border-border flex items-center justify-between">
               <h2 className="text-xs font-semibold text-foreground">قائمة الطلاب والقرارات الأكاديمية</h2>
               <span className="text-xs text-muted-foreground">{filteredRows.length} طالب معروض</span>

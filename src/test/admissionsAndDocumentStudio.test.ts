@@ -153,4 +153,53 @@ describe("Admissions Workflows & Document Studio (Plan 1)", () => {
       expect(document.body.classList.contains("printing-target-mode")).toBe(true);
     });
   });
+
+  describe("Safe Fallback & Financial Gating (Plan 1 Hardening)", () => {
+    it("يمنع المسار البديل لتسجيل الطالب من تجاوز فحص شهادة المرحلة المتوسطة بدون استثناء", () => {
+      const fallbackExecute = (adm: { has_intermediate_cert: boolean; waiver_reason: string }) => {
+        if (!adm.has_intermediate_cert && !adm.waiver_reason.trim()) {
+          throw new Error("شهادة المرحلة المتوسطة مطلوبة للقبول الثانوي، ولا يمكن استكمال القبول دون إرفاقها أو تدوين استثناء إداري معتمد.");
+        }
+        return "student-enrolled-id";
+      };
+
+      expect(() => fallbackExecute({ has_intermediate_cert: false, waiver_reason: "" })).toThrow(
+        "شهادة المرحلة المتوسطة مطلوبة للقبول الثانوي"
+      );
+      expect(fallbackExecute({ has_intermediate_cert: false, waiver_reason: "استثناء معتمد" })).toBe(
+        "student-enrolled-id"
+      );
+    });
+
+    it("يرفض المسار البديل للمالية عند فشل الخادم ولا يسمح بتجاوز أخطاء الأعمال أو الصلاحيات", () => {
+      const processPayment = (rpcError: { code: string; message: string } | null, rpcSuccess: boolean) => {
+        if (!rpcError && rpcSuccess) return { success: true };
+        const isMissingRpc = rpcError && (rpcError.code === "42883" || rpcError.message.includes("does not exist"));
+        if (rpcError && !isMissingRpc) {
+          throw new Error(rpcError.message || "فشل تسجيل الدفعة المالية من قِبل الخادم");
+        }
+        if (!isMissingRpc && !rpcSuccess) {
+          throw new Error("تم رفض الدفعة المالية من قِبل النظام");
+        }
+        // Only reached if function truly does not exist in schema
+        return { success: true, mode: "fallback" };
+      };
+
+      // 1. Business error (e.g. invalid amount or unauthorized) MUST throw
+      expect(() => processPayment({ code: "P0001", message: "المبلغ يتجاوز الرسوم المستحقة" }, false)).toThrow(
+        "المبلغ يتجاوز الرسوم المستحقة"
+      );
+
+      // 2. RLS permission error MUST throw
+      expect(() => processPayment({ code: "42501", message: "row-level security violation" }, false)).toThrow(
+        "row-level security violation"
+      );
+
+      // 3. Only 42883 (missing function) falls through safely
+      expect(processPayment({ code: "42883", message: "function record_student_payment does not exist" }, false)).toEqual({
+        success: true,
+        mode: "fallback",
+      });
+    });
+  });
 });

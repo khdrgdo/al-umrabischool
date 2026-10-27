@@ -11,9 +11,6 @@ export default defineConfig({
     include: ["src/**/*.{test,spec}.{ts,tsx}"],
     fileParallelism: false,
     pool: "forks",
-    forks: {
-      singleFork: true,
-    },
     testTimeout: 60000,
     hookTimeout: 60000,
   },

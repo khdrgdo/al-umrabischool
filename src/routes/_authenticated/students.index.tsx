@@ -134,10 +134,10 @@ function Students() {
 
       const adm = v.admission_details ?? {
         workflow: "new",
-        has_intermediate_cert: true,
+        has_intermediate_cert: false,
         has_prior_term_report: false,
-        has_birth_cert: true,
-        has_guardian_id: true,
+        has_birth_cert: false,
+        has_guardian_id: false,
         waiver_reason: "",
       };
 
@@ -146,12 +146,26 @@ function Students() {
         throw new Error("اذكر المدرسة السابقة للطالب المنقول");
       }
 
+      // Enforce mandatory admission criteria strictly (cannot be bypassed by any fallback)
+      if (!adm.has_intermediate_cert && !adm.waiver_reason.trim()) {
+        throw new Error("شهادة المرحلة المتوسطة مطلوبة للقبول الثانوي، ولا يمكن استكمال القبول دون إرفاقها أو تدوين استثناء إداري معتمد.");
+      }
+      if (enrollType === "transfer_in" && !adm.has_prior_term_report && !adm.waiver_reason.trim()) {
+        throw new Error("تقرير درجات الفصل السابق مطلوب للطلاب المنقولين، أو تدوين سبب الاستثناء المعتمد.");
+      }
+
       let targetSchoolId = school?.id;
       if (!targetSchoolId) {
         const { data: s } = await supabase.from("schools").select("id").limit(1).maybeSingle();
         targetSchoolId = s?.id;
       }
       if (!targetSchoolId) throw new Error("تعذر التحقق من مدرسة الطالب");
+
+      let notesWithWaiver = v.notes;
+      if (adm.waiver_reason.trim()) {
+        const waiverAudit = `[استثناء وثائق القبول المعتمد]: ${adm.waiver_reason.trim()}`;
+        notesWithWaiver = notesWithWaiver ? `${notesWithWaiver}\n${waiverAudit}` : waiverAudit;
+      }
 
       const studentPayload = {
         full_name: v.full_name,
@@ -163,7 +177,7 @@ function Students() {
         guardian_relation: v.guardian_relation,
         guardian_phone: v.guardian_phone,
         previous_school: v.previous_school,
-        notes: v.notes,
+        notes: notesWithWaiver,
         school_id: targetSchoolId,
       };
 
@@ -184,7 +198,7 @@ function Students() {
         return (rpcRes as any).student_id as string;
       }
 
-      // 2. Resilient fallback if RPC not yet deployed
+      // 2. Resilient fallback only if RPC is not yet deployed, preserving strict validation and waiver audit
       if (rpcErr && (rpcErr.message?.includes("does not exist") || (rpcErr as any).code === "42883")) {
         const { data: id, error: fallbackErr } = await supabase.rpc("create_student_with_enrollment", {
           _student: studentPayload,

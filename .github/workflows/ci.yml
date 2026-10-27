@@ -31,6 +31,9 @@ jobs:
       - name: TypeScript Type Checking
         run: npx tsc --noEmit
 
+      - name: Verify Migration Integrity & Journal Parity
+        run: npm run verify:migrations
+
       - name: Run Vitest Real Test Suite (10 Comprehensive Suites)
         run: npm test
 

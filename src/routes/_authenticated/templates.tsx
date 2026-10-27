@@ -22,6 +22,7 @@ import {
   History,
   Copy,
   SlidersHorizontal,
+  Save,
 } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/templates")({
@@ -175,8 +176,8 @@ function TemplatesStudioPage() {
     },
   });
 
-  const activeTemplate = useMemo(() => {
-    return BUILTIN_TEMPLATES.find((t) => t.key === selectedTemplateKey) ?? BUILTIN_TEMPLATES[0];
+  const activeTemplate: TemplateDef = useMemo(() => {
+    return BUILTIN_TEMPLATES.find((t) => t.key === selectedTemplateKey) ?? BUILTIN_TEMPLATES[0]!;
   }, [selectedTemplateKey]);
 
   // Sync default texts when changing template
@@ -247,34 +248,163 @@ function TemplatesStudioPage() {
     };
   }, [selectedStudent, appData, school, currentBody, currentSubject]);
 
-  // Record issuance mutation
+  // Save Template Text Mutation
+  const saveTemplateMutation = useMutation({
+    mutationFn: async () => {
+      let targetSchoolId = school?.id;
+      if (!targetSchoolId) {
+        const { data: s } = await supabase.from("schools").select("id").limit(1).maybeSingle();
+        targetSchoolId = s?.id;
+      }
+      if (!targetSchoolId) throw new Error("تعذر تحديد المدرسة لحفظ القالب.");
+
+      const { data: existing, error: findErr } = await supabase
+        .from("document_templates" as any)
+        .select("id, version")
+        .eq("template_key", activeTemplate.key)
+        .maybeSingle();
+
+      if (findErr) {
+        if (findErr.code === "42P01" || findErr.message?.includes("does not exist")) {
+          return { available: false };
+        }
+        throw findErr;
+      }
+
+      if (existing?.id) {
+        const { error: updErr } = await supabase
+          .from("document_templates" as any)
+          .update({
+            title: subjectText || activeTemplate.defaultSubject,
+            content_html: customBody || activeTemplate.bodyTemplate,
+            version: (existing.version || 1) + 1,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", existing.id);
+        if (updErr) throw updErr;
+      } else {
+        const { error: insErr } = await supabase
+          .from("document_templates" as any)
+          .insert({
+            school_id: targetSchoolId,
+            template_key: activeTemplate.key,
+            title: subjectText || activeTemplate.defaultSubject,
+            category: activeTemplate.category,
+            content_html: customBody || activeTemplate.bodyTemplate,
+            version: 1,
+            is_active: true,
+          });
+        if (insErr) {
+          if (insErr.code === "42P01" || insErr.message?.includes("does not exist")) {
+            return { available: false };
+          }
+          throw insErr;
+        }
+      }
+      return { available: true };
+    },
+    onSuccess: (res) => {
+      if (res.available) {
+        toast.success("تم حفظ نص القالب وإصدار نسخة جديدة بالسجل");
+      } else {
+        toast.info("تنبيه: جدول حفظ القوالب (document_templates) غير مفعّل في قاعدة البيانات الحالية حتى يتم اعتماد ترحيل 0012.");
+      }
+    },
+    onError: (e) => toast.error(errMsg(e)),
+  });
+
+  // Record issuance mutation with strict foreign-key integrity and honest error handling
   const issueMutation = useMutation({
     mutationFn: async () => {
       if (!selectedStudent) throw new Error("يرجى اختيار الطالب لإصدار المستند باسمه.");
-      if (!school?.id && !appData?.students[0]) throw new Error("تعذر تحديد بيانات المدرسة.");
-
-      const targetSchoolId = school?.id ?? "00000000-0000-0000-0000-000000000000";
-
-      // Attempt to record in issued_documents table if table exists
-      try {
-        await supabase.from("issued_documents").insert({
-          school_id: targetSchoolId,
-          document_number: previewData.refNum,
-          template_id: targetSchoolId, // placeholder or system template ref
-          template_version: 1,
-          student_id: selectedStudent.id,
-          academic_year_id: appData?.year?.id,
-          rendered_content: previewData.body,
-          issued_by: me?.user.id,
-          status: "active",
-        } as any);
-      } catch {
-        // Table might be pending live deployment; ignore silent storage failure
+      let targetSchoolId = school?.id;
+      if (!targetSchoolId) {
+        const { data: s } = await supabase.from("schools").select("id").limit(1).maybeSingle();
+        targetSchoolId = s?.id;
       }
+      if (!targetSchoolId) throw new Error("تعذر تحديد بيانات المدرسة.");
+
+      // 1. Resolve actual template_id from document_templates
+      let validTemplateId: string | null = null;
+      let tablesAvailable = true;
+
+      const { data: tmplRecord, error: tmplErr } = await supabase
+        .from("document_templates" as any)
+        .select("id")
+        .eq("template_key", activeTemplate.key)
+        .maybeSingle();
+
+      if (tmplErr) {
+        if (tmplErr.code === "42P01" || tmplErr.message?.includes("does not exist")) {
+          tablesAvailable = false;
+        } else {
+          throw tmplErr;
+        }
+      } else if (tmplRecord?.id) {
+        validTemplateId = tmplRecord.id;
+      } else {
+        // Create template record so issued_documents has a valid foreign key
+        const { data: newTmpl, error: createTmplErr } = await supabase
+          .from("document_templates" as any)
+          .insert({
+            school_id: targetSchoolId,
+            template_key: activeTemplate.key,
+            title: currentSubject,
+            category: activeTemplate.category,
+            content_html: currentBody,
+            version: 1,
+            is_active: true,
+          })
+          .select("id")
+          .maybeSingle();
+
+        if (createTmplErr) {
+          if (createTmplErr.code === "42P01" || createTmplErr.message?.includes("does not exist")) {
+            tablesAvailable = false;
+          } else {
+            throw createTmplErr;
+          }
+        } else {
+          validTemplateId = newTmpl?.id ?? null;
+        }
+      }
+
+      // 2. Insert into issued_documents only if tables exist and template_id is valid
+      if (tablesAvailable && validTemplateId) {
+        const { error: insErr } = await supabase
+          .from("issued_documents" as any)
+          .insert({
+            school_id: targetSchoolId,
+            document_number: previewData.refNum,
+            template_id: validTemplateId,
+            template_version: 1,
+            student_id: selectedStudent.id,
+            academic_year_id: appData?.year?.id,
+            rendered_content: previewData.body,
+            issued_by: me?.user.id,
+            status: "active",
+          });
+
+        if (insErr) {
+          if (insErr.code === "42P01" || insErr.message?.includes("does not exist")) {
+            tablesAvailable = false;
+          } else {
+            throw insErr;
+          }
+        }
+      }
+
+      return { tablesAvailable, refNum: previewData.refNum };
     },
-    onSuccess: () => {
-      toast.success("تم تجهيز المستند الرسمي وإصدار رقم القيد المعتمد");
-      refetchHistory();
+    onSuccess: (res) => {
+      if (res.tablesAvailable) {
+        toast.success(`تم إصدار الوثيقة وتوثيقها في السجل الرقمي برقم قيد معتمد: ${res.refNum}`);
+        refetchHistory();
+      } else {
+        toast.info(
+          `المستند جاهز للطباعة برقم قيد: ${res.refNum}. (تنبيه: سجل الأرشفة الرقمي غير مفعّل في قاعدة البيانات الحالية حتى يتم تطبيق ترحيل 0012).`
+        );
+      }
     },
     onError: (e) => toast.error(errMsg(e)),
   });
@@ -508,6 +638,31 @@ function TemplatesStudioPage() {
                     className="text-xs leading-relaxed font-sans"
                   />
                 </Field>
+
+                <div className="flex items-center justify-between pt-1">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => saveTemplateMutation.mutate()}
+                    disabled={saveTemplateMutation.isPending}
+                    className="h-7 text-[11px] gap-1"
+                  >
+                    <Save className="h-3 w-3" />
+                    <span>حفظ نص القالب بالسجل</span>
+                  </Button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setCustomBody(activeTemplate.bodyTemplate);
+                      setSubjectText(activeTemplate.defaultSubject);
+                      toast.info("تمت استعادة النص القياسي الأصلي للقالب");
+                    }}
+                    className="text-[11px] text-muted-foreground hover:underline"
+                  >
+                    استعادة النص الافتراضي
+                  </button>
+                </div>
               </div>
             </div>
           </div>
