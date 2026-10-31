@@ -73,7 +73,7 @@ describe("Migration verifier (real logic)", () => {
     const r = runMigrationAudit(tmp);
     const hits = r.issues.filter((i) => i.type === "DESTRUCTIVE_STATEMENT");
     expect(hits.length).toBe(2); // drizzle + supabase
-    expect(hits[0].message).toContain("TRUNCATE");
+    expect(hits[0]?.message).toContain("TRUNCATE");
   });
 
   it("flags DROP SCHEMA but ignores destructive words that only appear in comments", () => {

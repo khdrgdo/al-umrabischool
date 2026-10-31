@@ -116,7 +116,7 @@ export function runMigrationAudit(projectRoot: string): AuditResult {
   const drizzleByIndex = new Map<string, string>();
   for (const df of drizzleFiles) {
     const match = df.match(/^(\d{4})_(.+)\.sql$/);
-    if (match) {
+    if (match && match[1] !== undefined) {
       const idx = match[1];
       if (drizzleByIndex.has(idx)) {
         issues.push({
@@ -132,7 +132,7 @@ export function runMigrationAudit(projectRoot: string): AuditResult {
   const supabaseByIndex = new Map<string, string>();
   for (const sf of supabaseFiles) {
     const tsMatch = sf.match(/^2026\d{6}(\d{4})_(.+)\.sql$/) || sf.match(/^(\d{4})_(.+)\.sql$/);
-    if (tsMatch) {
+    if (tsMatch && tsMatch[1] !== undefined) {
       const idx = tsMatch[1];
       if (supabaseByIndex.has(idx)) {
         issues.push({
