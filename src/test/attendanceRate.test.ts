@@ -1,61 +1,6 @@
 import { describe, it, expect } from "vitest";
-
-// Attendance Rate Calculation & Threshold Classification Specification
-interface AttendanceRecordInput {
-  date: string;
-  status: "present" | "absent" | "late" | "excused";
-  reason?: string | null;
-}
-
-interface AttendanceSummary {
-  totalSessions: number;
-  presentCount: number;
-  absentCount: number;
-  excusedCount: number;
-  lateCount: number;
-  attendanceRate: number | null;
-  statusLevel: "perfect" | "good" | "warning" | "critical" | "no_data";
-}
-
-function computeAttendanceSummary(records: AttendanceRecordInput[]): AttendanceSummary {
-  const totalSessions = records.length;
-
-  if (totalSessions === 0) {
-    return {
-      totalSessions: 0,
-      presentCount: 0,
-      absentCount: 0,
-      excusedCount: 0,
-      lateCount: 0,
-      attendanceRate: null,
-      statusLevel: "no_data",
-    };
-  }
-
-  const presentCount = records.filter((r) => r.status === "present").length;
-  const absentCount = records.filter((r) => r.status === "absent").length;
-  const excusedCount = records.filter((r) => r.status === "excused" || (r.status === "absent" && !!r.reason)).length;
-  const lateCount = records.filter((r) => r.status === "late").length;
-
-  // Rate formula: (total - absent) / total * 100
-  const rate = Math.max(0, Math.min(100, Math.round(((totalSessions - absentCount) / totalSessions) * 100)));
-
-  let statusLevel: AttendanceSummary["statusLevel"] = "good";
-  if (rate === 100) statusLevel = "perfect";
-  else if (rate >= 90) statusLevel = "good";
-  else if (rate >= 75) statusLevel = "warning";
-  else statusLevel = "critical";
-
-  return {
-    totalSessions,
-    presentCount,
-    absentCount,
-    excusedCount,
-    lateCount,
-    attendanceRate: rate,
-    statusLevel,
-  };
-}
+import { computeAttendanceSummary } from "@/lib/attendance";
+import type { AttendanceRecordInput } from "@/lib/attendance";
 
 describe("Suite 8: Attendance Rate Calculation & Edge Cases", () => {
   it("handles zero sessions edge case: returns null attendanceRate and 'no_data' status", () => {

@@ -1,47 +1,5 @@
 import { describe, it, expect } from "vitest";
-
-// Financial Privacy & Fee Calculation Specification (Notion Sec 2.4 & F-018)
-interface FeeStatementParams {
-  canViewFees: boolean;
-  baseAnnualFee: number;
-  discounts: Array<{ amount: number; reason: string }>;
-  payments: Array<{ amount: number; receiptNumber: string }>;
-}
-
-interface FeeStatementResult {
-  hasAccess: boolean;
-  statement?: {
-    baseAnnualFee: number;
-    totalDiscounts: number;
-    netDue: number;
-    totalPaid: number;
-    balance: number;
-    paymentCount: number;
-  };
-}
-
-function calculateFeeStatement(params: FeeStatementParams): FeeStatementResult {
-  if (!params.canViewFees) {
-    return { hasAccess: false };
-  }
-
-  const totalDiscounts = params.discounts.reduce((sum, d) => sum + (Number(d.amount) || 0), 0);
-  const netDue = Math.max(0, params.baseAnnualFee - totalDiscounts);
-  const totalPaid = params.payments.reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
-  const balance = Math.max(0, netDue - totalPaid);
-
-  return {
-    hasAccess: true,
-    statement: {
-      baseAnnualFee: params.baseAnnualFee,
-      totalDiscounts,
-      netDue,
-      totalPaid,
-      balance,
-      paymentCount: params.payments.length,
-    },
-  };
-}
+import { calculateFeeStatement } from "@/lib/feeStatement";
 
 describe("Suite 6: Financial Privacy & Fee Statement Calculation", () => {
   it("strictly suppresses financial data when can_view_fees is false", () => {
