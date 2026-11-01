@@ -2,15 +2,16 @@
 -- Resolves RLS restriction for non-JWT authenticated guardians by providing a secure SECURITY DEFINER RPC.
 -- Validates (guardian_id, account_code) pair before returning linked students, grades, attendance, and fees.
 
-CREATE OR REPLACE FUNCTION public.parent_get_portal_data(_guardian_id uuid, _account_code text)
+CREATE OR REPLACE FUNCTION public.parent_get_portal_data(_guardian_id uuid, _account_code text, _pin text)
 RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 DECLARE
   v_guardian RECORD;
   v_children jsonb := '[]'::jsonb;
   v_announcements jsonb := '[]'::jsonb;
   v_events jsonb := '[]'::jsonb;
+  v_clean_pin text := trim(COALESCE(_pin, ''));
 BEGIN
-  -- 1. Strict verification of guardian identity
+  -- 1. Strict verification of guardian identity and credentials
   SELECT * INTO v_guardian 
   FROM public.guardians 
   WHERE id = _guardian_id 
@@ -27,6 +28,11 @@ BEGIN
 
   IF v_guardian.status = 'revoked' OR v_guardian.status = 'pending_activation' THEN
     RETURN jsonb_build_object('success', false, 'error', 'ACCOUNT_INACTIVE', 'message', 'الحساب غير مفعّل. يرجى التواصل مع إدارة المدرسة.');
+  END IF;
+
+  -- 2. Strict PIN verification (anti-enumeration & unauthorized access prevention)
+  IF v_guardian.temp_password_code IS NULL OR v_guardian.temp_password_code = '' OR v_clean_pin = '' OR v_guardian.temp_password_code <> v_clean_pin THEN
+    RETURN jsonb_build_object('success', false, 'error', 'UNAUTHORIZED', 'message', 'بيانات الدخول غير صحيحة أو غير مصرح بها.');
   END IF;
 
   -- 2. Fetch linked children with assessments, attendance, and fees
@@ -195,14 +201,20 @@ BEGIN
   END IF;
 
   -- 3. Password / PIN Verification
-  IF v_guardian.temp_password_code IS NOT NULL AND v_guardian.temp_password_code <> '' THEN
-    IF v_guardian.temp_password_code <> v_clean_pin THEN
-      RETURN jsonb_build_object(
-        'success', false, 
-        'error', 'INVALID_CREDENTIALS', 
-        'message', 'بيانات الدخول غير صحيحة. يرجى التأكد من المعرّف أو مراجعة إدارة المدرسة.'
-      );
-    END IF;
+  IF v_guardian.temp_password_code IS NULL OR v_guardian.temp_password_code = '' THEN
+    RETURN jsonb_build_object(
+      'success', false, 
+      'error', 'PASSWORD_NOT_SET', 
+      'message', 'لم يتم ضبط كلمة مرور أو رمز دخول لهذا الحساب. يرجى مراجعة إدارة المدرسة لإصدار رمز الدخول.'
+    );
+  END IF;
+
+  IF v_guardian.temp_password_code <> v_clean_pin THEN
+    RETURN jsonb_build_object(
+      'success', false, 
+      'error', 'INVALID_CREDENTIALS', 
+      'message', 'بيانات الدخول غير صحيحة. يرجى التأكد من المعرّف أو مراجعة إدارة المدرسة.'
+    );
   END IF;
 
   RETURN jsonb_build_object(

@@ -49,6 +49,11 @@ RETURNS jsonb LANGUAGE plpgsql SECURITY INVOKER SET search_path = public AS $$
 DECLARE
   rec RECORD;
   v_student_rec RECORD;
+  v_from_grade_order int;
+  v_from_grade_name text;
+  v_target_grade_order int;
+  v_target_grade_name text;
+  v_max_grade_order int;
   promoted_count int := 0;
   repeated_count int := 0;
   graduated_count int := 0;
@@ -58,6 +63,9 @@ BEGIN
   IF NOT public.can_manage(auth.uid()) THEN
     RAISE EXCEPTION 'لا تملك صلاحية اعتماد وتنفيذ الترحيل السنوي';
   END IF;
+
+  -- Determine highest grade level in system (e.g. Grade 3 for secondary)
+  SELECT COALESCE(MAX(level_order), 3) INTO v_max_grade_order FROM public.grades;
 
   -- F-004: Validate that years exist and are distinct
   IF _from_year = _to_year THEN
@@ -97,6 +105,27 @@ BEGIN
       RAISE EXCEPTION 'سجل الطالب غير موجود (معرف: %)', rec.student_id;
     END IF;
 
+    -- Fetch from_grade level_order if student was enrolled
+    v_from_grade_order := NULL;
+    v_from_grade_name := NULL;
+    IF rec.from_enrollment_id IS NOT NULL THEN
+      SELECT g.level_order, g.name INTO v_from_grade_order, v_from_grade_name
+      FROM public.enrollments e
+      JOIN public.sections s ON s.id = e.section_id
+      JOIN public.grades g ON g.id = s.grade_id
+      WHERE e.id = rec.from_enrollment_id;
+    END IF;
+
+    -- Fetch target_grade level_order if target_section is specified
+    v_target_grade_order := NULL;
+    v_target_grade_name := NULL;
+    IF rec.target_section_id IS NOT NULL THEN
+      SELECT g.level_order, g.name INTO v_target_grade_order, v_target_grade_name
+      FROM public.sections s
+      JOIN public.grades g ON g.id = s.grade_id
+      WHERE s.id = rec.target_section_id;
+    END IF;
+
     -- F-007: Block active enrollment for graduated or transferred-out students
     IF v_student_rec.status IN ('graduated', 'transferred_out') AND rec.decision IN ('promote', 'repeat') THEN
       RAISE EXCEPTION 'لا يمكن قيد طالب متخرج أو منقول خارجياً في السنة الجديدة (الطالب: %)', v_student_rec.full_name;
@@ -105,6 +134,14 @@ BEGIN
     IF rec.decision = 'promote' THEN
       IF rec.target_section_id IS NULL THEN
         RAISE EXCEPTION 'يجب تحديد الشعبة المستهدفة لجميع الطلاب المترقين (الطالب: %)', v_student_rec.full_name;
+      END IF;
+
+      -- Enforce strictly promote to next level (level_order + 1)
+      IF v_from_grade_order IS NOT NULL AND v_target_grade_order IS NOT NULL THEN
+        IF v_target_grade_order <> v_from_grade_order + 1 THEN
+          RAISE EXCEPTION 'ترقية غير صالحة للطالب (%): لا يمكن الترقية من الصف (%) إلى الصف (%). الترقية يجب أن تكون للصف التالي مباشرة.',
+            v_student_rec.full_name, COALESCE(v_from_grade_name, 'الحالي'), COALESCE(v_target_grade_name, 'المستهدف');
+        END IF;
       END IF;
 
       -- F-004: Verify target section belongs to target academic year
@@ -136,6 +173,14 @@ BEGIN
         RAISE EXCEPTION 'يجب تحديد شعبة الإعادة لجميع الطلاب المعيدين (الطالب: %)', v_student_rec.full_name;
       END IF;
 
+      -- Enforce repeating in the same grade level (level_order == from_level_order)
+      IF v_from_grade_order IS NOT NULL AND v_target_grade_order IS NOT NULL THEN
+        IF v_target_grade_order <> v_from_grade_order THEN
+          RAISE EXCEPTION 'إعادة قيد غير صالحة للطالب (%): يجب أن تكون الإعادة في نفس الصف الدراسي (%).',
+            v_student_rec.full_name, COALESCE(v_from_grade_name, 'الحالي');
+        END IF;
+      END IF;
+
       IF NOT EXISTS (
         SELECT 1 FROM public.sections
         WHERE id = rec.target_section_id AND academic_year_id = _to_year
@@ -160,6 +205,12 @@ BEGIN
       END IF;
 
     ELSIF rec.decision = 'graduate' THEN
+      -- Enforce graduation only from terminal grade (highest grade level, e.g. Grade 3)
+      IF v_from_grade_order IS NOT NULL AND v_from_grade_order < v_max_grade_order THEN
+        RAISE EXCEPTION 'لا يمكن تخريج الطالب (%) لأنه مقيد بالصف (%) وليس بالصف النهائي المؤهل للتخرج (الصف %).',
+          v_student_rec.full_name, COALESCE(v_from_grade_name, 'الحالي'), v_max_grade_order;
+      END IF;
+
       IF rec.from_enrollment_id IS NOT NULL THEN
         UPDATE public.enrollments SET status = 'graduated' WHERE id = rec.from_enrollment_id;
       END IF;

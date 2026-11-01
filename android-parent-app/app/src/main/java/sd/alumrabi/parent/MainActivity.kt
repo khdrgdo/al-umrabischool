@@ -102,11 +102,11 @@ fun ParentAppNavHost() {
             // If guardian has saved credentials, refresh portal data silently
             val savedGuardian = sessionManager.getGuardian()
             if (savedGuardian != null && !savedGuardian.accountCode.isNullOrBlank()) {
-                val portalResult = apiClient.fetchPortalData(savedGuardian.id, savedGuardian.accountCode)
+                val portalResult = apiClient.fetchPortalData(savedGuardian.id, savedGuardian.accountCode, sessionManager.getPin())
                 portalResult.getOrNull()?.let { payload ->
                     currentGuardian = payload.guardian
                     currentChildren = payload.children
-                    sessionManager.saveSession(payload.guardian, payload.children)
+                    sessionManager.saveSession(payload.guardian, payload.children, sessionManager.getPin())
                 }
             }
         }
@@ -153,11 +153,11 @@ fun ParentAppNavHost() {
 
         composable("login") {
             LoginScreen(
-                onLoginSuccess = { guardian, children ->
+                onLoginSuccess = { guardian, children, pin ->
                     currentGuardian = guardian
                     currentChildren = children
                     selectedChildIndex = 0
-                    sessionManager.saveSession(guardian, children)
+                    sessionManager.saveSession(guardian, children, pin)
                     navController.navigate("dashboard") {
                         popUpTo("login") { inclusive = true }
                     }

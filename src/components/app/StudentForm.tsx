@@ -73,6 +73,7 @@ export interface StudentFormProps {
   extra?: React.ReactNode;
   mode?: "create" | "edit";
   existingStudents?: Array<{ id: string; full_name: string; national_id: string | null; student_number?: string }>;
+  onWorkflowChange?: (workflow: AdmissionWorkflow) => void;
 }
 
 export function StudentForm({
@@ -84,6 +85,7 @@ export function StudentForm({
   studentNumber,
   mode = "create",
   existingStudents = [],
+  onWorkflowChange,
 }: StudentFormProps) {
   const [v, setV] = useState<StudentInput>(initial);
   const [admission, setAdmission] = useState<StudentAdmissionDetails>(
@@ -98,6 +100,11 @@ export function StudentForm({
       previous_term: null,
     }
   );
+
+  const updateWorkflow = (wf: AdmissionWorkflow) => {
+    setAdmission((a) => ({ ...a, workflow: wf }));
+    onWorkflowChange?.(wf);
+  };
 
   const set = (k: keyof StudentInput) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) =>
     setV((prev) => ({ ...prev, [k]: e.target.value === "" ? null : e.target.value }));
@@ -154,7 +161,7 @@ export function StudentForm({
           <div className="grid grid-cols-3 gap-2">
             <button
               type="button"
-              onClick={() => setAdmission((a) => ({ ...a, workflow: "new" }))}
+              onClick={() => updateWorkflow("new")}
               className={`p-2.5 rounded-lg border text-xs text-start font-medium transition-colors flex items-center gap-2 ${
                 admission.workflow === "new"
                   ? "border-primary bg-primary/5 text-primary font-semibold"
@@ -167,7 +174,7 @@ export function StudentForm({
 
             <button
               type="button"
-              onClick={() => setAdmission((a) => ({ ...a, workflow: "transfer_in" }))}
+              onClick={() => updateWorkflow("transfer_in")}
               className={`p-2.5 rounded-lg border text-xs text-start font-medium transition-colors flex items-center gap-2 ${
                 admission.workflow === "transfer_in"
                   ? "border-primary bg-primary/5 text-primary font-semibold"
@@ -180,7 +187,7 @@ export function StudentForm({
 
             <button
               type="button"
-              onClick={() => setAdmission((a) => ({ ...a, workflow: "continuing" }))}
+              onClick={() => updateWorkflow("continuing")}
               className={`p-2.5 rounded-lg border text-xs text-start font-medium transition-colors flex items-center gap-2 ${
                 admission.workflow === "continuing"
                   ? "border-primary bg-primary/5 text-primary font-semibold"

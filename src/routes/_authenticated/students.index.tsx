@@ -31,6 +31,7 @@ function Students() {
   const [status, setStatus] = useState("active");
   const [open, setOpen] = useState(false);
   const [newSec, setNewSec] = useState("");
+  const [currentWorkflow, setCurrentWorkflow] = useState<"new" | "transfer_in" | "continuing" | "re_enrollment" | "transfer_out">("new");
 
   const { data, isLoading, isError, error: queryError, refetch } = useQuery({
     queryKey: ["students"],
@@ -147,6 +148,11 @@ function Students() {
       }
 
       // Enforce mandatory admission criteria strictly (cannot be bypassed by any fallback)
+      const selectedSectionObj = (data?.sections ?? []).find((s) => s.id === newSec);
+      if (adm.workflow === "new" && selectedSectionObj?.grade?.level_order && selectedSectionObj.grade.level_order > 1) {
+        throw new Error("لا يمكن قيد طالب مستجد في الصف الثاني أو الثالث الثانوي. القبول المستجد مخصص للصف الأول فقط.");
+      }
+
       if (!adm.has_intermediate_cert && !adm.waiver_reason.trim()) {
         throw new Error("شهادة المرحلة المتوسطة مطلوبة للقبول الثانوي، ولا يمكن استكمال القبول دون إرفاقها أو تدوين استثناء إداري معتمد.");
       }
@@ -473,6 +479,7 @@ function Students() {
             busy={create.isPending}
             submitLabel="حفظ واعتماد ملف الطالب"
             existingStudents={data?.students ?? []}
+            onWorkflowChange={setCurrentWorkflow}
             onSubmit={(v) => create.mutate(v)}
             extra={!data?.year ? (
               <p className="text-sm text-destructive border-t pt-4">لا يوجد عام دراسي حالي، لذلك لا يمكن فتح ملف الآن.</p>
@@ -482,9 +489,18 @@ function Students() {
                 <Field label="الصف / المسار / التخصص / الشعبة *">
                   <select className="field-select w-full text-xs" value={newSec} onChange={(e) => setNewSec(e.target.value)} required>
                     <option value="">اختر الشعبة المعتمدة…</option>
-                    {(data?.sections ?? []).slice().sort((a, b) => (a.grade?.level_order ?? 0) - (b.grade?.level_order ?? 0)).map((s) => (
-                      <option key={s.id} value={s.id}>{secFull(s)}</option>
-                    ))}
+                    {(data?.sections ?? [])
+                      .slice()
+                      .filter((s) => {
+                        if (currentWorkflow === "new") {
+                          return (s.grade?.level_order ?? 1) === 1;
+                        }
+                        return true;
+                      })
+                      .sort((a, b) => (a.grade?.level_order ?? 0) - (b.grade?.level_order ?? 0))
+                      .map((s) => (
+                        <option key={s.id} value={s.id}>{secFull(s)}</option>
+                      ))}
                   </select>
                 </Field>
               </fieldset>

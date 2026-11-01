@@ -36,7 +36,7 @@ function StudentPage() {
       const { data: year } = await supabase.from("academic_years").select("*").eq("is_current", true).maybeSingle();
       const [s, enr, hist, secs, pays] = await Promise.all([
         supabase.from("students").select("*").eq("id", id).single(),
-        supabase.from("enrollments").select("*, year:academic_years(name,is_current), section:sections(name, grade:grades(name), track:tracks(name), spec:specializations(name))").eq("student_id", id).order("created_at", { ascending: false }),
+        supabase.from("enrollments").select("*, year:academic_years(name,is_current), section:sections(name, grade:grades(name, level_order), track:tracks(name), spec:specializations(name))").eq("student_id", id).order("created_at", { ascending: false }),
         supabase.from("student_status_history").select("*").eq("student_id", id).order("changed_at", { ascending: false }),
         year ? supabase.from("sections").select("id,name,grade:grades(name,level_order)").eq("academic_year_id", year.id) : Promise.resolve({ data: [] }),
         Promise.resolve(supabase.from("student_payments").select("*").eq("student_id", id).order("created_at", { ascending: false })).then((r) => r.data ?? []).catch(() => []),
@@ -96,13 +96,28 @@ function StudentPage() {
     onError: (e) => toast.error(errMsg(e)),
   });
   const move = useMutation({
-    mutationFn: async (enrId: string) => { const { error } = await supabase.from("enrollments").update({ section_id: moveTo }).eq("id", enrId); if (error) throw error; },
+    mutationFn: async (enrId: string) => {
+      const targetSec = data?.secs.find((x) => x.id === moveTo);
+      if (targetSec && current?.section?.grade?.level_order && targetSec.grade?.level_order !== current.section.grade.level_order) {
+        throw new Error("لا يمكن نقل الطالب إلى شعبة في صف دراسي مختلف خلال العام. النقل متاح فقط بين شعب نفس الصف.");
+      }
+      const { error } = await supabase.from("enrollments").update({ section_id: moveTo }).eq("id", enrId);
+      if (error) throw error;
+    },
     onSuccess: () => { setMoveTo(""); refresh(); toast.success("نُقل الطالب إلى الشعبة الجديدة"); },
     onError: (e) => toast.error(errMsg(e)),
   });
   const enroll = useMutation({
     mutationFn: async () => {
-      const { error } = await supabase.from("enrollments").insert({ student_id: id, section_id: enrollSec, academic_year_id: data!.year!.id, enrollment_type: enrollType as "new" });
+      if (enrollType === "new") {
+        throw new Error("لا يمكن قيد طالب مسجل مسبقاً بنوع (مستجد). اختر مستمر أو معيد.");
+      }
+      const { error } = await supabase.from("enrollments").insert({
+        student_id: id,
+        section_id: enrollSec,
+        academic_year_id: data!.year!.id,
+        enrollment_type: enrollType as "continuing"
+      });
       if (error) throw error;
     },
     onSuccess: () => { setEnrollSec(""); refresh(); toast.success("تم القيد"); },
@@ -408,7 +423,7 @@ function StudentPage() {
                     >
                       <option value="">اختر الشعبة الجديدة…</option>
                       {data.secs
-                        .filter((x) => x.id !== current.section_id)
+                        .filter((x) => x.id !== current.section_id && (!current.section?.grade?.level_order || x.grade?.level_order === current.section.grade.level_order))
                         .map((x) => (
                           <option key={x.id} value={x.id}>
                             {secLabel(x)}
@@ -450,11 +465,13 @@ function StudentPage() {
                       value={enrollType}
                       onChange={(e) => setEnrollType(e.target.value)}
                     >
-                      {Object.entries(ENROLL_TYPE).map(([k, v]) => (
-                        <option key={k} value={k}>
-                          {v}
-                        </option>
-                      ))}
+                      {Object.entries(ENROLL_TYPE)
+                        .filter(([k]) => k !== "new")
+                        .map(([k, v]) => (
+                          <option key={k} value={k}>
+                            {v}
+                          </option>
+                        ))}
                     </select>
                   </Field>
                   <Button

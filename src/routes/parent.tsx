@@ -42,6 +42,7 @@ interface GuardianSession {
   fullName: string;
   phone: string;
   status: string;
+  pin?: string;
 }
 
 interface LinkedChild {
@@ -111,6 +112,7 @@ function ParentPortalPage() {
           fullName: data.full_name,
           phone: data.phone,
           status: data.status,
+          pin: pin,
         };
         setSession(guardianSession);
         try {
@@ -157,40 +159,75 @@ function ParentPortalPage() {
 
       // Fetch linked children strictly for authenticated guardian
       let linkedStudents: LinkedChild[] = [];
+      let rpcAnnouncements: any[] = [];
+      let rpcEvents: any[] = [];
+
       try {
-        const { data: links } = await supabase
-          .from("guardian_students")
-          .select("can_view_fees, student:students(id, full_name, student_number, status)")
-          .eq("guardian_id", session!.guardianId);
+        const { data: rpcRes, error: rpcErr } = await supabase.rpc("parent_get_portal_data" as any, {
+          _guardian_id: session!.guardianId,
+          _account_code: session!.accountCode,
+          _pin: session!.pin || "",
+        });
 
-        if (links && links.length > 0) {
-          const studentIds = links.map((l: any) => l.student?.id).filter(Boolean);
-          const { data: enrollments } = currentYear?.id
-            ? await supabase
-                .from("enrollments")
-                .select("student_id, section:sections(id, name, grade:grades(name))")
-                .eq("academic_year_id", currentYear.id)
-                .in("student_id", studentIds)
-            : { data: [] };
-
-          const enrMap = new Map((enrollments ?? []).map((e: any) => [e.student_id, e.section]));
-
-          linkedStudents = links.map((l: any) => {
-            const sec = enrMap.get(l.student?.id);
-            return {
-              id: l.student?.id ?? "",
-              studentNumber: l.student?.student_number ?? "—",
-              fullName: l.student?.full_name ?? "بدون اسم",
-              gradeName: sec?.grade?.name ?? "غير مقيد",
-              sectionName: sec?.name ?? "—",
-              sectionId: sec?.id ?? "",
-              status: l.student?.status ?? "active",
-              canViewFees: l.can_view_fees ?? true,
-            };
-          });
+        if (!rpcErr && rpcRes && (rpcRes as any).success && Array.isArray((rpcRes as any).children)) {
+          linkedStudents = (rpcRes as any).children.map((c: any) => ({
+            id: c.id,
+            studentNumber: c.student_number || "—",
+            fullName: c.full_name || "بدون اسم",
+            gradeName: c.grade_name || "غير محدد",
+            sectionName: c.section_name || "—",
+            sectionId: c.section_id || "",
+            status: c.status || "active",
+            canViewFees: c.can_view_fees ?? true,
+          }));
+          if (Array.isArray((rpcRes as any).announcements) && (rpcRes as any).announcements.length > 0) {
+            rpcAnnouncements = (rpcRes as any).announcements;
+          }
+          if (Array.isArray((rpcRes as any).events) && (rpcRes as any).events.length > 0) {
+            rpcEvents = (rpcRes as any).events;
+          }
         }
       } catch (err) {
-        console.warn("Linked children query error:", err);
+        console.warn("parent_get_portal_data RPC attempt:", err);
+      }
+
+      // Fallback to direct REST queries if RPC is not available yet
+      if (linkedStudents.length === 0) {
+        try {
+          const { data: links } = await supabase
+            .from("guardian_students")
+            .select("can_view_fees, student:students(id, full_name, student_number, status)")
+            .eq("guardian_id", session!.guardianId);
+
+          if (links && links.length > 0) {
+            const studentIds = links.map((l: any) => l.student?.id).filter(Boolean);
+            const { data: enrollments } = currentYear?.id
+              ? await supabase
+                  .from("enrollments")
+                  .select("student_id, section:sections(id, name, grade:grades(name))")
+                  .eq("academic_year_id", currentYear.id)
+                  .in("student_id", studentIds)
+              : { data: [] };
+
+            const enrMap = new Map((enrollments ?? []).map((e: any) => [e.student_id, e.section]));
+
+            linkedStudents = links.map((l: any) => {
+              const sec = enrMap.get(l.student?.id);
+              return {
+                id: l.student?.id ?? "",
+                studentNumber: l.student?.student_number ?? "—",
+                fullName: l.student?.full_name ?? "بدون اسم",
+                gradeName: sec?.grade?.name ?? "غير مقيد",
+                sectionName: sec?.name ?? "—",
+                sectionId: sec?.id ?? "",
+                status: l.student?.status ?? "active",
+                canViewFees: l.can_view_fees ?? true,
+              };
+            });
+          }
+        } catch (err) {
+          console.warn("Linked children query error:", err);
+        }
       }
 
       // Fetch school announcements
@@ -220,8 +257,8 @@ function ParentPortalPage() {
       return {
         year: currentYear,
         children: linkedStudents,
-        announcements,
-        events,
+        announcements: rpcAnnouncements.length > 0 ? rpcAnnouncements : announcements,
+        events: rpcEvents.length > 0 ? rpcEvents : events,
       };
     },
   });

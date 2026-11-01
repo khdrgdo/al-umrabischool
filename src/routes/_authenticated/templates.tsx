@@ -258,10 +258,11 @@ function TemplatesStudioPage() {
       }
       if (!targetSchoolId) throw new Error("تعذر تحديد المدرسة لحفظ القالب.");
 
+      const templateType = activeTemplate.key === "good_conduct" ? "conduct_certificate" : activeTemplate.key;
       const { data: existing, error: findErr } = await supabase
         .from("document_templates" as any)
         .select("id, version")
-        .eq("template_key", activeTemplate.key)
+        .eq("template_type", templateType)
         .maybeSingle();
 
       if (findErr) {
@@ -276,7 +277,7 @@ function TemplatesStudioPage() {
           .from("document_templates" as any)
           .update({
             title: subjectText || activeTemplate.defaultSubject,
-            content_html: customBody || activeTemplate.bodyTemplate,
+            content: customBody || activeTemplate.bodyTemplate,
             version: (existing.version || 1) + 1,
             updated_at: new Date().toISOString(),
           })
@@ -287,12 +288,11 @@ function TemplatesStudioPage() {
           .from("document_templates" as any)
           .insert({
             school_id: targetSchoolId,
-            template_key: activeTemplate.key,
+            template_type: templateType,
             title: subjectText || activeTemplate.defaultSubject,
-            category: activeTemplate.category,
-            content_html: customBody || activeTemplate.bodyTemplate,
+            content: customBody || activeTemplate.bodyTemplate,
             version: 1,
-            is_active: true,
+            status: "active",
           });
         if (insErr) {
           if (insErr.code === "42P01" || insErr.message?.includes("does not exist")) {
@@ -328,10 +328,11 @@ function TemplatesStudioPage() {
       let validTemplateId: string | null = null;
       let tablesAvailable = true;
 
+      const templateType = activeTemplate.key === "good_conduct" ? "conduct_certificate" : activeTemplate.key;
       const { data: tmplRecord, error: tmplErr } = await supabase
         .from("document_templates" as any)
         .select("id")
-        .eq("template_key", activeTemplate.key)
+        .eq("template_type", templateType)
         .maybeSingle();
 
       if (tmplErr) {
@@ -348,12 +349,11 @@ function TemplatesStudioPage() {
           .from("document_templates" as any)
           .insert({
             school_id: targetSchoolId,
-            template_key: activeTemplate.key,
+            template_type: templateType,
             title: currentSubject,
-            category: activeTemplate.category,
-            content_html: currentBody,
+            content: currentBody,
             version: 1,
-            is_active: true,
+            status: "active",
           })
           .select("id")
           .maybeSingle();

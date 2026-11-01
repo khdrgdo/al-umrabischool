@@ -19,11 +19,12 @@ class SessionManager(context: Context) {
         private const val KEY_FULL_NAME = "full_name"
         private const val KEY_PHONE = "phone"
         private const val KEY_STATUS = "status"
+        private const val KEY_PIN = "guardian_pin"
         private const val KEY_CHILDREN_JSON = "children_json"
         private const val KEY_LAST_SYNC = "last_sync"
     }
 
-    fun saveSession(guardian: GuardianInfo, children: List<LinkedChild>) {
+    fun saveSession(guardian: GuardianInfo, children: List<LinkedChild>, pin: String = "") {
         val editor = prefs.edit()
         editor.putBoolean(KEY_IS_LOGGED_IN, true)
         editor.putString(KEY_GUARDIAN_ID, guardian.id)
@@ -31,6 +32,9 @@ class SessionManager(context: Context) {
         editor.putString(KEY_FULL_NAME, guardian.fullName)
         editor.putString(KEY_PHONE, guardian.phone)
         editor.putString(KEY_STATUS, guardian.status)
+        if (pin.isNotBlank()) {
+            editor.putString(KEY_PIN, pin)
+        }
         try {
             val childrenStr = json.encodeToString(children)
             editor.putString(KEY_CHILDREN_JSON, childrenStr)
@@ -39,6 +43,10 @@ class SessionManager(context: Context) {
         }
         editor.putLong(KEY_LAST_SYNC, System.currentTimeMillis())
         editor.apply()
+    }
+
+    fun getPin(): String {
+        return prefs.getString(KEY_PIN, "") ?: ""
     }
 
     fun isLoggedIn(): Boolean {

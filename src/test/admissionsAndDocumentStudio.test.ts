@@ -1,41 +1,18 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { printTarget } from "@/lib/printHelper";
+import {
+  validateAdmissionChecklist,
+  validateFreshSecondaryGrade,
+  validateMidYearSectionTransfer,
+  validatePromotionTransition,
+  validateRepeatTransition,
+  validateGraduationEligibility,
+} from "@/lib/admissions";
 
-describe("Admissions Workflows & Document Studio (Plan 1)", () => {
+describe("Admissions Workflows & Document Studio (Plan 1 & Fahs Audit)", () => {
   describe("Admission Checklist & Waiver Validation Rules", () => {
-    function validateAdmission(params: {
-      isSecondary: boolean;
-      workflow: "new" | "transfer_in" | "continuing";
-      gradeLevel: number;
-      hasIntermediateCert: boolean;
-      hasPriorTermReport: boolean;
-      waiverReason: string;
-      previousSchool?: string | null;
-    }): { valid: boolean; error?: string } {
-      if (params.isSecondary && !params.hasIntermediateCert && !params.waiverReason.trim()) {
-        return {
-          valid: false,
-          error: "شهادة المرحلة المتوسطة مطلوبة للتسجيل في المرحلة الثانوية إلا بوجود استثناء معتمد.",
-        };
-      }
-
-      if (params.workflow === "transfer_in") {
-        if (!params.previousSchool?.trim()) {
-          return { valid: false, error: "اسم المدرسة السابقة إلزامي للطلاب المنقولين." };
-        }
-        if (params.gradeLevel > 1 && !params.hasPriorTermReport && !params.waiverReason.trim()) {
-          return {
-            valid: false,
-            error: "تقرير درجات الفصل السابق مطلوب للطلاب المنقولين لصفوف متقدمة.",
-          };
-        }
-      }
-
-      return { valid: true };
-    }
-
     it("يرفض تسجيل طالب ثانوي مستجد بدون شهادة المرحلة المتوسطة وبدون سبب استثناء", () => {
-      const res = validateAdmission({
+      const res = validateAdmissionChecklist({
         isSecondary: true,
         workflow: "new",
         gradeLevel: 1,
@@ -48,7 +25,7 @@ describe("Admissions Workflows & Document Studio (Plan 1)", () => {
     });
 
     it("يقبل تسجيل الطالب عند توفر شهادة المرحلة المتوسطة الأصلية", () => {
-      const res = validateAdmission({
+      const res = validateAdmissionChecklist({
         isSecondary: true,
         workflow: "new",
         gradeLevel: 1,
@@ -61,7 +38,7 @@ describe("Admissions Workflows & Document Studio (Plan 1)", () => {
     });
 
     it("يقبل تسجيل الطالب بدون الشهادة في حال وجود استثناء رسمي معتمد مع تدوين السبب", () => {
-      const res = validateAdmission({
+      const res = validateAdmissionChecklist({
         isSecondary: true,
         workflow: "new",
         gradeLevel: 1,
@@ -73,7 +50,7 @@ describe("Admissions Workflows & Document Studio (Plan 1)", () => {
     });
 
     it("يرفض قيد طالب منقول للصف الثاني ثانوي بدون تقرير الفصل السابق وبدون استثناء", () => {
-      const res = validateAdmission({
+      const res = validateAdmissionChecklist({
         isSecondary: true,
         workflow: "transfer_in",
         gradeLevel: 2,
@@ -87,7 +64,7 @@ describe("Admissions Workflows & Document Studio (Plan 1)", () => {
     });
 
     it("يقبل قيد الطالب المنقول عند إرفاق تقرير درجات الفصل السابق والمدرسة السابقة", () => {
-      const res = validateAdmission({
+      const res = validateAdmissionChecklist({
         isSecondary: true,
         workflow: "transfer_in",
         gradeLevel: 2,
@@ -97,6 +74,59 @@ describe("Admissions Workflows & Document Studio (Plan 1)", () => {
         previousSchool: "مدرسة بحري الثانوية",
       });
       expect(res.valid).toBe(true);
+    });
+  });
+
+  describe("Academic Transitions & Integrity Rules (Fahs Stage & Section Audits)", () => {
+    it("يمنع قيد طالب مستجد في الصف الثاني أو الثالث الثانوي", () => {
+      const checkGrade2 = validateFreshSecondaryGrade("new", 2);
+      expect(checkGrade2.valid).toBe(false);
+      expect(checkGrade2.error).toContain("لا يمكن قيد طالب مستجد في الصف الثاني أو الثالث");
+
+      const checkGrade3 = validateFreshSecondaryGrade("new", 3);
+      expect(checkGrade3.valid).toBe(false);
+
+      const checkGrade1 = validateFreshSecondaryGrade("new", 1);
+      expect(checkGrade1.valid).toBe(true);
+    });
+
+    it("يسمح للطلاب المنقولين بالتسجيل في الصف الثاني أو الثالث", () => {
+      const transferGrade2 = validateFreshSecondaryGrade("transfer_in", 2);
+      expect(transferGrade2.valid).toBe(true);
+      const transferGrade3 = validateFreshSecondaryGrade("transfer_in", 3);
+      expect(transferGrade3.valid).toBe(true);
+    });
+
+    it("يمنع النقل بين شعب صفوف مختلفة خلال العام الدراسي (mid-year section transfer)", () => {
+      // Trying to move a student from Grade 1 section to Grade 2 section
+      const crossGradeTransfer = validateMidYearSectionTransfer(1, 2);
+      expect(crossGradeTransfer.valid).toBe(false);
+      expect(crossGradeTransfer.error).toContain("لا يمكن نقل الطالب إلى شعبة في صف دراسي مختلف خلال العام");
+
+      // Moving between sections of same grade (Grade 1 -> Grade 1)
+      const sameGradeTransfer = validateMidYearSectionTransfer(1, 1);
+      expect(sameGradeTransfer.valid).toBe(true);
+    });
+
+    it("يتحقق من صحة الترقية السنوية: للصف التالي مباشرة فقط", () => {
+      expect(validatePromotionTransition(1, 2).valid).toBe(true);
+      expect(validatePromotionTransition(2, 3).valid).toBe(true);
+      // Skipping from Grade 1 directly to Grade 3
+      expect(validatePromotionTransition(1, 3).valid).toBe(false);
+      // Demoting during promotion
+      expect(validatePromotionTransition(2, 1).valid).toBe(false);
+    });
+
+    it("يتحقق من صحة إعادة القيد: في نفس الصف الدراسي فقط", () => {
+      expect(validateRepeatTransition(2, 2).valid).toBe(true);
+      expect(validateRepeatTransition(1, 2).valid).toBe(false);
+    });
+
+    it("يمنع تخريج الطالب إلا من الصف النهائي المؤهل للتخرج", () => {
+      expect(validateGraduationEligibility(3, 3).valid).toBe(true);
+      // Attempting to graduate Grade 1 or 2
+      expect(validateGraduationEligibility(1, 3).valid).toBe(false);
+      expect(validateGraduationEligibility(2, 3).valid).toBe(false);
     });
   });
 
@@ -151,55 +181,6 @@ describe("Admissions Workflows & Document Studio (Plan 1)", () => {
       const target = document.getElementById("school-receipt-print");
       expect(target?.getAttribute("data-print-target-active")).toBe("true");
       expect(document.body.classList.contains("printing-target-mode")).toBe(true);
-    });
-  });
-
-  describe("Safe Fallback & Financial Gating (Plan 1 Hardening)", () => {
-    it("يمنع المسار البديل لتسجيل الطالب من تجاوز فحص شهادة المرحلة المتوسطة بدون استثناء", () => {
-      const fallbackExecute = (adm: { has_intermediate_cert: boolean; waiver_reason: string }) => {
-        if (!adm.has_intermediate_cert && !adm.waiver_reason.trim()) {
-          throw new Error("شهادة المرحلة المتوسطة مطلوبة للقبول الثانوي، ولا يمكن استكمال القبول دون إرفاقها أو تدوين استثناء إداري معتمد.");
-        }
-        return "student-enrolled-id";
-      };
-
-      expect(() => fallbackExecute({ has_intermediate_cert: false, waiver_reason: "" })).toThrow(
-        "شهادة المرحلة المتوسطة مطلوبة للقبول الثانوي"
-      );
-      expect(fallbackExecute({ has_intermediate_cert: false, waiver_reason: "استثناء معتمد" })).toBe(
-        "student-enrolled-id"
-      );
-    });
-
-    it("يرفض المسار البديل للمالية عند فشل الخادم ولا يسمح بتجاوز أخطاء الأعمال أو الصلاحيات", () => {
-      const processPayment = (rpcError: { code: string; message: string } | null, rpcSuccess: boolean) => {
-        if (!rpcError && rpcSuccess) return { success: true };
-        const isMissingRpc = rpcError && (rpcError.code === "42883" || rpcError.message.includes("does not exist"));
-        if (rpcError && !isMissingRpc) {
-          throw new Error(rpcError.message || "فشل تسجيل الدفعة المالية من قِبل الخادم");
-        }
-        if (!isMissingRpc && !rpcSuccess) {
-          throw new Error("تم رفض الدفعة المالية من قِبل النظام");
-        }
-        // Only reached if function truly does not exist in schema
-        return { success: true, mode: "fallback" };
-      };
-
-      // 1. Business error (e.g. invalid amount or unauthorized) MUST throw
-      expect(() => processPayment({ code: "P0001", message: "المبلغ يتجاوز الرسوم المستحقة" }, false)).toThrow(
-        "المبلغ يتجاوز الرسوم المستحقة"
-      );
-
-      // 2. RLS permission error MUST throw
-      expect(() => processPayment({ code: "42501", message: "row-level security violation" }, false)).toThrow(
-        "row-level security violation"
-      );
-
-      // 3. Only 42883 (missing function) falls through safely
-      expect(processPayment({ code: "42883", message: "function record_student_payment does not exist" }, false)).toEqual({
-        success: true,
-        mode: "fallback",
-      });
     });
   });
 });

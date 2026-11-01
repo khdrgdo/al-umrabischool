@@ -78,51 +78,15 @@ class ParentApiClient(
             if (response.status.isSuccess()) {
                 val body = response.body<LoginResponse>()
                 return@withContext Result.success(body)
+            } else {
+                return@withContext Result.failure(Exception("تعذر تسجيل الدخول من خادم المدرسة (${response.status.value})"))
             }
         } catch (_: Exception) {
-            // Fall through to verified institutional dataset if cloud schema is updating
+            Result.failure(Exception("تعذر الاتصال بخادم المدرسة. يرجى التحقق من اتصال الإنترنت والمحاولة لاحقاً."))
         }
-
-        // Verified fallback dataset directly mirroring SEED_COMPREHENSIVE_TEST_DATA.sql
-        val seedResponse = when {
-            cleanCode == "PAR-10101" && cleanPin == "449210" -> LoginResponse(
-                success = true,
-                guardianId = "guard-1",
-                accountCode = "PAR-10101",
-                fullName = "د. عبد الله أحمد عبد الله",
-                status = "active"
-            )
-            cleanCode == "PAR-20202" && cleanPin == "112233" -> LoginResponse(
-                success = true,
-                guardianId = "guard-2",
-                accountCode = "PAR-20202",
-                fullName = "م. عثمان علي إبراهيم",
-                status = "active"
-            )
-            cleanCode == "PAR-30303" && cleanPin == "998877" -> LoginResponse(
-                success = false,
-                message = "تم إيقاف حساب ولي الأمر من قبل إدارة المدرسة. يرجى مراجعة إدارة المدرسة."
-            )
-            cleanCode == "PAR-40404" && cleanPin == "554433" -> LoginResponse(
-                success = true,
-                guardianId = "guard-4",
-                accountCode = "PAR-40404",
-                fullName = "إبراهيم خالد مصطفى",
-                status = "active"
-            )
-            cleanCode == "PAR-50505" && cleanPin == "776655" -> LoginResponse(
-                success = false,
-                message = "الحساب قيد التفعيل. يرجى التواصل مع إدارة المدرسة لاستلام كود التفعيل المعتمد."
-            )
-            else -> LoginResponse(
-                success = false,
-                message = "بيانات الدخول غير صحيحة. يرجى التأكد من المعرّف أو مراجعة إدارة المدرسة."
-            )
-        }
-        Result.success(seedResponse)
     }
 
-    suspend fun fetchPortalData(guardianId: String, accountCode: String): Result<DashboardPayload> = withContext(Dispatchers.IO) {
+    suspend fun fetchPortalData(guardianId: String, accountCode: String, pin: String): Result<DashboardPayload> = withContext(Dispatchers.IO) {
         try {
             val response = client.post("$baseUrl/rest/v1/rpc/parent_get_portal_data") {
                 contentType(ContentType.Application.Json)
@@ -133,6 +97,7 @@ class ParentApiClient(
                 setBody(buildJsonObject {
                     put("_guardian_id", guardianId)
                     put("_account_code", accountCode)
+                    put("_pin", pin)
                 })
             }
 
@@ -157,27 +122,17 @@ class ParentApiClient(
                     val announcements = element["announcements"]?.jsonArray?.mapNotNull { parseAnnouncement(it.jsonObject) } ?: emptyList()
                     val events = element["events"]?.jsonArray?.mapNotNull { parseEvent(it.jsonObject) } ?: emptyList()
 
-                    if (children.isNotEmpty()) {
-                        return@withContext Result.success(DashboardPayload(guardian, children, announcements, events))
-                    }
+                    Result.success(DashboardPayload(guardian, children, announcements, events))
+                } else {
+                    val msg = element["message"]?.jsonPrimitive?.content ?: "تعذر جلب بيانات ولي الأمر"
+                    Result.failure(Exception(msg))
                 }
+            } else {
+                Result.failure(Exception("تعذر جلب بيانات ولي الأمر من الخادم (${response.status.value})"))
             }
         } catch (_: Exception) {
-            // Fall through to verified dataset
+            Result.failure(Exception("تعذر الاتصال بخادم المدرسة. يرجى التحقق من اتصال الإنترنت."))
         }
-
-        // Return verified fallback matching SEED data
-        val children = getSeedChildrenForGuardian(guardianId)
-        val announcements = getSeedAnnouncements()
-        val events = getSeedEvents()
-        val guardian = when (guardianId) {
-            "guard-1" -> GuardianInfo("guard-1", "PAR-10101", "د. عبد الله أحمد عبد الله", "+249912300001", "active")
-            "guard-2" -> GuardianInfo("guard-2", "PAR-20202", "م. عثمان علي إبراهيم", "+249912300002", "active")
-            "guard-4" -> GuardianInfo("guard-4", "PAR-40404", "إبراهيم خالد مصطفى", "+249912300004", "active")
-            else -> GuardianInfo(guardianId, accountCode, "ولي الأمر", "", "active")
-        }
-
-        Result.success(DashboardPayload(guardian, children, announcements, events))
     }
 
     private fun parseChild(obj: JsonObject): LinkedChild? {

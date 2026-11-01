@@ -32,7 +32,7 @@ import sd.alumrabi.parent.ui.theme.*
 
 @Composable
 fun LoginScreen(
-    onLoginSuccess: (guardian: GuardianInfo, children: List<LinkedChild>) -> Unit
+    onLoginSuccess: (guardian: GuardianInfo, children: List<LinkedChild>, pin: String) -> Unit
 ) {
     val coroutineScope = rememberCoroutineScope()
     val apiClient = remember { ParentApiClient() }
@@ -206,11 +206,11 @@ fun LoginScreen(
                                         status = response.status ?: "active"
                                     )
 
-                                    val portalResult = apiClient.fetchPortalData(guardian.id, guardian.accountCode ?: trimmedCode)
-                                    val children = portalResult.getOrNull()?.children ?: apiClient.getSeedChildrenForGuardian(guardian.id)
+                                    val portalResult = apiClient.fetchPortalData(guardian.id, guardian.accountCode ?: trimmedCode, trimmedPin)
+                                    val children = portalResult.getOrNull()?.children ?: emptyList()
 
                                     isLoading = false
-                                    onLoginSuccess(guardian, children)
+                                    onLoginSuccess(guardian, children, trimmedPin)
                                 } else {
                                     isLoading = false
                                     errorMessage = response.message ?: "بيانات الدخول غير صحيحة. يرجى التأكد من المعرّف أو مراجعة إدارة المدرسة."
@@ -265,32 +265,6 @@ fun LoginScreen(
                 fontSize = 11.sp,
                 color = TextSecondary
             )
-        }
-
-        Spacer(modifier = Modifier.height(18.dp))
-
-        // Quick Testing Chip (For physical device testing by school leadership)
-        Surface(
-            shape = RoundedCornerShape(20.dp),
-            color = BurgundyContainer,
-            border = androidx.compose.foundation.BorderStroke(1.dp, BurgundyLight.copy(alpha = 0.3f)),
-            modifier = Modifier.clickable {
-                accountCode = "PAR-10101"
-                passwordOrPin = "449210"
-                errorMessage = null
-            }
-        ) {
-            Row(
-                modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = "تجربة سريعة: د. عبد الله (PAR-10101)",
-                    fontSize = 11.sp,
-                    fontWeight = FontWeight.Medium,
-                    color = BurgundyPrimary
-                )
-            }
         }
     }
 }
