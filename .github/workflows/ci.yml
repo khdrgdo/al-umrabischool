@@ -15,6 +15,19 @@ jobs:
   web-verification:
     name: Web Quality, Security & Test Suite
     runs-on: ubuntu-latest
+    # PostgreSQL حقيقي لاختبارات RLS/RPC/الترحيلات (src/test/db). بدونه تفشل الاختبارات عمداً في CI.
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
     steps:
       - name: Checkout Codebase
         uses: actions/checkout@v4
@@ -36,6 +49,8 @@ jobs:
 
       - name: Run Vitest Real Test Suite (10 Comprehensive Suites)
         run: npm test
+        env:
+          TEST_DATABASE_URL: postgres://postgres:postgres@localhost:5432/postgres
 
       - name: Build Web Application (SSR & Nitro Module)
         run: npm run build
