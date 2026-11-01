@@ -262,8 +262,8 @@ BEGIN
   -- I. أولياء الأمور وحسابات تطبيق ولي الأمر (Guardians & Mobile App Accounts)
   -- ولي أمر 1: د. عبد الله (متعدد الأبناء - محمد وفاطمة)
   -- كود الحساب: PAR-10101 | رمز المرور / PIN: 449210 | الحالة: active
-  INSERT INTO public.guardians (school_id, full_name, phone, national_id, email, address, account_code, status, temp_password_code, activated_at)
-  VALUES (v_school_id, 'د. عبد الله أحمد عبد الله', '+249912345678', '1980123456789', 'abdallah@example.com', 'الخرطوم - الرياض', 'PAR-10101', 'active', '449210', now())
+  INSERT INTO public.guardians (school_id, full_name, phone, national_id, email, address, account_code, status, activated_at)
+  VALUES (v_school_id, 'د. عبد الله أحمد عبد الله', '+249912345678', '1980123456789', 'abdallah@example.com', 'الخرطوم - الرياض', 'PAR-10101', 'active', now())
   RETURNING id INTO v_guard1;
 
   INSERT INTO public.guardian_students (guardian_id, student_id, relation, is_primary, can_view_fees, receives_notifications)
@@ -273,8 +273,8 @@ BEGIN
 
   -- ولي أمر 2: م. عثمان علي (ولي أمر الطالب المعفى 100%)
   -- كود الحساب: PAR-20202 | رمز المرور: 112233 | الحالة: active
-  INSERT INTO public.guardians (school_id, full_name, phone, national_id, email, address, account_code, status, temp_password_code, activated_at)
-  VALUES (v_school_id, 'م. عثمان علي إبراهيم', '+249923456789', '1985987654321', 'osman@example.com', 'أم درمان - المهندسين', 'PAR-20202', 'active', '112233', now())
+  INSERT INTO public.guardians (school_id, full_name, phone, national_id, email, address, account_code, status, activated_at)
+  VALUES (v_school_id, 'م. عثمان علي إبراهيم', '+249923456789', '1985987654321', 'osman@example.com', 'أم درمان - المهندسين', 'PAR-20202', 'active', now())
   RETURNING id INTO v_guard2;
 
   INSERT INTO public.guardian_students (guardian_id, student_id, relation, is_primary, can_view_fees, receives_notifications)
@@ -282,8 +282,8 @@ BEGIN
 
   -- ولي أمر 3: حساب موقوف من قبل الإدارة (Suspended Guarding Testing)
   -- كود الحساب: PAR-30303 | رمز المرور: 998877 | الحالة: suspended
-  INSERT INTO public.guardians (school_id, full_name, phone, national_id, email, address, account_code, status, temp_password_code)
-  VALUES (v_school_id, 'أ. سلوى إبراهيم حسن', '+249934567890', '1988345678901', 'salwa@example.com', 'بحري - الصافية', 'PAR-30303', 'suspended', '998877')
+  INSERT INTO public.guardians (school_id, full_name, phone, national_id, email, address, account_code, status)
+  VALUES (v_school_id, 'أ. سلوى إبراهيم حسن', '+249934567890', '1988345678901', 'salwa@example.com', 'بحري - الصافية', 'PAR-30303', 'suspended')
   RETURNING id INTO v_guard3;
 
   INSERT INTO public.guardian_students (guardian_id, student_id, relation, is_primary, can_view_fees, receives_notifications)
@@ -291,8 +291,8 @@ BEGIN
 
   -- ولي أمر 4: ولي أمر الطالب الحرج والراسب (أحمد إبراهيم)
   -- كود الحساب: PAR-40404 | رمز المرور: 554433 | الحالة: active
-  INSERT INTO public.guardians (school_id, full_name, phone, national_id, email, address, account_code, status, temp_password_code, activated_at)
-  VALUES (v_school_id, 'إبراهيم خالد مصطفى', '+249945678901', '1979456789012', 'ibrahim@example.com', 'الخرطوم - العمارات', 'PAR-40404', 'active', '554433', now())
+  INSERT INTO public.guardians (school_id, full_name, phone, national_id, email, address, account_code, status, activated_at)
+  VALUES (v_school_id, 'إبراهيم خالد مصطفى', '+249945678901', '1979456789012', 'ibrahim@example.com', 'الخرطوم - العمارات', 'PAR-40404', 'active', now())
   RETURNING id INTO v_guard4;
 
   INSERT INTO public.guardian_students (guardian_id, student_id, relation, is_primary, can_view_fees, receives_notifications)
@@ -300,8 +300,8 @@ BEGIN
 
   -- ولي أمر 5: حساب قيد التفعيل لم يكتمل بعد (Pending Activation Testing)
   -- كود الحساب: PAR-50505 | رمز المرور: 776655 | الحالة: pending_activation
-  INSERT INTO public.guardians (school_id, full_name, phone, national_id, email, address, account_code, status, temp_password_code)
-  VALUES (v_school_id, 'سمية عادل عمر', '+249956789012', '1989567890123', 'somaya@example.com', 'أم درمان - الثورة', 'PAR-50505', 'pending_activation', '776655')
+  INSERT INTO public.guardians (school_id, full_name, phone, national_id, email, address, account_code, status)
+  VALUES (v_school_id, 'سمية عادل عمر', '+249956789012', '1989567890123', 'somaya@example.com', 'أم درمان - الثورة', 'PAR-50505', 'pending_activation')
   RETURNING id INTO v_guard5;
 
   INSERT INTO public.guardian_students (guardian_id, student_id, relation, is_primary, can_view_fees, receives_notifications)
@@ -325,17 +325,17 @@ BEGIN
   -- K. الاختبارات والتقييمات الأكاديمية (Assessments & Edge Case Grades)
   -- اختبار 1: رياضيات - الصف الأول (published)
   INSERT INTO public.assessments (academic_year_id, section_id, subject_id, title, term, max_score, pass_score, status)
-  VALUES (v_year_id, v_sec1a, v_sub_math, 'امتحان منتصف الفصل الدراسي الأول - الرياضيات', 'midterm', 100.00, 50.00, 'published')
+  VALUES (v_year_id, v_sec1a, v_sub_math, 'امتحان منتصف الفصل الدراسي الأول - الرياضيات', 'midterm', 100.00, 50.00, 'draft')
   RETURNING id INTO v_ass1;
 
   -- اختبار 2: فيزياء - الصف الثالث علمي (published)
   INSERT INTO public.assessments (academic_year_id, section_id, subject_id, title, term, max_score, pass_score, status)
-  VALUES (v_year_id, v_sec3_sci, v_sub_phys, 'امتحان منتصف الفصل الدراسي الأول - الفيزياء', 'midterm', 100.00, 50.00, 'published')
+  VALUES (v_year_id, v_sec3_sci, v_sub_phys, 'امتحان منتصف الفصل الدراسي الأول - الفيزياء', 'midterm', 100.00, 50.00, 'draft')
   RETURNING id INTO v_ass2;
 
   -- اختبار 3: لغة عربية - الصف الثالث أدبي (published)
   INSERT INTO public.assessments (academic_year_id, section_id, subject_id, title, term, max_score, pass_score, status)
-  VALUES (v_year_id, v_sec3_art, v_sub_arab, 'امتحان منتصف الفصل الدراسي الأول - اللغة العربية', 'midterm', 100.00, 50.00, 'published')
+  VALUES (v_year_id, v_sec3_art, v_sub_arab, 'امتحان منتصف الفصل الدراسي الأول - اللغة العربية', 'midterm', 100.00, 50.00, 'draft')
   RETURNING id INTO v_ass3;
 
   -- اختبار 4: كيمياء (approved - غير منشور للآباء per Notion Rule)
@@ -360,6 +360,9 @@ BEGIN
   -- لغة عربية: 49.00 من 100 (راسب بنقطة واحدة! أقل من درجة النجاح 50)
   INSERT INTO public.student_grades (assessment_id, student_id, score, is_absent, notes)
   VALUES (v_ass3, v_std5, 49.00, false, 'راسب - يحتاج إلى معالجة أكاديمية وتقوية');
+
+  -- نشر الاختبارات بعد إدخال الدرجات (الـ trigger يمنع رصد درجات لاختبار منشور)
+  UPDATE public.assessments SET status = 'published' WHERE id IN (v_ass1, v_ass2, v_ass3);
 
   -- L. الحضور والغياب وجلسات الغياب غير المرصودة (Attendance & Unrecorded Edge Cases)
   -- جلسة 1: الصف الأول (حضور تام لمحمد وعمر)
