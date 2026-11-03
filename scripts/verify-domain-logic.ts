@@ -1,12 +1,5 @@
 import assert from "node:assert";
 import {
-  validateGuardianLoginInput,
-  evaluateGuardianAccountStatus,
-  verifyGuardianPassword,
-  verifyGuardianStudentAccess,
-  GENERIC_AUTH_ERROR,
-} from "../src/lib/guardianAuth.ts";
-import {
   validateAdmissionChecklist,
   validateFreshSecondaryGrade,
   validateMidYearSectionTransfer,
@@ -17,39 +10,7 @@ import {
 
 console.log("🚀 بدء التحقق التشغيلي من الدوال المنطقية والمكتبات البرمجية المعتمدة...");
 
-// 1. Guardian Auth & Security
-console.log("➡️ [1/8] فحص التحقق من المدخلات الفارغة لولي الأمر...");
-const emptyCheck = validateGuardianLoginInput("", "123");
-assert.strictEqual(emptyCheck.success, false);
-assert.strictEqual(emptyCheck.errorCode, "EMPTY_CREDENTIALS");
-
-console.log("➡️ [2/8] فحص أمان OWASP Anti-Enumeration...");
-const wrongPin = verifyGuardianPassword("449210", "WRONG_PIN");
-assert.strictEqual(wrongPin.success, false);
-assert.strictEqual(wrongPin.message, GENERIC_AUTH_ERROR);
-assert.strictEqual(wrongPin.errorCode, "INVALID_CREDENTIALS");
-
-console.log("➡️ [3/8] فحص حظر تجاوز PIN الفارغ أو غير المعرف (NULL PIN Security Gate)...");
-const nullPin = verifyGuardianPassword(null, "123456");
-assert.strictEqual(nullPin.success, false);
-assert.strictEqual(nullPin.errorCode, "PASSWORD_NOT_SET");
-
-const emptyStoredPin = verifyGuardianPassword("", "123456");
-assert.strictEqual(emptyStoredPin.success, false);
-assert.strictEqual(emptyStoredPin.errorCode, "PASSWORD_NOT_SET");
-
-const validPin = verifyGuardianPassword("449210", "449210");
-assert.strictEqual(validPin.success, true);
-
-console.log("➡️ [4/8] فحص عزل البيانات ومنع الـ IDOR/BOLA...");
-const sampleLinks = [
-  { guardianId: "guard-1", studentId: "std-1" },
-  { guardianId: "guard-1", studentId: "std-2" },
-  { guardianId: "guard-2", studentId: "std-3" },
-];
-assert.strictEqual(verifyGuardianStudentAccess("guard-1", "std-1", sampleLinks).authorized, true);
-assert.strictEqual(verifyGuardianStudentAccess("guard-2", "std-1", sampleLinks).authorized, false);
-assert.strictEqual(verifyGuardianStudentAccess("intruder", "std-1", sampleLinks).authorized, false);
+// (فحوص مصادقة/عزل أولياء الأمور انتقلت إلى اختبارات PostgreSQL الحقيقية: src/test/db/parentSecurity.test.ts)
 
 // 2. Admissions & Academic Transitions
 console.log("➡️ [5/8] فحص قيود الطلاب المستجدين (الصف الأول فقط)...");
