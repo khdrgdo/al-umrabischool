@@ -25,20 +25,24 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.launch
+import sd.alumrabi.parent.data.api.AuthTokens
 import sd.alumrabi.parent.data.api.ParentApiClient
-import sd.alumrabi.parent.data.model.GuardianInfo
-import sd.alumrabi.parent.data.model.LinkedChild
+import sd.alumrabi.parent.data.model.DashboardPayload
 import sd.alumrabi.parent.ui.theme.*
 
 @Composable
 fun LoginScreen(
-    onLoginSuccess: (guardian: GuardianInfo, children: List<LinkedChild>, pin: String) -> Unit
+    onLoginSuccess: (tokens: AuthTokens, payload: DashboardPayload) -> Unit
 ) {
     val coroutineScope = rememberCoroutineScope()
     val apiClient = remember { ParentApiClient() }
 
     var accountCode by remember { mutableStateOf("") }
     var passwordOrPin by remember { mutableStateOf("") }
+    // وضع التفعيل: أول دخول أو نسيان كلمة المرور؛ يتطلب رمزاً شخصياً مؤقتاً تسلّمه الإدارة.
+    var activationMode by remember { mutableStateOf(false) }
+    var activationCode by remember { mutableStateOf("") }
+    var confirmPassword by remember { mutableStateOf("") }
     var isPinVisible by remember { mutableStateOf(false) }
     var isLoading by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
@@ -122,6 +126,27 @@ fun LoginScreen(
                     )
                 )
 
+                if (activationMode) {
+                    Spacer(modifier = Modifier.height(12.dp))
+                    OutlinedTextField(
+                        value = activationCode,
+                        onValueChange = {
+                            activationCode = it.uppercase()
+                            errorMessage = null
+                        },
+                        label = { Text("رمز التفعيل من الإدارة (XXXX-XXXX-XXXX-XXXX)") },
+                        leadingIcon = { Icon(Icons.Default.Lock, contentDescription = null, tint = BurgundyPrimary) },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Ascii, autoCorrect = false),
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(10.dp),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = BurgundyPrimary,
+                            unfocusedBorderColor = BorderLight
+                        )
+                    )
+                }
+
                 Spacer(modifier = Modifier.height(12.dp))
 
                 OutlinedTextField(
@@ -130,7 +155,7 @@ fun LoginScreen(
                         passwordOrPin = it
                         errorMessage = null
                     },
-                    label = { Text("كلمة المرور أو رمز PIN") },
+                    label = { Text(if (activationMode) "كلمة المرور الجديدة (8 أحرف فأكثر)" else "كلمة المرور") },
                     leadingIcon = { Icon(Icons.Default.Lock, contentDescription = null, tint = BurgundyPrimary) },
                     trailingIcon = {
                         IconButton(onClick = { isPinVisible = !isPinVisible }) {
@@ -151,6 +176,28 @@ fun LoginScreen(
                         unfocusedBorderColor = BorderLight
                     )
                 )
+
+                if (activationMode) {
+                    Spacer(modifier = Modifier.height(12.dp))
+                    OutlinedTextField(
+                        value = confirmPassword,
+                        onValueChange = {
+                            confirmPassword = it
+                            errorMessage = null
+                        },
+                        label = { Text("تأكيد كلمة المرور") },
+                        leadingIcon = { Icon(Icons.Default.Lock, contentDescription = null, tint = BurgundyPrimary) },
+                        visualTransformation = PasswordVisualTransformation(),
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, autoCorrect = false),
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(10.dp),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = BurgundyPrimary,
+                            unfocusedBorderColor = BorderLight
+                        )
+                    )
+                }
 
                 AnimatedVisibility(
                     visible = errorMessage != null,
@@ -183,42 +230,59 @@ fun LoginScreen(
 
                 Button(
                     onClick = {
-                        val trimmedCode = accountCode.trim()
-                        val trimmedPin = passwordOrPin.trim()
+                        val code = accountCode.trim()
+                        val pw = passwordOrPin
 
-                        if (trimmedCode.isBlank() || trimmedPin.isBlank()) {
-                            errorMessage = "يرجى إدخال معرّف الحساب ورمز المرور"
+                        if (code.isBlank() || pw.isBlank()) {
+                            errorMessage = "يرجى إدخال معرّف الحساب وكلمة المرور"
                             return@Button
+                        }
+                        if (activationMode) {
+                            if (activationCode.isBlank()) {
+                                errorMessage = "يرجى إدخال رمز التفعيل الذي سلّمته لك الإدارة"
+                                return@Button
+                            }
+                            if (pw.length < 8) {
+                                errorMessage = "كلمة المرور يجب ألا تقل عن 8 أحرف"
+                                return@Button
+                            }
+                            if (pw != confirmPassword) {
+                                errorMessage = "كلمتا المرور غير متطابقتين"
+                                return@Button
+                            }
                         }
 
                         isLoading = true
                         errorMessage = null
 
                         coroutineScope.launch {
-                            val loginResult = apiClient.login(trimmedCode, trimmedPin)
-                            loginResult.onSuccess { response ->
-                                if (response.success) {
-                                    val guardian = GuardianInfo(
-                                        id = response.guardianId ?: "g-${System.currentTimeMillis()}",
-                                        accountCode = response.accountCode ?: trimmedCode,
-                                        fullName = response.fullName ?: "ولي الأمر",
-                                        phone = "",
-                                        status = response.status ?: "active"
-                                    )
-
-                                    val portalResult = apiClient.fetchPortalData(guardian.id, guardian.accountCode ?: trimmedCode, trimmedPin)
-                                    val children = portalResult.getOrNull()?.children ?: emptyList()
-
+                            if (activationMode) {
+                                val act = apiClient.activate(code, activationCode, pw)
+                                if (act.isFailure) {
                                     isLoading = false
-                                    onLoginSuccess(guardian, children, trimmedPin)
-                                } else {
-                                    isLoading = false
-                                    errorMessage = response.message ?: "بيانات الدخول غير صحيحة. يرجى التأكد من المعرّف أو مراجعة إدارة المدرسة."
+                                    errorMessage = act.exceptionOrNull()?.message ?: "تعذر إكمال التفعيل"
+                                    return@launch
                                 }
-                            }.onFailure { err ->
-                                isLoading = false
-                                errorMessage = "تعذر الاتصال بالخادم حالياً. يرجى التأكد من اتصال الإنترنت والمحاولة لاحقاً."
                             }
+                            val signIn = apiClient.signIn(code, pw)
+                            val tokens = signIn.getOrNull()
+                            if (tokens == null) {
+                                isLoading = false
+                                errorMessage = signIn.exceptionOrNull()?.message ?: "تعذر تسجيل الدخول"
+                                return@launch
+                            }
+                            val dash = apiClient.fetchDashboard(tokens.accessToken)
+                            val payload = dash.getOrNull()
+                            isLoading = false
+                            if (payload == null) {
+                                errorMessage = dash.exceptionOrNull()?.message ?: "تعذر جلب بيانات ولي الأمر"
+                                return@launch
+                            }
+                            // لا تُحفظ كلمة المرور ولا رمز التفعيل في أي مكان
+                            passwordOrPin = ""
+                            confirmPassword = ""
+                            activationCode = ""
+                            onLoginSuccess(tokens, payload)
                         }
                     },
                     modifier = Modifier
@@ -236,12 +300,29 @@ fun LoginScreen(
                         )
                     } else {
                         Text(
-                            text = "دخول إلى النظام",
+                            text = if (activationMode) "تفعيل الحساب والدخول" else "دخول إلى النظام",
                             fontSize = 14.sp,
                             fontWeight = FontWeight.Bold,
                             color = Color.White
                         )
                     }
+                }
+
+                TextButton(
+                    onClick = {
+                        activationMode = !activationMode
+                        errorMessage = null
+                        passwordOrPin = ""
+                        confirmPassword = ""
+                        activationCode = ""
+                    },
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text(
+                        text = if (activationMode) "لدي حساب مفعّل — العودة لتسجيل الدخول" else "أول مرة أو نسيت كلمة المرور؟ فعّل بالرمز من الإدارة",
+                        fontSize = 12.sp,
+                        color = BurgundyPrimary
+                    )
                 }
             }
         }

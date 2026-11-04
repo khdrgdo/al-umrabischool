@@ -65,7 +65,6 @@ interface GuardianRecord {
   account_code?: string | null;
   status?: "pending_activation" | "active" | "suspended" | "revoked" | string;
   activated_at?: string | null;
-  temp_password_code?: string | null;
   created_at: string;
   links: Array<{
     id: string;
@@ -106,7 +105,7 @@ function GuardiansPage() {
   const [selectedFamilyGuardian, setSelectedFamilyGuardian] = useState<GuardianRecord | null>(null);
   const [openAppModal, setOpenAppModal] = useState(false);
   const [selectedGuardianForApp, setSelectedGuardianForApp] = useState<GuardianRecord | null>(null);
-  const [appCredentials, setAppCredentials] = useState<{ account_code: string; temp_code?: string; status: string } | null>(null);
+  const [appCredentials, setAppCredentials] = useState<{ account_code: string; temp_code?: string; status: string; expires_at?: string; purpose?: string } | null>(null);
   const [copiedField, setCopiedField] = useState<string | null>(null);
 
   // Form: Guardian
@@ -373,15 +372,6 @@ function GuardiansPage() {
   });
 
   // App Account Management Logic (Notion spec: Principal is sole activator, unguessable codes, audit trail)
-  const generateClientAccountCode = () => {
-    const chars = "23456789ABCDEFGHJKLMNPQRSTUVWXYZ";
-    let res = "PAR-";
-    for (let i = 0; i < 6; i++) {
-      res += chars.charAt(Math.floor(Math.random() * chars.length));
-    }
-    return res;
-  };
-
   const openAppDialog = (g: GuardianRecord) => {
     setSelectedGuardianForApp(g);
     setAppCredentials(
@@ -393,38 +383,18 @@ function GuardiansPage() {
     setOpenAppModal(true);
   };
 
+  type AppCredentialsPayload = { account_code: string; temp_code?: string; status: string; expires_at?: string; purpose?: string };
+
   const activateAppMutation = useMutation({
     mutationFn: async (guardian: GuardianRecord) => {
-      try {
-        const { data: rpcData, error: rpcErr } = await supabase.rpc("admin_activate_guardian_account", {
-          _guardian_id: guardian.id,
-        });
-        if (!rpcErr && rpcData) {
-          return rpcData as { account_code: string; temp_code: string; status: string };
-        }
-      } catch (e) {
-        console.warn("RPC activate fallback:", e);
-      }
-
-      const newCode = guardian.account_code || generateClientAccountCode();
-      const tempPin = Math.floor(100000 + Math.random() * 900000).toString();
-
-      const { error: upErr } = await supabase
-        .from("guardians")
-        .update({
-          account_code: newCode,
-          status: "active",
-          activated_at: new Date().toISOString(),
-          temp_password_code: tempPin,
-        })
-        .eq("id", guardian.id);
-
-      if (upErr) throw upErr;
-      return { account_code: newCode, temp_code: tempPin, status: "active" };
+      // لا مسار بديل من المتصفح: رمز التفعيل يُولَّد ويُجزَّأ داخل قاعدة البيانات فقط.
+      const { data, error } = await supabase.rpc("admin_activate_guardian_account", { _guardian_id: guardian.id });
+      if (error) throw error;
+      return data as unknown as AppCredentialsPayload;
     },
     onSuccess: (res) => {
       setAppCredentials(res);
-      toast.success("تم تفعيل حساب تطبيق ولي الأمر بنجاح");
+      toast.success(res.temp_code ? "تم إصدار رمز تفعيل لتطبيق ولي الأمر" : "تم تحديث حالة الحساب");
       refresh();
     },
     onError: (e) => toast.error(errMsg(e)),
@@ -432,22 +402,11 @@ function GuardiansPage() {
 
   const suspendAppMutation = useMutation({
     mutationFn: async (guardianId: string) => {
-      try {
-        const { error: rpcErr } = await supabase.rpc("admin_suspend_guardian_account", {
-          _guardian_id: guardianId,
-          _reason: "إيقاف إداري من مدير المدرسة",
-        });
-        if (!rpcErr) return true;
-      } catch (e) {
-        console.warn("RPC suspend fallback:", e);
-      }
-
-      const { error: upErr } = await supabase
-        .from("guardians")
-        .update({ status: "suspended" })
-        .eq("id", guardianId);
-
-      if (upErr) throw upErr;
+      const { error } = await supabase.rpc("admin_suspend_guardian_account", {
+        _guardian_id: guardianId,
+        _reason: "إيقاف إداري من مدير المدرسة",
+      });
+      if (error) throw error;
       return true;
     },
     onSuccess: () => {
@@ -460,31 +419,13 @@ function GuardiansPage() {
 
   const resetPasswordMutation = useMutation({
     mutationFn: async (guardian: GuardianRecord) => {
-      try {
-        const { data: rpcData, error: rpcErr } = await supabase.rpc("admin_reset_guardian_password", {
-          _guardian_id: guardian.id,
-        });
-        if (!rpcErr && rpcData) {
-          return rpcData as { account_code: string; temp_code: string; status: string };
-        }
-      } catch (e) {
-        console.warn("RPC reset password fallback:", e);
-      }
-
-      const tempPin = Math.floor(100000 + Math.random() * 900000).toString();
-      const { error: upErr } = await supabase
-        .from("guardians")
-        .update({
-          temp_password_code: tempPin,
-        })
-        .eq("id", guardian.id);
-
-      if (upErr) throw upErr;
-      return { account_code: guardian.account_code || "PAR-XXXXXX", temp_code: tempPin, status: "active" };
+      const { data, error } = await supabase.rpc("admin_reset_guardian_password", { _guardian_id: guardian.id });
+      if (error) throw error;
+      return data as unknown as AppCredentialsPayload;
     },
     onSuccess: (res) => {
       setAppCredentials(res);
-      toast.success("تم إصدار كود مؤقت جديد بنجاح");
+      toast.success("تم إصدار رمز إعادة تعيين جديد (يُستخدم مرة واحدة خلال 72 ساعة)");
       refresh();
     },
     onError: (e) => toast.error(errMsg(e)),
@@ -1338,7 +1279,7 @@ function GuardiansPage() {
                     {appCredentials?.temp_code && (
                       <div className="bg-amber-50 p-2.5 rounded-md border border-amber-200">
                         <div className="flex items-center justify-between mb-1">
-                          <span className="text-[11px] text-amber-800 font-semibold">رمز التفعيل المؤقت (أحادي الاستخدام):</span>
+                          <span className="text-[11px] text-amber-800 font-semibold">رمز التفعيل (يظهر مرة واحدة فقط):</span>
                           <Button
                             type="button"
                             variant="ghost"
@@ -1358,7 +1299,7 @@ function GuardiansPage() {
                           {appCredentials.temp_code}
                         </div>
                         <p className="text-[10px] text-amber-700 mt-1">
-                          قم بتسليم هذا الرمز لولي الأمر لتسجيل الدخول لأول مرة وتعيين كلمة مرور خاصة به.
+                          سلّم الرمز لولي الأمر شخصياً بعد التحقق من هويته. يُستخدم مرة واحدة خلال 72 ساعة ثم يختار ولي الأمر كلمة مروره بنفسه من التطبيق. لا يُحفظ الرمز في أي مكان ولن يظهر مجدداً.
                         </p>
                       </div>
                     )}
