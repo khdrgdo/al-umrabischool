@@ -1,5 +1,6 @@
 package sd.alumrabi.parent.ui.screens
 
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -24,9 +25,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import sd.alumrabi.parent.R
 import sd.alumrabi.parent.data.model.*
 import sd.alumrabi.parent.ui.theme.*
 import java.util.Locale
@@ -49,7 +52,7 @@ fun DashboardScreen(
 ) {
     val currentChild = children.getOrNull(selectedChildIndex)
     val connectionLabel = if (demoMode) {
-        "وضع تجريبي — بيانات غير حقيقية"
+        "وضع تجريبي • بيانات وهمية"
     } else when (connectionState) {
         BackendConnectionState.CONNECTED_LIVE -> "متصل بالخادم"
         BackendConnectionState.SYNCED_LOCAL -> "آخر بيانات محفوظة"
@@ -66,9 +69,17 @@ fun DashboardScreen(
                     }
                 },
                 navigationIcon = {
-                    Surface(shape = RoundedCornerShape(10.dp), color = GoldAccent.copy(alpha = 0.18f), modifier = Modifier.padding(start = 12.dp).size(38.dp)) {
+                    Surface(
+                        shape = RoundedCornerShape(10.dp),
+                        color = Color.White.copy(alpha = 0.08f),
+                        modifier = Modifier.padding(start = 12.dp).size(38.dp)
+                    ) {
                         Box(contentAlignment = Alignment.Center) {
-                            Icon(Icons.Default.School, contentDescription = null, tint = GoldAccent, modifier = Modifier.size(23.dp))
+                            Image(
+                                painter = painterResource(R.drawable.ic_launcher_foreground),
+                                contentDescription = "شعار العمرابي",
+                                modifier = Modifier.size(34.dp)
+                            )
                         }
                     }
                 },
