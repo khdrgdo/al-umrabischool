@@ -38,6 +38,7 @@ fun DashboardScreen(
     children: List<LinkedChild>,
     selectedChildIndex: Int,
     connectionState: BackendConnectionState = BackendConnectionState.CONNECTED_LIVE,
+    demoMode: Boolean = false,
     onSelectChild: (Int) -> Unit,
     onNavigateToGrades: () -> Unit,
     onNavigateToAttendance: () -> Unit,
@@ -47,7 +48,9 @@ fun DashboardScreen(
     onNavigateToSettings: () -> Unit
 ) {
     val currentChild = children.getOrNull(selectedChildIndex)
-    val connectionLabel = when (connectionState) {
+    val connectionLabel = if (demoMode) {
+        "وضع تجريبي — بيانات غير حقيقية"
+    } else when (connectionState) {
         BackendConnectionState.CONNECTED_LIVE -> "متصل بالخادم"
         BackendConnectionState.SYNCED_LOCAL -> "آخر بيانات محفوظة"
         BackendConnectionState.CONNECTING -> "جارٍ الاتصال"
