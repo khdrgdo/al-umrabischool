@@ -8,6 +8,7 @@ import androidx.compose.animation.AnimatedContentTransitionScope
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
@@ -163,10 +164,12 @@ fun ParentAppNavHost() {
             ParentTab("more", "المزيد", Icons.Default.MoreHoriz)
         )
     }
-    val showBottomBar = currentRoute in tabs.map { it.route }
+    val rootRoutes = remember(tabs) { tabs.map { it.route }.toSet() }
+    val showBottomBar = currentRoute in rootRoutes
 
     Scaffold(
         containerColor = LavenderCanvas,
+        contentWindowInsets = WindowInsets(0, 0, 0, 0),
         bottomBar = {
             if (showBottomBar) {
                 NavigationBar(
