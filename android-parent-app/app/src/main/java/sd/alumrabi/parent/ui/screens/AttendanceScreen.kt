@@ -87,14 +87,14 @@ fun AttendanceScreen(
                         )
                         Spacer(modifier = Modifier.height(12.dp))
                         Text(
-                            text = "السجل منتظم ونظيف تماماً",
+                            text = "لا توجد سجلات حضور منشورة",
                             fontSize = 14.sp,
                             fontWeight = FontWeight.Bold,
                             color = TextPrimary
                         )
                         Spacer(modifier = Modifier.height(6.dp))
                         Text(
-                            text = "لا توجد حالات غياب أو تأخير مسجلة للطالب في الأيام المعتمدة.",
+                            text = "لم تُسجّل سجلات حضور لهذا الطالب في الفترة المتاحة. عدم وجود سجل لا يثبت الحضور أو الغياب.",
                             fontSize = 11.sp,
                             color = TextSecondary,
                             textAlign = androidx.compose.ui.text.style.TextAlign.Center
@@ -152,8 +152,9 @@ fun AttendanceItemCard(record: AttendanceRecord) {
             val (statusText, color, bg) = when (record.status) {
                 "present" -> Triple("حاضر", StatusSuccess, StatusSuccessBg)
                 "absent" -> Triple("غائب", StatusDanger, StatusDangerBg)
+                "late" -> Triple("متأخر", StatusWarning, StatusWarningBg)
                 "excused" -> Triple("إذن معتمد", StatusWarning, StatusWarningBg)
-                else -> Triple(record.status, TextSecondary, BorderLight)
+                else -> Triple("حالة غير معروفة", TextSecondary, BorderLight)
             }
 
             Surface(
