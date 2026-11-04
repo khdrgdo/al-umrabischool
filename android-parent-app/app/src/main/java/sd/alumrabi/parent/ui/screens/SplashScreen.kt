@@ -24,106 +24,44 @@ import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.delay
 import sd.alumrabi.parent.R
 import sd.alumrabi.parent.ui.theme.BurgundyDark
-import sd.alumrabi.parent.ui.theme.BurgundyPrimary
 import sd.alumrabi.parent.ui.theme.GoldAccent
 
 @Composable
-fun AnimatedSplashScreen(
-    onSplashFinished: () -> Unit
-) {
-    val emblemScale = remember { Animatable(0.88f) }
+fun AnimatedSplashScreen(onSplashFinished: () -> Unit) {
+    val emblemScale = remember { Animatable(0.78f) }
     val contentAlpha = remember { Animatable(0f) }
+    val lineWidth = remember { Animatable(0f) }
 
     LaunchedEffect(Unit) {
-        emblemScale.animateTo(
-            targetValue = 1f,
-            animationSpec = tween(650, easing = FastOutSlowInEasing)
-        )
-        contentAlpha.animateTo(
-            targetValue = 1f,
-            animationSpec = tween(420)
-        )
-        delay(850)
+        emblemScale.animateTo(1f, animationSpec = tween(720, easing = FastOutSlowInEasing))
+        contentAlpha.animateTo(1f, animationSpec = tween(420))
+        lineWidth.animateTo(1f, animationSpec = tween(500))
+        delay(520)
         onSplashFinished()
     }
 
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(BurgundyDark),
-        contentAlignment = Alignment.Center
-    ) {
-        Box(
-            modifier = Modifier
-                .size(300.dp)
-                .alpha(0.05f)
-                .background(GoldAccent, CircleShape)
-        )
+    Box(Modifier.fillMaxSize().background(BurgundyDark), contentAlignment = Alignment.Center) {
+        Box(Modifier.align(Alignment.TopEnd).padding(top = 80.dp, end = 22.dp).size(220.dp).alpha(0.045f).background(GoldAccent, CircleShape))
+        Box(Modifier.align(Alignment.BottomStart).padding(bottom = 120.dp, start = 18.dp).size(150.dp).alpha(0.035f).background(Color.White, CircleShape))
 
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center,
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 30.dp)
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 28.dp)
         ) {
-            Surface(
-                shape = RoundedCornerShape(30.dp),
-                color = Color.White.copy(alpha = 0.08f),
-                modifier = Modifier
-                    .size(144.dp)
-                    .scale(emblemScale.value),
-                tonalElevation = 0.dp
-            ) {
+            Surface(shape = RoundedCornerShape(34.dp), color = Color.White.copy(alpha = 0.08f), modifier = Modifier.size(156.dp).scale(emblemScale), tonalElevation = 0.dp) {
                 Box(contentAlignment = Alignment.Center) {
-                    Image(
-                        painter = painterResource(R.drawable.ic_alumrabi_mark),
-                        contentDescription = "شعار العمرابي",
-                        modifier = Modifier
-                            .size(116.dp)
-                            .alpha(contentAlpha.value)
-                    )
+                    Image(painterResource(R.drawable.ic_alumrabi_mark), "شعار مؤسسة العمرابي", Modifier.size(126.dp).alpha(contentAlpha.value))
                 }
             }
-
-            Spacer(Modifier.height(30.dp))
-
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally,
-                modifier = Modifier.alpha(contentAlpha.value)
-            ) {
-                Text(
-                    text = "مؤسسة العمرابي التعليمية",
-                    color = Color.White,
-                    fontSize = 23.sp,
-                    fontWeight = FontWeight.Bold,
-                    textAlign = TextAlign.Center
-                )
-                Spacer(Modifier.height(8.dp))
-                Box(
-                    modifier = Modifier
-                        .width(52.dp)
-                        .height(2.dp)
-                        .background(GoldAccent, RoundedCornerShape(2.dp))
-                )
-                Spacer(Modifier.height(12.dp))
-                Text(
-                    text = "تطبيق أولياء الأمور",
-                    color = Color(0xFFE9DCC8),
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.Medium
-                )
-            }
+            Spacer(Modifier.height(34.dp))
+            Text("مؤسسة العمرابي التعليمية", color = Color.White, fontSize = 23.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center, modifier = Modifier.alpha(contentAlpha.value))
+            Spacer(Modifier.height(9.dp))
+            Text("بوابة الأسرة التعليمية", color = Color.White.copy(alpha = 0.72f), fontSize = 14.sp, fontWeight = FontWeight.Medium, modifier = Modifier.alpha(contentAlpha.value))
+            Spacer(Modifier.height(20.dp))
+            Box(Modifier.width(72.dp * lineWidth.value).height(3.dp).background(GoldAccent, RoundedCornerShape(3.dp)))
         }
 
-        Text(
-            text = "متابعة الأبناء • النتائج • الحضور • الإعلانات",
-            color = Color.White.copy(alpha = 0.55f),
-            fontSize = 10.sp,
-            modifier = Modifier
-                .align(Alignment.BottomCenter)
-                .navigationBarsPadding()
-                .padding(bottom = 34.dp)
-        )
+        Text("الأبناء • التعلّم • المتابعة", color = Color.White.copy(alpha = 0.48f), fontSize = 11.sp, modifier = Modifier.align(Alignment.BottomCenter).navigationBarsPadding().padding(bottom = 34.dp))
     }
 }

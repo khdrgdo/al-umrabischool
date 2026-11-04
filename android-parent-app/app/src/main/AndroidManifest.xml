@@ -1,21 +1,17 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
-
-    <!-- Minimal, necessary permissions (Notion Sec 6 & 12: No SMS, Contacts, Location) -->
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
-
     <application
         android:allowBackup="false"
-        android:icon="@drawable/ic_alumrabi_mark"
-        android:label="تطبيق العمرابي"
-        android:roundIcon="@drawable/ic_alumrabi_mark"
+        android:icon="@mipmap/ic_launcher"
+        android:label="العمرابي"
+        android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:networkSecurityConfig="@xml/network_security_config"
         android:usesCleartextTraffic="false"
         android:theme="@android:style/Theme.Material.Light.NoActionBar">
-        
         <activity
             android:name=".MainActivity"
             android:exported="true"
@@ -26,5 +22,4 @@
             </intent-filter>
         </activity>
     </application>
-
 </manifest>

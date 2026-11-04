@@ -1,10 +1,13 @@
-<?xml version="1.0" encoding="utf-8"?>
-<vector xmlns:android="http://schemas.android.com/apk/res/android" android:width="108dp" android:height="108dp" android:viewportWidth="108" android:viewportHeight="108">
-<path android:fillColor="#5B1313" android:pathData="M54,7C32,7 14,25 14,47v36c0,10 8,18 18,18h44c10,0 18,-8 18,-18V47C94,25 76,7 54,7z"/>
-<path android:fillColor="#FFF9EF" android:pathData="M54,17C37,17 24,30 24,47v34c0,5 4,9 9,9h42c5,0 9,-4 9,-9V47C84,30 71,17 54,17z"/>
-<path android:fillColor="#5B1313" android:pathData="M54,25c-12,0 -22,10 -22,22v26c0,4 3,7 7,7h15z"/>
-<path android:fillColor="#5B1313" android:pathData="M54,25c12,0 22,10 22,22v26c0,4 -3,7 -7,7H54z"/>
-<path android:fillColor="#C4A15A" android:pathData="M51,31h6v50h-6z"/>
-<path android:fillColor="#FFF9EF" android:pathData="M38,43h10v3H38zM38,51h10v3H38zM60,43h10v3H60zM60,51h10v3H60z"/>
-<path android:fillColor="#C4A15A" android:pathData="M54,10l3,6h-6zM29,84h50v3H29z"/>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <path android:fillColor="#00000000" android:strokeColor="#C49A52" android:strokeWidth="4" android:strokeLineCap="round" android:pathData="M27,45 C27,25 39,15 54,15 C69,15 81,25 81,45" />
+    <path android:fillColor="#FFFEFA" android:pathData="M20,43 C31,35 42,35 52,41 L52,82 C42,76 31,76 20,84 Z" />
+    <path android:fillColor="#E8F0EA" android:pathData="M56,41 C66,35 77,35 88,43 L88,84 C77,76 66,76 56,82 Z" />
+    <path android:fillColor="#C49A52" android:pathData="M52,39 L56,39 L56,84 L52,84 Z" />
+    <path android:fillColor="#C49A52" android:pathData="M54,12 L58,19 L54,26 L50,19 Z" />
+    <path android:fillColor="#17483F" android:pathData="M28,51 C35,47 42,48 47,51 L47,55 C41,52 35,52 28,56 Z M28,62 C35,58 42,59 47,62 L47,66 C41,63 35,63 28,67 Z" />
+    <path android:fillColor="#17483F" android:pathData="M61,51 C67,48 74,47 80,51 L80,56 C73,52 67,52 61,55 Z M61,62 C67,59 74,58 80,62 L80,67 C73,63 67,63 61,66 Z" />
 </vector>

@@ -17,6 +17,8 @@ private val LightColorScheme = lightColorScheme(
     onPrimaryContainer = BurgundyPrimary,
     secondary = BurgundyLight,
     onSecondary = SurfaceWhite,
+    tertiary = GoldAccent,
+    onTertiary = TextPrimary,
     background = LavenderCanvas,
     onBackground = TextPrimary,
     surface = SurfaceWhite,
@@ -29,18 +31,16 @@ fun AlUmrabiParentTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
     content: @Composable () -> Unit
 ) {
-    val colorScheme = LightColorScheme
     val view = LocalView.current
     if (!view.isInEditMode) {
         SideEffect {
             val window = (view.context as Activity).window
-            window.statusBarColor = BurgundyPrimary.toArgb()
-            WindowCompat.getInsetsController(window, view).isAppearanceLightStatusBars = false
+            window.statusBarColor = BurgundyDark.toArgb()
+            window.navigationBarColor = LavenderCanvas.toArgb()
+            val insets = WindowCompat.getInsetsController(window, view)
+            insets.isAppearanceLightStatusBars = false
+            insets.isAppearanceLightNavigationBars = true
         }
     }
-
-    MaterialTheme(
-        colorScheme = colorScheme,
-        content = content
-    )
+    MaterialTheme(colorScheme = LightColorScheme, content = content)
 }
