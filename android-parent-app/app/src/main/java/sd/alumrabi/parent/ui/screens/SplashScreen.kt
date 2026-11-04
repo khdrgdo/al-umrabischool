@@ -122,6 +122,7 @@ fun AnimatedSplashScreen(
             fontSize = 10.sp,
             modifier = Modifier
                 .align(Alignment.BottomCenter)
+                .navigationBarsPadding()
                 .padding(bottom = 34.dp)
         )
     }

@@ -59,6 +59,8 @@ fun LoginScreen(
         modifier = Modifier
             .fillMaxSize()
             .background(LavenderCanvas)
+            .statusBarsPadding()
+            .navigationBarsPadding()
             .imePadding()
             .verticalScroll(rememberScrollState())
             .padding(horizontal = 24.dp, vertical = 28.dp),
@@ -334,7 +336,7 @@ fun LoginScreen(
                         text = if (activationMode)
                             "لدي حساب مفعّل — العودة للدخول"
                         else
-                            "أول مرة أو نسيت كلمة المرور؟",
+                            "لدي رمز تفعيل من إدارة المؤسسة؟",
                         color = BurgundyPrimary,
                         fontSize = 12.sp
                     )
