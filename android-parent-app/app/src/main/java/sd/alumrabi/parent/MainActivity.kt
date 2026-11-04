@@ -19,7 +19,9 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import kotlinx.coroutines.launch
+import sd.alumrabi.parent.data.api.AccountBlockedException
 import sd.alumrabi.parent.data.api.ParentApiClient
+import sd.alumrabi.parent.data.api.SessionExpiredException
 import sd.alumrabi.parent.data.local.SessionManager
 import sd.alumrabi.parent.data.model.*
 import sd.alumrabi.parent.ui.screens.*
@@ -93,20 +95,43 @@ fun ParentAppNavHost() {
     LaunchedEffect(Unit) {
         coroutineScope.launch {
             connectionState = apiClient.checkConnection()
-            val annResult = apiClient.fetchAnnouncements()
-            announcements = annResult.getOrDefault(emptyList())
 
-            val evResult = apiClient.fetchEvents()
-            events = evResult.getOrDefault(emptyList())
-
-            // If guardian has saved credentials, refresh portal data silently
+            // مزامنة صامتة بجلسة ولي الأمر نفسه (Supabase Auth). لا توجد بيانات تجريبية تُعرض للأهالي.
             val savedGuardian = sessionManager.getGuardian()
-            if (savedGuardian != null && !savedGuardian.accountCode.isNullOrBlank()) {
-                val portalResult = apiClient.fetchPortalData(savedGuardian.id, savedGuardian.accountCode, sessionManager.getPin())
-                portalResult.getOrNull()?.let { payload ->
-                    currentGuardian = payload.guardian
-                    currentChildren = payload.children
-                    sessionManager.saveSession(payload.guardian, payload.children, sessionManager.getPin())
+            var tokens = sessionManager.getTokens()
+            if (savedGuardian != null && tokens != null) {
+                var mustSignOut = false
+                if (tokens.isExpiringSoon()) {
+                    val refreshed = apiClient.refreshSession(tokens.refreshToken)
+                    val newTokens = refreshed.getOrNull()
+                    if (newTokens != null) {
+                        tokens = newTokens
+                        sessionManager.saveTokens(newTokens)
+                    } else if (refreshed.exceptionOrNull() is SessionExpiredException) {
+                        mustSignOut = true
+                    }
+                }
+                if (!mustSignOut) {
+                    val dash = apiClient.fetchDashboard(tokens.accessToken)
+                    val payload = dash.getOrNull()
+                    if (payload != null) {
+                        currentGuardian = payload.guardian
+                        currentChildren = payload.children
+                        announcements = payload.announcements
+                        events = payload.events
+                        sessionManager.saveSession(payload.guardian, payload.children)
+                    } else {
+                        val ex = dash.exceptionOrNull()
+                        if (ex is SessionExpiredException || ex is AccountBlockedException) mustSignOut = true
+                    }
+                }
+                if (mustSignOut) {
+                    sessionManager.clearSession()
+                    currentGuardian = GuardianInfo(id = "", accountCode = "", fullName = "ولي الأمر", phone = "", status = "active")
+                    currentChildren = emptyList()
+                    announcements = emptyList()
+                    events = emptyList()
+                    runCatching { navController.navigate("login") { popUpTo(0) } }
                 }
             }
         }
@@ -153,11 +178,14 @@ fun ParentAppNavHost() {
 
         composable("login") {
             LoginScreen(
-                onLoginSuccess = { guardian, children, pin ->
-                    currentGuardian = guardian
-                    currentChildren = children
+                onLoginSuccess = { tokens, payload ->
+                    currentGuardian = payload.guardian
+                    currentChildren = payload.children
+                    announcements = payload.announcements
+                    events = payload.events
                     selectedChildIndex = 0
-                    sessionManager.saveSession(guardian, children, pin)
+                    sessionManager.saveTokens(tokens)
+                    sessionManager.saveSession(payload.guardian, payload.children)
                     navController.navigate("dashboard") {
                         popUpTo("login") { inclusive = true }
                     }
@@ -229,6 +257,8 @@ fun ParentAppNavHost() {
                 guardian = currentGuardian,
                 onBack = { navController.popBackStack() },
                 onLogout = {
+                    val tokenToRevoke = sessionManager.getTokens()?.accessToken
+                    if (tokenToRevoke != null) coroutineScope.launch { apiClient.signOut(tokenToRevoke) }
                     sessionManager.clearSession()
                     currentGuardian = GuardianInfo(id = "", accountCode = "", fullName = "ولي الأمر", phone = "", status = "active")
                     currentChildren = emptyList()

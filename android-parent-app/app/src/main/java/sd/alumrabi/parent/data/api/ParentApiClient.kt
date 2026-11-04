@@ -19,8 +19,19 @@ import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.*
 import sd.alumrabi.parent.data.model.*
 
+/** جلسة Supabase Auth لولي الأمر. تُخزَّن مشفّرة فقط (انظر SessionManager). */
+data class AuthTokens(
+    val accessToken: String,
+    val refreshToken: String,
+    val expiresAtMillis: Long
+) {
+    fun isExpiringSoon(now: Long = System.currentTimeMillis()): Boolean = expiresAtMillis - now < 60_000L
+}
+
 class ParentApiClient(
     private val baseUrl: String = "https://c--8b91830b-7424-4960-81c7-67e94cdfd28d-prod.lovable.cloud",
+    // نقطة التفعيل /api/public/parent-auth يخدمها تطبيق الويب (انظر README: Live app)، وليس واجهة Supabase.
+    private val appBaseUrl: String = "https://al-umrabischool.lovable.app",
     private val anonKey: String = "sb_publishable_Cfv0pugkUHNlXrkWNX45JQ_ebr24viE"
 ) {
     private val json = Json {
@@ -58,78 +69,130 @@ class ParentApiClient(
         }
     }
 
-    suspend fun login(accountCode: String, pin: String): Result<LoginResponse> = withContext(Dispatchers.IO) {
-        val cleanCode = accountCode.trim().uppercase()
-        val cleanPin = pin.trim()
+    // بريد الدخول مشتق من المعرّف (account_code) ولا يُستعمل للبريد الفعلي؛ كلمة المرور يختارها ولي الأمر ويديرها Supabase Auth.
+    private fun loginEmail(accountCode: String) = "${accountCode.trim().lowercase()}@parents.alumrabi.invalid"
 
+    private fun parseTokens(body: String): AuthTokens? {
+        val o = json.parseToJsonElement(body).jsonObject
+        val access = o["access_token"]?.jsonPrimitive?.contentOrNull ?: return null
+        val refresh = o["refresh_token"]?.jsonPrimitive?.contentOrNull ?: return null
+        val expiresIn = o["expires_in"]?.jsonPrimitive?.longOrNull ?: 3600L
+        return AuthTokens(access, refresh, System.currentTimeMillis() + expiresIn * 1000L)
+    }
+
+    private val networkError = "تعذر الاتصال بخادم المدرسة. يرجى التحقق من اتصال الإنترنت والمحاولة لاحقاً."
+
+    suspend fun signIn(accountCode: String, password: String): Result<AuthTokens> = withContext(Dispatchers.IO) {
         try {
-            val response = client.post("$baseUrl/rest/v1/rpc/parent_app_login") {
+            val response = client.post("$baseUrl/auth/v1/token?grant_type=password") {
                 contentType(ContentType.Application.Json)
-                headers {
-                    append("apikey", anonKey)
-                    append("Authorization", "Bearer $anonKey")
-                }
+                headers { append("apikey", anonKey) }
                 setBody(buildJsonObject {
-                    put("_account_code", cleanCode)
-                    put("_code_or_pin", cleanPin)
+                    put("email", loginEmail(accountCode))
+                    put("password", password)
                 })
             }
-
-            if (response.status.isSuccess()) {
-                val body = response.body<LoginResponse>()
-                return@withContext Result.success(body)
-            } else {
-                return@withContext Result.failure(Exception("تعذر تسجيل الدخول من خادم المدرسة (${response.status.value})"))
+            when {
+                response.status.isSuccess() ->
+                    parseTokens(response.bodyAsText())?.let { Result.success(it) }
+                        ?: Result.failure(Exception("استجابة غير متوقعة من الخادم"))
+                response.status.value in 400..499 ->
+                    Result.failure(Exception("بيانات الدخول غير صحيحة. تأكد من المعرّف وكلمة المرور، أو راجع إدارة المدرسة للحصول على رمز تفعيل."))
+                else -> Result.failure(Exception("تعذر تسجيل الدخول من خادم المدرسة (${response.status.value})"))
             }
         } catch (_: Exception) {
-            Result.failure(Exception("تعذر الاتصال بخادم المدرسة. يرجى التحقق من اتصال الإنترنت والمحاولة لاحقاً."))
+            Result.failure(Exception(networkError))
         }
     }
 
-    suspend fun fetchPortalData(guardianId: String, accountCode: String, pin: String): Result<DashboardPayload> = withContext(Dispatchers.IO) {
+    suspend fun refreshSession(refreshToken: String): Result<AuthTokens> = withContext(Dispatchers.IO) {
         try {
-            val response = client.post("$baseUrl/rest/v1/rpc/parent_get_portal_data") {
+            val response = client.post("$baseUrl/auth/v1/token?grant_type=refresh_token") {
+                contentType(ContentType.Application.Json)
+                headers { append("apikey", anonKey) }
+                setBody(buildJsonObject { put("refresh_token", refreshToken) })
+            }
+            if (response.status.isSuccess()) {
+                parseTokens(response.bodyAsText())?.let { Result.success(it) }
+                    ?: Result.failure(Exception("استجابة غير متوقعة من الخادم"))
+            } else {
+                Result.failure(SessionExpiredException())
+            }
+        } catch (_: Exception) {
+            Result.failure(Exception(networkError))
+        }
+    }
+
+    /** إنهاء الجلسة على الخادم (أفضل جهد؛ المسح المحلي يتم دائماً). */
+    suspend fun signOut(accessToken: String) = withContext(Dispatchers.IO) {
+        try {
+            client.post("$baseUrl/auth/v1/logout") {
+                headers {
+                    append("apikey", anonKey)
+                    append("Authorization", "Bearer $accessToken")
+                }
+            }
+        } catch (_: Exception) {
+        }
+    }
+
+    /** تفعيل أول مرة أو إعادة تعيين كلمة المرور برمز من الإدارة (لمرة واحدة، 72 ساعة). */
+    suspend fun activate(accountCode: String, activationCode: String, newPassword: String): Result<Unit> = withContext(Dispatchers.IO) {
+        try {
+            val response = client.post("$appBaseUrl/api/public/parent-auth") {
+                contentType(ContentType.Application.Json)
+                setBody(buildJsonObject {
+                    put("account_code", accountCode.trim().uppercase())
+                    put("activation_code", activationCode.trim())
+                    put("password", newPassword)
+                })
+            }
+            if (response.status.isSuccess()) {
+                Result.success(Unit)
+            } else {
+                val msg = try {
+                    json.parseToJsonElement(response.bodyAsText()).jsonObject["message"]?.jsonPrimitive?.contentOrNull
+                } catch (_: Exception) { null }
+                Result.failure(Exception(msg ?: "تعذر إكمال التفعيل (${response.status.value})"))
+            }
+        } catch (_: Exception) {
+            Result.failure(Exception(networkError))
+        }
+    }
+
+    /** لوحة ولي الأمر بجلسته هو: عزل الأسر يفرضه الخادم عبر auth.uid() داخل الدالة. */
+    suspend fun fetchDashboard(accessToken: String): Result<DashboardPayload> = withContext(Dispatchers.IO) {
+        try {
+            val response = client.post("$baseUrl/rest/v1/rpc/parent_get_dashboard_data") {
                 contentType(ContentType.Application.Json)
                 headers {
                     append("apikey", anonKey)
-                    append("Authorization", "Bearer $anonKey")
+                    append("Authorization", "Bearer $accessToken")
                 }
-                setBody(buildJsonObject {
-                    put("_guardian_id", guardianId)
-                    put("_account_code", accountCode)
-                    put("_pin", pin)
-                })
+                setBody(buildJsonObject { })
             }
-
-            if (response.status.isSuccess()) {
-                val rawText = response.bodyAsText()
-                val element = json.parseToJsonElement(rawText).jsonObject
-                if (element["success"]?.jsonPrimitive?.booleanOrNull == true) {
-                    val guardianObj = element["guardian"]?.jsonObject
-                    val guardian = if (guardianObj != null) {
-                        GuardianInfo(
-                            id = guardianObj["id"]?.jsonPrimitive?.content ?: guardianId,
-                            accountCode = guardianObj["account_code"]?.jsonPrimitive?.content ?: accountCode,
-                            fullName = guardianObj["full_name"]?.jsonPrimitive?.content ?: "ولي الأمر",
-                            phone = guardianObj["phone"]?.jsonPrimitive?.content ?: "",
-                            status = guardianObj["status"]?.jsonPrimitive?.content ?: "active"
-                        )
-                    } else {
-                        GuardianInfo(id = guardianId, accountCode = accountCode, fullName = "ولي الأمر", phone = "", status = "active")
-                    }
-
-                    val children = element["children"]?.jsonArray?.mapNotNull { parseChild(it.jsonObject) } ?: emptyList()
-                    val announcements = element["announcements"]?.jsonArray?.mapNotNull { parseAnnouncement(it.jsonObject) } ?: emptyList()
-                    val events = element["events"]?.jsonArray?.mapNotNull { parseEvent(it.jsonObject) } ?: emptyList()
-
-                    Result.success(DashboardPayload(guardian, children, announcements, events))
-                } else {
-                    val msg = element["message"]?.jsonPrimitive?.content ?: "تعذر جلب بيانات ولي الأمر"
-                    Result.failure(Exception(msg))
-                }
-            } else {
-                Result.failure(Exception("تعذر جلب بيانات ولي الأمر من الخادم (${response.status.value})"))
+            if (response.status.value == 401) return@withContext Result.failure(SessionExpiredException())
+            if (!response.status.isSuccess()) {
+                return@withContext Result.failure(Exception("تعذر جلب بيانات ولي الأمر من الخادم (${response.status.value})"))
             }
+            val element = json.parseToJsonElement(response.bodyAsText()).jsonObject
+            val err = element["error"]?.jsonPrimitive?.contentOrNull
+            if (err != null) {
+                val msg = element["message"]?.jsonPrimitive?.contentOrNull ?: "تعذر جلب بيانات ولي الأمر"
+                return@withContext Result.failure(if (err == "ACCOUNT_SUSPENDED" || err == "ACCOUNT_INACTIVE" || err == "NOT_REGISTERED") AccountBlockedException(msg) else Exception(msg))
+            }
+            val g = element["guardian"]?.jsonObject ?: return@withContext Result.failure(Exception("استجابة غير متوقعة من الخادم"))
+            val guardian = GuardianInfo(
+                id = g["id"]?.jsonPrimitive?.content ?: "",
+                accountCode = g["account_code"]?.jsonPrimitive?.contentOrNull,
+                fullName = g["full_name"]?.jsonPrimitive?.contentOrNull ?: "ولي الأمر",
+                phone = g["phone"]?.jsonPrimitive?.contentOrNull ?: "",
+                status = g["status"]?.jsonPrimitive?.contentOrNull ?: "active"
+            )
+            val children = element["children"]?.jsonArray?.mapNotNull { parseChild(it.jsonObject) } ?: emptyList()
+            val announcements = element["announcements"]?.jsonArray?.mapNotNull { parseAnnouncement(it.jsonObject) } ?: emptyList()
+            val events = element["events"]?.jsonArray?.mapNotNull { parseEvent(it.jsonObject) } ?: emptyList()
+            Result.success(DashboardPayload(guardian, children, announcements, events))
         } catch (_: Exception) {
             Result.failure(Exception("تعذر الاتصال بخادم المدرسة. يرجى التحقق من اتصال الإنترنت."))
         }
@@ -443,3 +506,9 @@ class ParentApiClient(
         )
     )
 }
+
+/** الجلسة منتهية أو مرفوضة: يلزم تسجيل دخول جديد. */
+class SessionExpiredException : Exception("انتهت الجلسة. يرجى تسجيل الدخول من جديد.")
+
+/** الحساب موقوف/غير مفعّل/غير مرتبط: يُمسح التخزين المحلي ويعود المستخدم لشاشة الدخول. */
+class AccountBlockedException(message: String) : Exception(message)

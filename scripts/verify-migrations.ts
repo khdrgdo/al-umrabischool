@@ -23,7 +23,9 @@ export interface MigrationIssue {
     | "COUNTERPART_MISSING"
     | "CONTENT_MISMATCH"
     | "SEQUENCE_GAP"
-    | "DUPLICATE_INDEX";
+    | "DUPLICATE_INDEX"
+    | "DESTRUCTIVE_STATEMENT"
+    | "SEED_IN_MIGRATIONS";
   severity: "error" | "warning";
   message: string;
   details?: Record<string, unknown>;
@@ -114,7 +116,7 @@ export function runMigrationAudit(projectRoot: string): AuditResult {
   const drizzleByIndex = new Map<string, string>();
   for (const df of drizzleFiles) {
     const match = df.match(/^(\d{4})_(.+)\.sql$/);
-    if (match) {
+    if (match && match[1] !== undefined) {
       const idx = match[1];
       if (drizzleByIndex.has(idx)) {
         issues.push({
@@ -130,7 +132,7 @@ export function runMigrationAudit(projectRoot: string): AuditResult {
   const supabaseByIndex = new Map<string, string>();
   for (const sf of supabaseFiles) {
     const tsMatch = sf.match(/^2026\d{6}(\d{4})_(.+)\.sql$/) || sf.match(/^(\d{4})_(.+)\.sql$/);
-    if (tsMatch) {
+    if (tsMatch && tsMatch[1] !== undefined) {
       const idx = tsMatch[1];
       if (supabaseByIndex.has(idx)) {
         issues.push({
@@ -183,6 +185,41 @@ export function runMigrationAudit(projectRoot: string): AuditResult {
       });
     }
   }
+
+  // Check 4: لا يجوز أن تحتوي مسارات النشر على أوامر هدّامة أو بيانات seed.
+  // (يُهمل ما داخل التعليقات. أي TRUNCATE / DROP SCHEMA / DROP DATABASE خطأ صريح.)
+  const stripSqlComments = (sql: string): string =>
+    sql.replace(/\/\*[\s\S]*?\*\//g, "").replace(/--[^\n]*/g, "");
+  const DESTRUCTIVE: Array<{ re: RegExp; label: string }> = [
+    { re: /\bTRUNCATE\b/i, label: "TRUNCATE" },
+    { re: /\bDROP\s+SCHEMA\b/i, label: "DROP SCHEMA" },
+    { re: /\bDROP\s+DATABASE\b/i, label: "DROP DATABASE" },
+  ];
+  const scanDeployable = (dir: string, files: string[], system: "drizzle" | "supabase") => {
+    for (const file of files) {
+      const sql = stripSqlComments(fs.readFileSync(path.join(dir, file), "utf-8"));
+      for (const { re, label } of DESTRUCTIVE) {
+        if (re.test(sql)) {
+          issues.push({
+            type: "DESTRUCTIVE_STATEMENT",
+            severity: "error",
+            message: `الملف '${file}' (${system}) يحتوي أمراً هدّاماً (${label}) داخل مسار الترحيلات. انقله إلى supabase/test-seed/ أو احذفه.`,
+            details: { file, system, statement: label },
+          });
+        }
+      }
+      if (/seed/i.test(file) && /\bINSERT\s+INTO\b/i.test(sql)) {
+        issues.push({
+          type: "SEED_IN_MIGRATIONS",
+          severity: "error",
+          message: `الملف '${file}' (${system}) ملف seed يُدخل بيانات داخل مسار الترحيلات؛ بيانات الاختبار يجب أن تكون في supabase/test-seed/.`,
+          details: { file, system },
+        });
+      }
+    }
+  };
+  scanDeployable(drizzleDir, drizzleFiles, "drizzle");
+  scanDeployable(supabaseDir, supabaseFiles, "supabase");
 
   return {
     success: issues.length === 0,

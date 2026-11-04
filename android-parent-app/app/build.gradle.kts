@@ -71,4 +71,5 @@ dependencies {
     implementation(libs.ktor.serialization.kotlinx.json)
     implementation(libs.kotlinx.coroutines.android)
     implementation(libs.kotlinx.serialization.json)
+    implementation("androidx.security:security-crypto:1.1.0-alpha06")
 }
