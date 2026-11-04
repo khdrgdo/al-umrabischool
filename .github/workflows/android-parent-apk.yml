@@ -12,8 +12,8 @@ permissions:
 jobs:
   build-debug-apk:
     name: Build and package parent Debug APK
-    runs-on: ubuntu-22.04
-    timeout-minutes: 25
+    runs-on: windows-latest
+    timeout-minutes: 30
     steps:
       - name: Checkout source
         uses: actions/checkout@v4
@@ -27,12 +27,8 @@ jobs:
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
 
-      - name: Grant Gradle wrapper permission
-        run: chmod +x ./gradlew
-        working-directory: android-parent-app
-
       - name: Assemble Debug APK
-        run: ./gradlew assembleDebug --no-daemon --stacktrace
+        run: .\gradlew.bat assembleDebug --no-daemon --stacktrace
         working-directory: android-parent-app
 
       - name: Upload installable APK
