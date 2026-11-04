@@ -29,6 +29,7 @@ import { Route as AuthenticatedTimetableRouteImport } from './routes/_authentica
 import { Route as AuthenticatedUsersRouteImport } from './routes/_authenticated/users'
 import { Route as AuthenticatedStudentsIndexRouteImport } from './routes/_authenticated/students.index'
 import { Route as AuthenticatedStudentsIdRouteImport } from './routes/_authenticated/students.$id'
+import { Route as ApiPublicParentAuthRouteImport } from './routes/api/public/parent-auth'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -130,6 +131,11 @@ const AuthenticatedStudentsIdRoute = AuthenticatedStudentsIdRouteImport.update({
   path: '/students/$id',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const ApiPublicParentAuthRoute = ApiPublicParentAuthRouteImport.update({
+  id: '/api/public/parent-auth',
+  path: '/api/public/parent-auth',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -150,6 +156,7 @@ export interface FileRoutesByFullPath {
   '/timetable': typeof AuthenticatedTimetableRoute
   '/users': typeof AuthenticatedUsersRoute
   '/students/$id': typeof AuthenticatedStudentsIdRoute
+  '/api/public/parent-auth': typeof ApiPublicParentAuthRoute
   '/students/': typeof AuthenticatedStudentsIndexRoute
 }
 export interface FileRoutesByTo {
@@ -171,6 +178,7 @@ export interface FileRoutesByTo {
   '/timetable': typeof AuthenticatedTimetableRoute
   '/users': typeof AuthenticatedUsersRoute
   '/students/$id': typeof AuthenticatedStudentsIdRoute
+  '/api/public/parent-auth': typeof ApiPublicParentAuthRoute
   '/students': typeof AuthenticatedStudentsIndexRoute
 }
 export interface FileRoutesById {
@@ -194,6 +202,7 @@ export interface FileRoutesById {
   '/_authenticated/timetable': typeof AuthenticatedTimetableRoute
   '/_authenticated/users': typeof AuthenticatedUsersRoute
   '/_authenticated/students/$id': typeof AuthenticatedStudentsIdRoute
+  '/api/public/parent-auth': typeof ApiPublicParentAuthRoute
   '/_authenticated/students/': typeof AuthenticatedStudentsIndexRoute
 }
 export interface FileRouteTypes {
@@ -217,6 +226,7 @@ export interface FileRouteTypes {
     | '/timetable'
     | '/users'
     | '/students/$id'
+    | '/api/public/parent-auth'
     | '/students/'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -238,6 +248,7 @@ export interface FileRouteTypes {
     | '/timetable'
     | '/users'
     | '/students/$id'
+    | '/api/public/parent-auth'
     | '/students'
   id:
     | '__root__'
@@ -260,6 +271,7 @@ export interface FileRouteTypes {
     | '/_authenticated/timetable'
     | '/_authenticated/users'
     | '/_authenticated/students/$id'
+    | '/api/public/parent-auth'
     | '/_authenticated/students/'
   fileRoutesById: FileRoutesById
 }
@@ -268,6 +280,7 @@ export interface RootRouteChildren {
   AuthenticatedRouteRoute: typeof AuthenticatedRouteRouteWithChildren
   AuthRoute: typeof AuthRoute
   ParentRoute: typeof ParentRoute
+  ApiPublicParentAuthRoute: typeof ApiPublicParentAuthRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -412,6 +425,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedStudentsIdRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/api/public/parent-auth': {
+      id: '/api/public/parent-auth'
+      path: '/api/public/parent-auth'
+      fullPath: '/api/public/parent-auth'
+      preLoaderRoute: typeof ApiPublicParentAuthRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -461,6 +481,7 @@ const rootRouteChildren: RootRouteChildren = {
   AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
   AuthRoute: AuthRoute,
   ParentRoute: ParentRoute,
+  ApiPublicParentAuthRoute: ApiPublicParentAuthRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
