@@ -9,14 +9,30 @@ import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.CalendarMonth
+import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Grade
+import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.MoreHoriz
+import androidx.compose.material3.Icon
+import androidx.compose.material3.NavigationBar
+import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.NavigationBarItemDefaults
+import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.unit.LayoutDirection
+import androidx.compose.ui.unit.dp
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
+import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import kotlinx.coroutines.launch
 import sd.alumrabi.parent.data.api.AccountBlockedException
@@ -27,7 +43,10 @@ import sd.alumrabi.parent.data.local.SessionManager
 import sd.alumrabi.parent.data.model.*
 import sd.alumrabi.parent.ui.screens.*
 import sd.alumrabi.parent.ui.theme.AlUmrabiParentTheme
+import sd.alumrabi.parent.ui.theme.BurgundyPrimary
 import sd.alumrabi.parent.ui.theme.LavenderCanvas
+import sd.alumrabi.parent.ui.theme.SurfaceWhite
+import sd.alumrabi.parent.ui.theme.TextSecondary
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -51,13 +70,18 @@ class MainActivity : ComponentActivity() {
     }
 }
 
+private data class ParentTab(
+    val route: String,
+    val label: String,
+    val icon: androidx.compose.ui.graphics.vector.ImageVector
+)
+
 @Composable
 fun ParentAppNavHost() {
     val context = LocalContext.current
     val sessionManager = remember { SessionManager(context) }
     val navController = rememberNavController()
     val coroutineScope = rememberCoroutineScope()
-    val apiClient = remember { ParentApiClient() }
 
     var currentGuardian by remember {
         mutableStateOf(
@@ -78,6 +102,7 @@ fun ParentAppNavHost() {
     var demoMode by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
+        val apiClient = ParentApiClient()
         connectionState = apiClient.checkConnection()
 
         val savedGuardian = sessionManager.getGuardian()
@@ -127,155 +152,228 @@ fun ParentAppNavHost() {
         }
     }
 
-    NavHost(
-        navController = navController,
-        startDestination = "splash",
-        enterTransition = {
-            slideIntoContainer(
-                AnimatedContentTransitionScope.SlideDirection.Start,
-                animationSpec = tween(260)
-            ) + fadeIn(animationSpec = tween(260))
-        },
-        exitTransition = {
-            slideOutOfContainer(
-                AnimatedContentTransitionScope.SlideDirection.Start,
-                animationSpec = tween(260)
-            ) + fadeOut(animationSpec = tween(260))
-        },
-        popEnterTransition = {
-            slideIntoContainer(
-                AnimatedContentTransitionScope.SlideDirection.End,
-                animationSpec = tween(260)
-            ) + fadeIn(animationSpec = tween(260))
-        },
-        popExitTransition = {
-            slideOutOfContainer(
-                AnimatedContentTransitionScope.SlideDirection.End,
-                animationSpec = tween(260)
-            ) + fadeOut(animationSpec = tween(260))
-        }
-    ) {
-        composable("splash") {
-            AnimatedSplashScreen(
-                onSplashFinished = {
-                    val target = if (sessionManager.isLoggedIn() && currentChildren.isNotEmpty()) {
-                        "dashboard"
-                    } else {
-                        "login"
-                    }
-                    navController.navigate(target) {
-                        popUpTo("splash") { inclusive = true }
-                    }
-                }
-            )
-        }
+    val backStackEntry by navController.currentBackStackEntryAsState()
+    val currentRoute = backStackEntry?.destination?.route
+    val tabs = remember {
+        listOf(
+            ParentTab("dashboard", "الرئيسية", Icons.Default.Home),
+            ParentTab("grades", "النتائج", Icons.Default.Grade),
+            ParentTab("attendance", "الحضور", Icons.Default.CheckCircle),
+            ParentTab("schedule", "الجدول", Icons.Default.CalendarMonth),
+            ParentTab("more", "المزيد", Icons.Default.MoreHoriz)
+        )
+    }
+    val showBottomBar = currentRoute in tabs.map { it.route }
 
-        composable("login") {
-            LoginScreen(
-                onLoginSuccess = { tokens, payload ->
-                    demoMode = false
-                    currentGuardian = payload.guardian
-                    currentChildren = payload.children
-                    announcements = payload.announcements
-                    events = payload.events
-                    selectedChildIndex = 0
-                    sessionManager.saveTokens(tokens)
-                    sessionManager.saveSession(payload.guardian, payload.children)
-                    navController.navigate("dashboard") {
-                        popUpTo("login") { inclusive = true }
-                    }
-                },
-                onDemoLoginSuccess = { payload ->
-                    // بيانات محلية مؤقتة: لا تُخزَّن كجلسة ولا تُرسل إلى الخادم.
-                    demoMode = true
-                    currentGuardian = payload.guardian
-                    currentChildren = payload.children
-                    announcements = payload.announcements
-                    events = payload.events
-                    selectedChildIndex = 0
-                    navController.navigate("dashboard") {
-                        popUpTo("login") { inclusive = true }
+    Scaffold(
+        containerColor = LavenderCanvas,
+        bottomBar = {
+            if (showBottomBar) {
+                NavigationBar(
+                    containerColor = SurfaceWhite,
+                    contentColor = BurgundyPrimary,
+                    tonalElevation = 5.dp
+                ) {
+                    tabs.forEach { tab ->
+                        val selected = currentRoute == tab.route
+                        NavigationBarItem(
+                            selected = selected,
+                            onClick = {
+                                if (!selected) {
+                                    navController.navigate(tab.route) {
+                                        popUpTo("dashboard") { saveState = true }
+                                        launchSingleTop = true
+                                        restoreState = true
+                                    }
+                                }
+                            },
+                            icon = {
+                                Icon(
+                                    imageVector = tab.icon,
+                                    contentDescription = tab.label
+                                )
+                            },
+                            label = {
+                                Text(
+                                    text = tab.label,
+                                    maxLines = 1
+                                )
+                            },
+                            colors = NavigationBarItemDefaults.colors(
+                                selectedIconColor = BurgundyPrimary,
+                                selectedTextColor = BurgundyPrimary,
+                                indicatorColor = Color(0xFFF7EDED),
+                                unselectedIconColor = TextSecondary,
+                                unselectedTextColor = TextSecondary
+                            )
+                        )
                     }
                 }
-            )
+            }
         }
-
-        composable("dashboard") {
-            DashboardScreen(
-                guardian = currentGuardian,
-                children = currentChildren,
-                selectedChildIndex = selectedChildIndex,
-                connectionState = connectionState,
-                demoMode = demoMode,
-                onSelectChild = { selectedChildIndex = it },
-                onNavigateToGrades = { navController.navigate("grades") },
-                onNavigateToAttendance = { navController.navigate("attendance") },
-                onNavigateToSchedule = { navController.navigate("schedule") },
-                onNavigateToAnnouncements = { navController.navigate("announcements") },
-                onNavigateToFees = { navController.navigate("fees") },
-                onNavigateToSettings = { navController.navigate("settings") }
-            )
-        }
-
-        composable("grades") {
-            GradesScreen(
-                child = currentChildren.getOrNull(selectedChildIndex),
-                onBack = { navController.popBackStack() }
-            )
-        }
-
-        composable("fees") {
-            FeesScreen(
-                child = currentChildren.getOrNull(selectedChildIndex),
-                onBack = { navController.popBackStack() }
-            )
-        }
-
-        composable("attendance") {
-            AttendanceScreen(
-                child = currentChildren.getOrNull(selectedChildIndex),
-                onBack = { navController.popBackStack() }
-            )
-        }
-
-        composable("schedule") {
-            ScheduleScreen(
-                child = currentChildren.getOrNull(selectedChildIndex),
-                onBack = { navController.popBackStack() }
-            )
-        }
-
-        composable("announcements") {
-            AnnouncementsScreen(
-                announcements = announcements,
-                events = events,
-                onBack = { navController.popBackStack() }
-            )
-        }
-
-        composable("settings") {
-            SettingsScreen(
-                guardian = currentGuardian,
-                onBack = { navController.popBackStack() },
-                onLogout = {
-                    if (!demoMode) {
-                        val tokenToRevoke = sessionManager.getTokens()?.accessToken
-                        if (tokenToRevoke != null) {
-                            coroutineScope.launch { apiClient.signOut(tokenToRevoke) }
+    ) { innerPadding ->
+        NavHost(
+            navController = navController,
+            startDestination = "splash",
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(innerPadding),
+            enterTransition = {
+                slideIntoContainer(
+                    AnimatedContentTransitionScope.SlideDirection.Start,
+                    animationSpec = tween(240)
+                ) + fadeIn(animationSpec = tween(240))
+            },
+            exitTransition = {
+                slideOutOfContainer(
+                    AnimatedContentTransitionScope.SlideDirection.Start,
+                    animationSpec = tween(240)
+                ) + fadeOut(animationSpec = tween(240))
+            },
+            popEnterTransition = {
+                slideIntoContainer(
+                    AnimatedContentTransitionScope.SlideDirection.End,
+                    animationSpec = tween(240)
+                ) + fadeIn(animationSpec = tween(240))
+            },
+            popExitTransition = {
+                slideOutOfContainer(
+                    AnimatedContentTransitionScope.SlideDirection.End,
+                    animationSpec = tween(240)
+                ) + fadeOut(animationSpec = tween(240))
+            }
+        ) {
+            composable("splash") {
+                AnimatedSplashScreen(
+                    onSplashFinished = {
+                        val target = if (sessionManager.isLoggedIn() && currentChildren.isNotEmpty()) {
+                            "dashboard"
+                        } else {
+                            "login"
+                        }
+                        navController.navigate(target) {
+                            popUpTo("splash") { inclusive = true }
                         }
                     }
-                    demoMode = false
-                    sessionManager.clearSession()
-                    currentGuardian = GuardianInfo("", "", "ولي الأمر", "", "active")
-                    currentChildren = emptyList()
-                    announcements = emptyList()
-                    events = emptyList()
-                    selectedChildIndex = 0
-                    navController.navigate("login") {
-                        popUpTo("dashboard") { inclusive = true }
+                )
+            }
+
+            composable("login") {
+                LoginScreen(
+                    onLoginSuccess = { tokens, payload ->
+                        demoMode = false
+                        currentGuardian = payload.guardian
+                        currentChildren = payload.children
+                        announcements = payload.announcements
+                        events = payload.events
+                        selectedChildIndex = 0
+                        sessionManager.saveTokens(tokens)
+                        sessionManager.saveSession(payload.guardian, payload.children)
+                        navController.navigate("dashboard") {
+                            popUpTo("login") { inclusive = true }
+                        }
+                    },
+                    onDemoLoginSuccess = { payload ->
+                        demoMode = true
+                        currentGuardian = payload.guardian
+                        currentChildren = payload.children
+                        announcements = payload.announcements
+                        events = payload.events
+                        selectedChildIndex = 0
+                        navController.navigate("dashboard") {
+                            popUpTo("login") { inclusive = true }
+                        }
                     }
-                }
-            )
+                )
+            }
+
+            composable("dashboard") {
+                DashboardScreen(
+                    guardian = currentGuardian,
+                    children = currentChildren,
+                    selectedChildIndex = selectedChildIndex,
+                    connectionState = connectionState,
+                    demoMode = demoMode,
+                    onSelectChild = { selectedChildIndex = it },
+                    onNavigateToGrades = { navController.navigate("grades") },
+                    onNavigateToAttendance = { navController.navigate("attendance") },
+                    onNavigateToSchedule = { navController.navigate("schedule") },
+                    onNavigateToAnnouncements = { navController.navigate("announcements") },
+                    onNavigateToFees = { navController.navigate("fees") },
+                    onNavigateToSettings = { navController.navigate("settings") }
+                )
+            }
+
+            composable("grades") {
+                GradesScreen(
+                    child = currentChildren.getOrNull(selectedChildIndex),
+                    onBack = { navController.popBackStack() }
+                )
+            }
+
+            composable("fees") {
+                FeesScreen(
+                    child = currentChildren.getOrNull(selectedChildIndex),
+                    onBack = { navController.popBackStack() }
+                )
+            }
+
+            composable("attendance") {
+                AttendanceScreen(
+                    child = currentChildren.getOrNull(selectedChildIndex),
+                    onBack = { navController.popBackStack() }
+                )
+            }
+
+            composable("schedule") {
+                ScheduleScreen(
+                    child = currentChildren.getOrNull(selectedChildIndex),
+                    onBack = { navController.popBackStack() }
+                )
+            }
+
+            composable("announcements") {
+                AnnouncementsScreen(
+                    announcements = announcements,
+                    events = events,
+                    onBack = { navController.popBackStack() }
+                )
+            }
+
+            composable("more") {
+                MoreScreen(
+                    onNavigateToFees = { navController.navigate("fees") },
+                    onNavigateToAnnouncements = { navController.navigate("announcements") },
+                    onNavigateToSettings = { navController.navigate("settings") }
+                )
+            }
+
+            composable("settings") {
+                SettingsScreen(
+                    guardian = currentGuardian,
+                    onBack = { navController.popBackStack() },
+                    onLogout = {
+                        if (!demoMode) {
+                            val tokenToRevoke = sessionManager.getTokens()?.accessToken
+                            if (tokenToRevoke != null) {
+                                coroutineScope.launch {
+                                    ParentApiClient().signOut(tokenToRevoke)
+                                }
+                            }
+                        }
+                        demoMode = false
+                        sessionManager.clearSession()
+                        currentGuardian = GuardianInfo("", "", "ولي الأمر", "", "active")
+                        currentChildren = emptyList()
+                        announcements = emptyList()
+                        events = emptyList()
+                        selectedChildIndex = 0
+                        navController.navigate("login") {
+                            popUpTo("dashboard") { inclusive = true }
+                        }
+                    }
+                )
+            }
         }
     }
 }
