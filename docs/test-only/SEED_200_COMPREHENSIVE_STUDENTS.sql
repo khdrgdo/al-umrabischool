@@ -17,8 +17,10 @@ DELETE FROM public.student_payment_allocations WHERE payment_id IN (
 );
 DELETE FROM public.student_payments WHERE receipt_number LIKE 'REC-TEST-%';
 DELETE FROM public.student_fee_discounts WHERE reason LIKE '[SEED-200]%';
-DELETE FROM public.attendance_records WHERE session_id IN (
-  SELECT id FROM public.attendance_sessions WHERE attendance_date >= '2026-10-01' AND attendance_date <= '2026-10-31'
+-- حذف سجلات الحضور الخاصة بطلاب الاختبار فقط؛ لا نمس جلسات أو سجلات الطلاب الحقيقيين.
+DELETE FROM public.attendance_records
+WHERE student_id IN (
+  SELECT id FROM public.students WHERE student_number LIKE 'STD-TEST-%'
 );
 DELETE FROM public.student_grades WHERE assessment_id IN (
   SELECT id FROM public.assessments WHERE title LIKE '[SEED]%'

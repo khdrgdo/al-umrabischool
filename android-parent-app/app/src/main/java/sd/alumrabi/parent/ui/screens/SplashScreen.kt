@@ -77,7 +77,7 @@ fun AnimatedSplashScreen(
             ) {
                 Box(contentAlignment = Alignment.Center) {
                     Image(
-                        painter = painterResource(R.drawable.ic_launcher_foreground),
+                        painter = painterResource(R.drawable.ic_alumrabi_mark),
                         contentDescription = "شعار العمرابي",
                         modifier = Modifier
                             .size(116.dp)

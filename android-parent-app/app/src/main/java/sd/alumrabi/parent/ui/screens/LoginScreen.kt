@@ -69,7 +69,7 @@ fun LoginScreen(
         Spacer(Modifier.height(10.dp))
 
         Image(
-            painter = painterResource(R.drawable.ic_launcher_foreground),
+            painter = painterResource(R.drawable.ic_alumrabi_mark),
             contentDescription = "شعار تطبيق العمرابي",
             modifier = Modifier.size(92.dp)
         )
@@ -241,9 +241,9 @@ fun LoginScreen(
                         }
 
                         if (BuildConfig.DEBUG && code.startsWith("DEMO-")) {
-                            val demoPayload = DemoData.authenticate(code, password)
+                            val demoPayload = DemoData.authenticate(code, password.trim())
                             if (demoPayload == null) {
-                                errorMessage = "بيانات الحساب التجريبي غير صحيحة."
+                                errorMessage = "بيانات الاختبار لا تطابق الحساب. استخدم أحد زري الدخول السريع أدناه."
                             } else {
                                 passwordOrPin = ""
                                 onDemoLoginSuccess(demoPayload)
@@ -394,6 +394,35 @@ fun LoginScreen(
                         color = TextPrimary,
                         fontSize = 11.sp,
                         fontWeight = FontWeight.Medium
+                    )
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        OutlinedButton(
+                            onClick = {
+                                val payload = DemoData.authenticate(DemoData.FAMILY_ACCOUNT, DemoData.PASSWORD)
+                                if (payload != null) onDemoLoginSuccess(payload)
+                                else errorMessage = "تعذر تحميل بيانات الأسرة التجريبية."
+                            },
+                            modifier = Modifier.weight(1f),
+                            shape = RoundedCornerShape(12.dp)
+                        ) { Text("دخول الأسرة") }
+                        OutlinedButton(
+                            onClick = {
+                                val payload = DemoData.authenticate(DemoData.SINGLE_ACCOUNT, DemoData.PASSWORD)
+                                if (payload != null) onDemoLoginSuccess(payload)
+                                else errorMessage = "تعذر تحميل حساب ولي الأمر التجريبي."
+                            },
+                            modifier = Modifier.weight(1f),
+                            shape = RoundedCornerShape(12.dp)
+                        ) { Text("دخول فردي") }
+                    }
+                    Text(
+                        "الدخول السريع للاختبار فقط؛ لا يتصل بالخادم ولا ينشئ جلسة حقيقية.",
+                        color = TextSecondary,
+                        fontSize = 10.sp,
+                        lineHeight = 16.sp
                     )
                 }
             }
