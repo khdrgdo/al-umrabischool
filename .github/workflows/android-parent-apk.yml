@@ -9,10 +9,6 @@ on:
 permissions:
   contents: read
 
-concurrency:
-  group: parent-apk-${{ github.ref }}
-  cancel-in-progress: true
-
 jobs:
   build-debug-apk:
     name: Build and package parent Debug APK
