@@ -86,4 +86,4 @@ jobs:
         with:
           name: alumrabi-parent-app-debug
           path: android-parent-app/app/build/outputs/apk/debug/app-debug.apk
-          if-no-files-found: warn
+          if-no-files-found: error

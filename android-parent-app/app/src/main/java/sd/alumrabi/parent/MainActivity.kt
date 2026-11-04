@@ -20,6 +20,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import kotlinx.coroutines.launch
 import sd.alumrabi.parent.data.api.AccountBlockedException
+import sd.alumrabi.parent.data.api.AuthTokens
 import sd.alumrabi.parent.data.api.ParentApiClient
 import sd.alumrabi.parent.data.api.SessionExpiredException
 import sd.alumrabi.parent.data.local.SessionManager
@@ -31,13 +32,11 @@ import sd.alumrabi.parent.ui.theme.LavenderCanvas
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        // OWASP MASVS-PLATFORM: Prevent recents snapshot and screenshot data leakage of academic/financial records
         window.setFlags(
             WindowManager.LayoutParams.FLAG_SECURE,
             WindowManager.LayoutParams.FLAG_SECURE
         )
         setContent {
-            // Strict Arabic RTL Layout
             CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
                 AlUmrabiParentTheme {
                     Surface(
@@ -60,7 +59,6 @@ fun ParentAppNavHost() {
     val coroutineScope = rememberCoroutineScope()
     val apiClient = remember { ParentApiClient() }
 
-    // Session State initialized from persistent local storage
     var currentGuardian by remember {
         mutableStateOf(
             sessionManager.getGuardian() ?: GuardianInfo(
@@ -72,66 +70,58 @@ fun ParentAppNavHost() {
             )
         )
     }
-
-    var currentChildren by remember {
-        mutableStateOf(sessionManager.getChildren())
-    }
-
-    var announcements by remember {
-        mutableStateOf<List<AnnouncementItem>>(emptyList())
-    }
-
-    var events by remember {
-        mutableStateOf<List<CalendarEventItem>>(emptyList())
-    }
-
-    var connectionState by remember {
-        mutableStateOf(BackendConnectionState.CONNECTING)
-    }
-
+    var currentChildren by remember { mutableStateOf(sessionManager.getChildren()) }
+    var announcements by remember { mutableStateOf<List<AnnouncementItem>>(emptyList()) }
+    var events by remember { mutableStateOf<List<CalendarEventItem>>(emptyList()) }
+    var connectionState by remember { mutableStateOf(BackendConnectionState.CONNECTING) }
     var selectedChildIndex by remember { mutableIntStateOf(0) }
+    var demoMode by remember { mutableStateOf(false) }
 
-    // Background Network Health & Live Sync
     LaunchedEffect(Unit) {
-        coroutineScope.launch {
-            connectionState = apiClient.checkConnection()
+        connectionState = apiClient.checkConnection()
 
-            // مزامنة صامتة بجلسة ولي الأمر نفسه (Supabase Auth). لا توجد بيانات تجريبية تُعرض للأهالي.
-            val savedGuardian = sessionManager.getGuardian()
-            var tokens = sessionManager.getTokens()
-            if (savedGuardian != null && tokens != null) {
-                var mustSignOut = false
-                if (tokens.isExpiringSoon()) {
-                    val refreshed = apiClient.refreshSession(tokens.refreshToken)
-                    val newTokens = refreshed.getOrNull()
-                    if (newTokens != null) {
-                        tokens = newTokens
-                        sessionManager.saveTokens(newTokens)
-                    } else if (refreshed.exceptionOrNull() is SessionExpiredException) {
+        val savedGuardian = sessionManager.getGuardian()
+        val storedTokens = sessionManager.getTokens()
+        if (savedGuardian != null && storedTokens != null) {
+            var activeTokens: AuthTokens = storedTokens
+            var mustSignOut = false
+
+            if (activeTokens.isExpiringSoon()) {
+                val refreshed = apiClient.refreshSession(activeTokens.refreshToken)
+                val newTokens = refreshed.getOrNull()
+                if (newTokens != null) {
+                    activeTokens = newTokens
+                    sessionManager.saveTokens(newTokens)
+                } else if (refreshed.exceptionOrNull() is SessionExpiredException) {
+                    mustSignOut = true
+                }
+            }
+
+            if (!mustSignOut) {
+                val dashboard = apiClient.fetchDashboard(activeTokens.accessToken)
+                val payload = dashboard.getOrNull()
+                if (payload != null) {
+                    currentGuardian = payload.guardian
+                    currentChildren = payload.children
+                    announcements = payload.announcements
+                    events = payload.events
+                    sessionManager.saveSession(payload.guardian, payload.children)
+                } else {
+                    val failure = dashboard.exceptionOrNull()
+                    if (failure is SessionExpiredException || failure is AccountBlockedException) {
                         mustSignOut = true
                     }
                 }
-                if (!mustSignOut) {
-                    val dash = apiClient.fetchDashboard(tokens.accessToken)
-                    val payload = dash.getOrNull()
-                    if (payload != null) {
-                        currentGuardian = payload.guardian
-                        currentChildren = payload.children
-                        announcements = payload.announcements
-                        events = payload.events
-                        sessionManager.saveSession(payload.guardian, payload.children)
-                    } else {
-                        val ex = dash.exceptionOrNull()
-                        if (ex is SessionExpiredException || ex is AccountBlockedException) mustSignOut = true
-                    }
-                }
-                if (mustSignOut) {
-                    sessionManager.clearSession()
-                    currentGuardian = GuardianInfo(id = "", accountCode = "", fullName = "ولي الأمر", phone = "", status = "active")
-                    currentChildren = emptyList()
-                    announcements = emptyList()
-                    events = emptyList()
-                    runCatching { navController.navigate("login") { popUpTo(0) } }
+            }
+
+            if (mustSignOut) {
+                sessionManager.clearSession()
+                currentGuardian = GuardianInfo("", "", "ولي الأمر", "", "active")
+                currentChildren = emptyList()
+                announcements = emptyList()
+                events = emptyList()
+                navController.navigate("login") {
+                    popUpTo("splash") { inclusive = true }
                 }
             }
         }
@@ -143,32 +133,36 @@ fun ParentAppNavHost() {
         enterTransition = {
             slideIntoContainer(
                 AnimatedContentTransitionScope.SlideDirection.Start,
-                animationSpec = tween(320)
-            ) + fadeIn(animationSpec = tween(320))
+                animationSpec = tween(260)
+            ) + fadeIn(animationSpec = tween(260))
         },
         exitTransition = {
             slideOutOfContainer(
                 AnimatedContentTransitionScope.SlideDirection.Start,
-                animationSpec = tween(320)
-            ) + fadeOut(animationSpec = tween(320))
+                animationSpec = tween(260)
+            ) + fadeOut(animationSpec = tween(260))
         },
         popEnterTransition = {
             slideIntoContainer(
                 AnimatedContentTransitionScope.SlideDirection.End,
-                animationSpec = tween(320)
-            ) + fadeIn(animationSpec = tween(320))
+                animationSpec = tween(260)
+            ) + fadeIn(animationSpec = tween(260))
         },
         popExitTransition = {
             slideOutOfContainer(
                 AnimatedContentTransitionScope.SlideDirection.End,
-                animationSpec = tween(320)
-            ) + fadeOut(animationSpec = tween(320))
+                animationSpec = tween(260)
+            ) + fadeOut(animationSpec = tween(260))
         }
     ) {
         composable("splash") {
             AnimatedSplashScreen(
                 onSplashFinished = {
-                    val target = if (sessionManager.isLoggedIn() && currentChildren.isNotEmpty()) "dashboard" else "login"
+                    val target = if (sessionManager.isLoggedIn() && currentChildren.isNotEmpty()) {
+                        "dashboard"
+                    } else {
+                        "login"
+                    }
                     navController.navigate(target) {
                         popUpTo("splash") { inclusive = true }
                     }
@@ -179,6 +173,7 @@ fun ParentAppNavHost() {
         composable("login") {
             LoginScreen(
                 onLoginSuccess = { tokens, payload ->
+                    demoMode = false
                     currentGuardian = payload.guardian
                     currentChildren = payload.children
                     announcements = payload.announcements
@@ -186,6 +181,18 @@ fun ParentAppNavHost() {
                     selectedChildIndex = 0
                     sessionManager.saveTokens(tokens)
                     sessionManager.saveSession(payload.guardian, payload.children)
+                    navController.navigate("dashboard") {
+                        popUpTo("login") { inclusive = true }
+                    }
+                },
+                onDemoLoginSuccess = { payload ->
+                    // بيانات محلية مؤقتة: لا تُخزَّن كجلسة ولا تُرسل إلى الخادم.
+                    demoMode = true
+                    currentGuardian = payload.guardian
+                    currentChildren = payload.children
+                    announcements = payload.announcements
+                    events = payload.events
+                    selectedChildIndex = 0
                     navController.navigate("dashboard") {
                         popUpTo("login") { inclusive = true }
                     }
@@ -199,47 +206,41 @@ fun ParentAppNavHost() {
                 children = currentChildren,
                 selectedChildIndex = selectedChildIndex,
                 connectionState = connectionState,
-                onSelectChild = { index -> selectedChildIndex = index },
+                demoMode = demoMode,
+                onSelectChild = { selectedChildIndex = it },
                 onNavigateToGrades = { navController.navigate("grades") },
                 onNavigateToAttendance = { navController.navigate("attendance") },
                 onNavigateToSchedule = { navController.navigate("schedule") },
                 onNavigateToAnnouncements = { navController.navigate("announcements") },
-                onNavigateToAiAssistant = { navController.navigate("ai_assistant") },
+                onNavigateToFees = { navController.navigate("fees") },
                 onNavigateToSettings = { navController.navigate("settings") }
             )
         }
 
-        composable("ai_assistant") {
-            val activeChild = currentChildren.getOrNull(selectedChildIndex)
-            AiAssistantScreen(
-                guardian = currentGuardian,
-                activeChild = activeChild,
-                announcements = announcements,
-                events = events,
+        composable("grades") {
+            GradesScreen(
+                child = currentChildren.getOrNull(selectedChildIndex),
                 onBack = { navController.popBackStack() }
             )
         }
 
-        composable("grades") {
-            val activeChild = currentChildren.getOrNull(selectedChildIndex)
-            GradesScreen(
-                child = activeChild,
+        composable("fees") {
+            FeesScreen(
+                child = currentChildren.getOrNull(selectedChildIndex),
                 onBack = { navController.popBackStack() }
             )
         }
 
         composable("attendance") {
-            val activeChild = currentChildren.getOrNull(selectedChildIndex)
             AttendanceScreen(
-                child = activeChild,
+                child = currentChildren.getOrNull(selectedChildIndex),
                 onBack = { navController.popBackStack() }
             )
         }
 
         composable("schedule") {
-            val activeChild = currentChildren.getOrNull(selectedChildIndex)
             ScheduleScreen(
-                child = activeChild,
+                child = currentChildren.getOrNull(selectedChildIndex),
                 onBack = { navController.popBackStack() }
             )
         }
@@ -257,11 +258,19 @@ fun ParentAppNavHost() {
                 guardian = currentGuardian,
                 onBack = { navController.popBackStack() },
                 onLogout = {
-                    val tokenToRevoke = sessionManager.getTokens()?.accessToken
-                    if (tokenToRevoke != null) coroutineScope.launch { apiClient.signOut(tokenToRevoke) }
+                    if (!demoMode) {
+                        val tokenToRevoke = sessionManager.getTokens()?.accessToken
+                        if (tokenToRevoke != null) {
+                            coroutineScope.launch { apiClient.signOut(tokenToRevoke) }
+                        }
+                    }
+                    demoMode = false
                     sessionManager.clearSession()
-                    currentGuardian = GuardianInfo(id = "", accountCode = "", fullName = "ولي الأمر", phone = "", status = "active")
+                    currentGuardian = GuardianInfo("", "", "ولي الأمر", "", "active")
                     currentChildren = emptyList()
+                    announcements = emptyList()
+                    events = emptyList()
+                    selectedChildIndex = 0
                     navController.navigate("login") {
                         popUpTo("dashboard") { inclusive = true }
                     }

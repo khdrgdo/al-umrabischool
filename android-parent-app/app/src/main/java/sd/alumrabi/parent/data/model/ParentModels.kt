@@ -51,6 +51,17 @@ data class FeeStatement(
 }
 
 @Serializable
+data class ScheduleEntry(
+    @SerialName("day_of_week") val dayOfWeek: String,
+    @SerialName("period_number") val periodNumber: Int,
+    @SerialName("starts_at") val startsAt: String,
+    @SerialName("ends_at") val endsAt: String,
+    @SerialName("subject_name") val subjectName: String,
+    @SerialName("teacher_name") val teacherName: String? = null,
+    @SerialName("room_name") val roomName: String? = null
+)
+
+@Serializable
 data class LinkedChild(
     val id: String,
     @SerialName("student_number") val studentNumber: String,
@@ -63,6 +74,7 @@ data class LinkedChild(
     @SerialName("section_name") val sectionName: String = "غير محدد",
     val grades: List<PublishedGrade>? = emptyList(),
     val attendance: List<AttendanceRecord>? = emptyList(),
+    val schedule: List<ScheduleEntry> = emptyList(),
     val fees: FeeStatement? = null
 )
 
