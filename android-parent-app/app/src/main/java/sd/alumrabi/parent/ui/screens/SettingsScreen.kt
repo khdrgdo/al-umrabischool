@@ -59,7 +59,7 @@ fun SettingsScreen(
                 SettingsSection(title = "حساب ولي الأمر") {
                     InfoRow(label = "الاسم", value = guardian.fullName)
                     InfoRow(label = "رقم الهاتف", value = guardian.phone.ifBlank { "غير مسجل" })
-                    InfoRow(label = "معرّف الحساب", value = guardian.accountCode.ifBlank { "غير متاح" })
+                    InfoRow(label = "معرّف الحساب", value = guardian.accountCode?.ifBlank { "غير متاح" } ?: "غير متاح")
                     InfoRow(
                         label = "حالة الحساب",
                         value = if (guardian.status == "active") "مفعّل ونشط" else "بانتظار التفعيل"
