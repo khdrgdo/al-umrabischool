@@ -1,8 +1,7 @@
 package sd.alumrabi.parent.ui.screens
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
-import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -52,33 +51,43 @@ fun DashboardScreen(
 ) {
     val currentChild = children.getOrNull(selectedChildIndex)
     val connectionLabel = if (demoMode) {
-        "وضع تجريبي • بيانات وهمية"
+        "بيانات تجريبية"
     } else when (connectionState) {
         BackendConnectionState.CONNECTED_LIVE -> "متصل بالخادم"
         BackendConnectionState.SYNCED_LOCAL -> "آخر بيانات محفوظة"
         BackendConnectionState.CONNECTING -> "جارٍ الاتصال"
+    }
+    val connectionBackground = when {
+        demoMode -> StatusWarningBg
+        connectionState == BackendConnectionState.CONNECTED_LIVE -> StatusSuccessBg
+        else -> StatusWarningBg
+    }
+    val connectionForeground = when {
+        demoMode -> StatusWarning
+        connectionState == BackendConnectionState.CONNECTED_LIVE -> StatusSuccess
+        else -> StatusWarning
     }
 
     Scaffold(
         topBar = {
             TopAppBar(
                 title = {
-                    Column {
-                        Text("مؤسسة العمرابي التعليمية", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = Color.White)
-                        Text(connectionLabel, fontSize = 10.sp, color = Color.White.copy(alpha = 0.78f))
+                    Column(verticalArrangement = Arrangement.spacedBy(1.dp)) {
+                        Text("العمرابي", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                        Text("بوابة أولياء الأمور", fontSize = 10.sp, color = Color.White.copy(alpha = 0.76f))
                     }
                 },
                 navigationIcon = {
                     Surface(
-                        shape = RoundedCornerShape(10.dp),
-                        color = Color.White.copy(alpha = 0.08f),
-                        modifier = Modifier.padding(start = 12.dp).size(38.dp)
+                        shape = RoundedCornerShape(11.dp),
+                        color = Color.White.copy(alpha = 0.10f),
+                        modifier = Modifier.padding(start = 12.dp).size(40.dp)
                     ) {
                         Box(contentAlignment = Alignment.Center) {
                             Image(
                                 painter = painterResource(R.drawable.ic_launcher_foreground),
                                 contentDescription = "شعار العمرابي",
-                                modifier = Modifier.size(34.dp)
+                                modifier = Modifier.size(35.dp)
                             )
                         }
                     }
@@ -96,40 +105,117 @@ fun DashboardScreen(
         LazyColumn(
             modifier = Modifier.fillMaxSize().padding(insets),
             contentPadding = PaddingValues(horizontal = 18.dp, vertical = 18.dp),
-            verticalArrangement = Arrangement.spacedBy(18.dp)
+            verticalArrangement = Arrangement.spacedBy(17.dp)
         ) {
             item {
-                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    Text("مرحباً، ${guardian.fullName}", fontSize = 21.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
-                    Text("تابع شؤون أبنائك الدراسية من مكان واحد", fontSize = 12.sp, color = TextSecondary)
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Column(
+                        modifier = Modifier.weight(1f),
+                        verticalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        Text("مرحباً بعودتك", fontSize = 12.sp, color = TextSecondary)
+                        Text(
+                            guardian.fullName,
+                            fontSize = 20.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = TextPrimary,
+                            maxLines = 1
+                        )
+                        Text("كل تفاصيل أبنائك الدراسية في مكان واحد", fontSize = 11.sp, color = TextSecondary)
+                    }
+                    Surface(
+                        shape = CircleShape,
+                        color = connectionBackground
+                    ) {
+                        Text(
+                            connectionLabel,
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 7.dp),
+                            fontSize = 9.sp,
+                            color = connectionForeground,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                    }
                 }
             }
 
             item {
                 Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    SectionHeading("الأبناء المرتبطون بالحساب")
+                    SectionHeading("الأبناء")
                     if (children.isEmpty()) {
-                        Surface(shape = RoundedCornerShape(14.dp), color = SurfaceWhite, border = androidx.compose.foundation.BorderStroke(1.dp, BorderLight)) {
-                            Text(
-                                "لا يوجد أبناء مرتبطون بهذا الحساب حالياً. يرجى مراجعة إدارة المؤسسة لاعتماد الربط.",
-                                modifier = Modifier.fillMaxWidth().padding(16.dp),
-                                color = TextSecondary, fontSize = 13.sp, lineHeight = 20.sp
-                            )
+                        Surface(
+                            shape = RoundedCornerShape(16.dp),
+                            color = SurfaceWhite,
+                            border = BorderStroke(1.dp, BorderLight)
+                        ) {
+                            Column(
+                                modifier = Modifier.fillMaxWidth().padding(18.dp),
+                                verticalArrangement = Arrangement.spacedBy(6.dp)
+                            ) {
+                                Icon(Icons.Default.Person, contentDescription = null, tint = BurgundyPrimary)
+                                Text("لا يوجد أبناء مرتبطون بالحساب", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
+                                Text(
+                                    "يرجى مراجعة إدارة المؤسسة لاعتماد ربط الأبناء بحساب ولي الأمر.",
+                                    fontSize = 11.sp,
+                                    color = TextSecondary,
+                                    lineHeight = 17.sp
+                                )
+                            }
                         }
                     } else {
-                        LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        LazyRow(horizontalArrangement = Arrangement.spacedBy(9.dp)) {
                             itemsIndexed(children) { index, child ->
                                 val selected = index == selectedChildIndex
                                 Surface(
-                                    shape = RoundedCornerShape(12.dp),
+                                    modifier = Modifier.width(184.dp).clickable { onSelectChild(index) },
+                                    shape = RoundedCornerShape(15.dp),
                                     color = if (selected) BurgundyPrimary else SurfaceWhite,
-                                    border = if (selected) null else androidx.compose.foundation.BorderStroke(1.dp, BorderLight),
-                                    modifier = Modifier.clickable { onSelectChild(index) }
+                                    border = if (selected) null else BorderStroke(1.dp, BorderLight),
+                                    shadowElevation = if (selected) 2.dp else 0.dp
                                 ) {
-                                    Row(modifier = Modifier.padding(horizontal = 14.dp, vertical = 11.dp), verticalAlignment = Alignment.CenterVertically) {
-                                        Icon(Icons.Default.Person, contentDescription = null, tint = if (selected) GoldAccent else TextSecondary, modifier = Modifier.size(17.dp))
-                                        Spacer(Modifier.width(7.dp))
-                                        Text(child.fullName, color = if (selected) Color.White else TextPrimary, fontSize = 12.sp, fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium)
+                                    Column(
+                                        modifier = Modifier.padding(13.dp),
+                                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                                    ) {
+                                        Row(verticalAlignment = Alignment.CenterVertically) {
+                                            Surface(
+                                                shape = RoundedCornerShape(9.dp),
+                                                color = if (selected) Color.White.copy(alpha = 0.14f) else BurgundyContainer,
+                                                modifier = Modifier.size(32.dp)
+                                            ) {
+                                                Box(contentAlignment = Alignment.Center) {
+                                                    Icon(
+                                                        Icons.Default.School,
+                                                        contentDescription = null,
+                                                        tint = if (selected) GoldAccent else BurgundyPrimary,
+                                                        modifier = Modifier.size(18.dp)
+                                                    )
+                                                }
+                                            }
+                                            Spacer(Modifier.width(8.dp))
+                                            Text(
+                                                child.gradeName,
+                                                fontSize = 10.sp,
+                                                color = if (selected) Color.White.copy(alpha = 0.78f) else TextSecondary,
+                                                maxLines = 1
+                                            )
+                                        }
+                                        Text(
+                                            child.fullName,
+                                            fontSize = 13.sp,
+                                            color = if (selected) Color.White else TextPrimary,
+                                            fontWeight = FontWeight.Bold,
+                                            maxLines = 1
+                                        )
+                                        Text(
+                                            "الصف: ${child.gradeName}  •  ${child.sectionName}",
+                                            fontSize = 9.sp,
+                                            color = if (selected) Color.White.copy(alpha = 0.78f) else TextSecondary,
+                                            maxLines = 1
+                                        )
                                     }
                                 }
                             }
@@ -140,94 +226,149 @@ fun DashboardScreen(
 
             if (currentChild != null) {
                 item {
-                    Surface(
-                        shape = RoundedCornerShape(18.dp),
-                        color = SurfaceWhite,
-                        border = androidx.compose.foundation.BorderStroke(1.dp, BorderLight),
-                        shadowElevation = 1.dp
-                    ) {
-                        Column(modifier = Modifier.fillMaxWidth().padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Surface(shape = RoundedCornerShape(12.dp), color = BurgundyContainer, modifier = Modifier.size(46.dp)) {
-                                    Box(contentAlignment = Alignment.Center) {
-                                        Icon(Icons.Default.School, contentDescription = null, tint = BurgundyPrimary, modifier = Modifier.size(25.dp))
-                                    }
-                                }
-                                Spacer(Modifier.width(12.dp))
-                                Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                                    Text(currentChild.fullName, fontSize = 16.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
-                                    Text("${currentChild.gradeName} · ${currentChild.sectionName}", fontSize = 12.sp, color = TextSecondary)
-                                }
-                            }
-                            HorizontalDivider(color = BorderLight)
-                            Row(horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
-                                Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                                    Text("الرقم المدرسي", fontSize = 10.sp, color = TextSecondary)
-                                    Text(currentChild.studentNumber, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = BurgundyPrimary)
-                                }
-                                Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                                    Text("صلة القرابة", fontSize = 10.sp, color = TextSecondary)
-                                    Text(currentChild.relation ?: "ولي أمر", fontSize = 13.sp, fontWeight = FontWeight.Medium, color = TextPrimary)
-                                }
-                            }
-                            HorizontalDivider(color = BorderLight)
-                            val present = currentChild.attendance.orEmpty().count { it.status == "present" }
-                            val absent = currentChild.attendance.orEmpty().count { it.status == "absent" }
-                            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
-                                QuickStatColumn("أيام الحضور", "$present", true)
-                                QuickStatColumn("أيام الغياب", "$absent", absent == 0)
-                                QuickStatColumn("المواد المرصودة", "${currentChild.grades.orEmpty().size}", true)
-                            }
-                        }
-                    }
+                    StudentSummaryCard(
+                        child = currentChild,
+                        onNavigateToFees = onNavigateToFees
+                    )
                 }
 
-                if (currentChild.canViewFees && currentChild.fees != null) {
-                    item {
-                        Surface(
-                            shape = RoundedCornerShape(16.dp),
-                            color = BurgundyPrimary,
-                            modifier = Modifier.fillMaxWidth().clickable(onClick = onNavigateToFees)
+                item {
+                    Column(verticalArrangement = Arrangement.spacedBy(11.dp)) {
+                        SectionHeading("الخدمات الدراسية")
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(10.dp)
                         ) {
-                            Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-                                Surface(shape = RoundedCornerShape(11.dp), color = GoldAccent.copy(alpha = 0.18f), modifier = Modifier.size(42.dp)) {
-                                    Box(contentAlignment = Alignment.Center) {
-                                        Icon(Icons.Default.AccountBalanceWallet, contentDescription = null, tint = GoldAccent)
-                                    }
-                                }
-                                Spacer(Modifier.width(12.dp))
-                                Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                                    Text("الموقف المالي", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = Color.White)
-                                    Text("المتبقي: ${formatAmount(currentChild.fees.remainingBalance)}", fontSize = 12.sp, color = Color.White.copy(alpha = 0.88f))
-                                }
-                                Text("التفاصيل ←", fontSize = 11.sp, color = GoldAccent, fontWeight = FontWeight.Bold)
-                            }
+                            ServiceActionItem(
+                                "النتائج والدرجات",
+                                "النتائج المعتمدة",
+                                Icons.Default.Grade,
+                                Modifier.weight(1f),
+                                onNavigateToGrades
+                            )
+                            ServiceActionItem(
+                                "الحضور والغياب",
+                                "السجل اليومي",
+                                Icons.Default.CheckCircle,
+                                Modifier.weight(1f),
+                                onNavigateToAttendance
+                            )
+                        }
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            ServiceActionItem(
+                                "الجدول الدراسي",
+                                "الحصص والمواعيد",
+                                Icons.Default.CalendarMonth,
+                                Modifier.weight(1f),
+                                onNavigateToSchedule
+                            )
+                            ServiceActionItem(
+                                "الإعلانات",
+                                "التعاميم والتقويم",
+                                Icons.Default.Campaign,
+                                Modifier.weight(1f),
+                                onNavigateToAnnouncements
+                            )
                         }
                     }
                 }
             }
 
             item {
-                Column(verticalArrangement = Arrangement.spacedBy(11.dp)) {
-                    SectionHeading("الخدمات")
-                    Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
-                        ServiceActionItem("النتائج والدرجات", "النتائج المنشورة", Icons.Default.Grade, Modifier.weight(1f), onNavigateToGrades)
-                        ServiceActionItem("الحضور والغياب", "السجل اليومي", Icons.Default.CheckCircle, Modifier.weight(1f), onNavigateToAttendance)
+                Text(
+                    "تُعرض المعلومات التي اعتمدتها المؤسسة ونشرتها لحساب ولي الأمر فقط.",
+                    fontSize = 10.sp,
+                    color = TextSecondary,
+                    lineHeight = 16.sp,
+                    modifier = Modifier.padding(top = 2.dp)
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun StudentSummaryCard(
+    child: LinkedChild,
+    onNavigateToFees: () -> Unit
+) {
+    val present = child.attendance.orEmpty().count { it.status == "present" }
+    val absent = child.attendance.orEmpty().count { it.status == "absent" }
+    Surface(
+        shape = RoundedCornerShape(19.dp),
+        color = SurfaceWhite,
+        border = BorderStroke(1.dp, BorderLight),
+        shadowElevation = 1.dp
+    ) {
+        Column(
+            modifier = Modifier.fillMaxWidth().padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(13.dp)
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Surface(
+                    shape = RoundedCornerShape(12.dp),
+                    color = BurgundyContainer,
+                    modifier = Modifier.size(44.dp)
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(Icons.Default.School, contentDescription = null, tint = BurgundyPrimary, modifier = Modifier.size(24.dp))
                     }
-                    Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
-                        ServiceActionItem("الجدول الدراسي", "الحصص الدراسية", Icons.Default.CalendarMonth, Modifier.weight(1f), onNavigateToSchedule)
-                        ServiceActionItem("الإعلانات", "التعاميم والتقويم", Icons.Default.Campaign, Modifier.weight(1f), onNavigateToAnnouncements)
-                    }
-                    if (currentChild?.canViewFees == true) {
-                        Row(modifier = Modifier.fillMaxWidth()) {
-                            ServiceActionItem("الرسوم والمدفوعات", "البيان والإيصالات", Icons.Default.AccountBalanceWallet, Modifier.fillMaxWidth(), onNavigateToFees)
-                        }
-                    }
+                }
+                Spacer(Modifier.width(11.dp))
+                Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                    Text("الملف الدراسي", fontSize = 10.sp, color = TextSecondary)
+                    Text(child.fullName, fontSize = 15.sp, fontWeight = FontWeight.Bold, color = TextPrimary, maxLines = 1)
+                    Text("${child.gradeName} · ${child.sectionName}", fontSize = 11.sp, color = TextSecondary)
                 }
             }
 
-            item {
-                Text("تُعرض هنا البيانات التي اعتمدتها المؤسسة ونشرتها لحساب ولي الأمر.", fontSize = 10.sp, color = TextSecondary, lineHeight = 16.sp)
+            HorizontalDivider(color = BorderLight)
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                    Text("الرقم المدرسي", fontSize = 9.sp, color = TextSecondary)
+                    Text(child.studentNumber, fontSize = 12.sp, fontWeight = FontWeight.Bold, color = BurgundyPrimary)
+                }
+                Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                    Text("صلة القرابة", fontSize = 9.sp, color = TextSecondary)
+                    Text(child.relation ?: "ولي أمر", fontSize = 12.sp, fontWeight = FontWeight.Medium, color = TextPrimary)
+                }
+            }
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                QuickStatColumn("سجلات حضور", present.toString(), true, Modifier.weight(1f))
+                QuickStatColumn("سجلات غياب", absent.toString(), absent == 0, Modifier.weight(1f))
+                QuickStatColumn("مواد مرصودة", child.grades.orEmpty().size.toString(), true, Modifier.weight(1f))
+            }
+
+            if (child.canViewFees && child.fees != null) {
+                Surface(
+                    modifier = Modifier.fillMaxWidth().clickable(onClick = onNavigateToFees),
+                    shape = RoundedCornerShape(13.dp),
+                    color = BurgundyPrimary
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 13.dp, vertical = 12.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(Icons.Default.AccountBalanceWallet, contentDescription = null, tint = GoldAccent)
+                        Spacer(Modifier.width(10.dp))
+                        Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                            Text("الموقف المالي", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                            Text("المتبقي: ${formatAmount(child.fees.remainingBalance)}", fontSize = 10.sp, color = Color.White.copy(alpha = 0.82f))
+                        }
+                        Text("التفاصيل", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = GoldAccent)
+                    }
+                }
             }
         }
     }
@@ -239,15 +380,30 @@ private fun SectionHeading(title: String) {
 }
 
 @Composable
-fun QuickStatColumn(label: String, value: String, isPositive: Boolean) {
-    Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(3.dp)) {
-        Text(value, fontSize = 16.sp, fontWeight = FontWeight.Bold, color = if (isPositive) BurgundyPrimary else StatusDanger)
-        Text(label, fontSize = 10.sp, color = TextSecondary)
+private fun QuickStatColumn(
+    label: String,
+    value: String,
+    isPositive: Boolean,
+    modifier: Modifier = Modifier
+) {
+    Surface(
+        modifier = modifier,
+        shape = RoundedCornerShape(12.dp),
+        color = LavenderCanvas
+    ) {
+        Column(
+            modifier = Modifier.padding(vertical = 10.dp, horizontal = 4.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(3.dp)
+        ) {
+            Text(value, fontSize = 16.sp, fontWeight = FontWeight.Bold, color = if (isPositive) BurgundyPrimary else StatusDanger)
+            Text(label, fontSize = 9.sp, color = TextSecondary, maxLines = 1)
+        }
     }
 }
 
 @Composable
-fun ServiceActionItem(
+private fun ServiceActionItem(
     title: String,
     subtitle: String,
     icon: ImageVector,
@@ -255,22 +411,26 @@ fun ServiceActionItem(
     onClick: () -> Unit
 ) {
     Surface(
-        modifier = modifier.clickable(onClick = onClick),
-        shape = RoundedCornerShape(14.dp),
+        modifier = modifier.heightIn(min = 102.dp).clickable(onClick = onClick),
+        shape = RoundedCornerShape(15.dp),
         color = SurfaceWhite,
-        border = androidx.compose.foundation.BorderStroke(1.dp, BorderLight)
+        border = BorderStroke(1.dp, BorderLight)
     ) {
-        Row(modifier = Modifier.padding(horizontal = 12.dp, vertical = 15.dp), verticalAlignment = Alignment.CenterVertically) {
-            Surface(shape = RoundedCornerShape(10.dp), color = BurgundyContainer, modifier = Modifier.size(38.dp)) {
+        Column(
+            modifier = Modifier.fillMaxWidth().padding(13.dp),
+            verticalArrangement = Arrangement.spacedBy(7.dp)
+        ) {
+            Surface(
+                shape = RoundedCornerShape(10.dp),
+                color = BurgundyContainer,
+                modifier = Modifier.size(36.dp)
+            ) {
                 Box(contentAlignment = Alignment.Center) {
-                    Icon(icon, contentDescription = null, tint = BurgundyPrimary, modifier = Modifier.size(20.dp))
+                    Icon(icon, contentDescription = null, tint = BurgundyPrimary, modifier = Modifier.size(19.dp))
                 }
             }
-            Spacer(Modifier.width(9.dp))
-            Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                Text(title, fontSize = 12.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
-                Text(subtitle, fontSize = 10.sp, color = TextSecondary)
-            }
+            Text(title, fontSize = 11.sp, fontWeight = FontWeight.Bold, color = TextPrimary, maxLines = 1)
+            Text(subtitle, fontSize = 9.sp, color = TextSecondary, maxLines = 1)
         }
     }
 }
