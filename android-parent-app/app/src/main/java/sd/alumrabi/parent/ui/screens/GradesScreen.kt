@@ -95,7 +95,7 @@ fun GradesScreen(
                         )
                         Spacer(modifier = Modifier.height(6.dp))
                         Text(
-                            text = "وفقاً لسياسة مدرسة العمرابي، تُعرض النتائج حصراً بعد اعتمادها رسمياً ونشرها من قبل إدارة المدرسة.",
+                            text = "تُعرض النتائج بعد اعتمادها ونشرها من إدارة المؤسسة. إذا لم تظهر نتيجة، فقد تكون لم تُنشر بعد.",
                             fontSize = 11.sp,
                             color = TextSecondary,
                             textAlign = androidx.compose.ui.text.style.TextAlign.Center,

@@ -197,7 +197,7 @@ fun DashboardScreen(
                                             }
                                             Spacer(Modifier.width(8.dp))
                                             Text(
-                                                child.gradeName,
+                                                "المرحلة الدراسية",
                                                 fontSize = 10.sp,
                                                 color = if (selected) Color.White.copy(alpha = 0.78f) else TextSecondary,
                                                 maxLines = 1
@@ -347,7 +347,7 @@ private fun StudentSummaryCard(
             ) {
                 QuickStatColumn("سجلات حضور", present.toString(), true, Modifier.weight(1f))
                 QuickStatColumn("سجلات غياب", absent.toString(), absent == 0, Modifier.weight(1f))
-                QuickStatColumn("مواد مرصودة", child.grades.orEmpty().size.toString(), true, Modifier.weight(1f))
+                QuickStatColumn("نتائج منشورة", child.grades.orEmpty().size.toString(), true, Modifier.weight(1f))
             }
 
             if (child.canViewFees && child.fees != null) {

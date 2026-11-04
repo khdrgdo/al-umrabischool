@@ -31,7 +31,7 @@ fun AnnouncementsScreen(
             TopAppBar(
                 title = {
                     Text(
-                        text = "الإعلانات والتقويم المدرسي",
+                        text = "إعلانات المؤسسة والتقويم",
                         fontSize = 15.sp,
                         fontWeight = FontWeight.Bold,
                         color = Color.White
@@ -60,7 +60,7 @@ fun AnnouncementsScreen(
         ) {
             item {
                 Text(
-                    text = "إعلانات إدارة المدرسة",
+                    text = "إعلانات المؤسسة",
                     fontSize = 13.sp,
                     fontWeight = FontWeight.Bold,
                     color = TextPrimary
