@@ -165,7 +165,7 @@ fun ParentAppNavHost() {
         )
     }
     val rootRoutes = remember(tabs) { tabs.map { it.route }.toSet() }
-    val showBottomBar = currentRoute in rootRoutes
+    val showBottomBar = currentRoute != null && currentRoute in rootRoutes
 
     Scaffold(
         containerColor = LavenderCanvas,
