@@ -20,6 +20,23 @@ object DemoData {
         }
     }
 
+    private fun scheduleFor(stage: String): List<ScheduleEntry> {
+        val subjects = when (stage) {
+            "kindergarten" -> listOf("اللغة العربية", "الأرقام", "الأنشطة", "التربية الإسلامية")
+            "basic" -> listOf("اللغة العربية", "الرياضيات", "العلوم", "اللغة الإنجليزية")
+            "intermediate" -> listOf("اللغة العربية", "الرياضيات", "العلوم", "اللغة الإنجليزية", "الحاسوب")
+            else -> listOf("الرياضيات", "الفيزياء", "الكيمياء", "اللغة العربية", "اللغة الإنجليزية")
+        }
+        val days = listOf("sunday", "monday", "tuesday", "wednesday", "thursday")
+        return days.flatMapIndexed { dayIndex, day ->
+            listOf(
+                ScheduleEntry(day, 1, "08:00", "08:45", subjects[dayIndex % subjects.size], "معلم تجريبي", "قاعة تجريبية"),
+                ScheduleEntry(day, 2, "09:00", "09:45", subjects[(dayIndex + 1) % subjects.size], "معلم تجريبي", "قاعة تجريبية"),
+                ScheduleEntry(day, 3, "10:00", "10:45", subjects[(dayIndex + 2) % subjects.size], "معلم تجريبي", "قاعة تجريبية")
+            )
+        }
+    }
+
     private fun familyPayload() = DashboardPayload(
         guardian = GuardianInfo(
             id = "demo-guardian-family",
@@ -37,6 +54,7 @@ object DemoData {
                 relation = "ابنة",
                 gradeName = "روضة المستوى الثاني",
                 sectionName = "المجموعة (أ)",
+                schedule = scheduleFor("kindergarten"),
                 attendance = listOf(
                     AttendanceRecord("2026-11-04", "present"),
                     AttendanceRecord("2026-11-03", "present"),
@@ -59,6 +77,7 @@ object DemoData {
                 relation = "ابن",
                 gradeName = "الصف السادس — المرحلة الأساسية",
                 sectionName = "الشعبة (ب)",
+                schedule = scheduleFor("basic"),
                 grades = listOf(
                     PublishedGrade("اللغة العربية", "اختبار شهري", "الفصل الأول", 87.0),
                     PublishedGrade("الرياضيات", "اختبار شهري", "الفصل الأول", 91.0),
@@ -86,6 +105,7 @@ object DemoData {
                 relation = "ابنة",
                 gradeName = "الصف الثاني — المرحلة المتوسطة",
                 sectionName = "الشعبة (أ)",
+                schedule = scheduleFor("intermediate"),
                 grades = listOf(
                     PublishedGrade("اللغة العربية", "امتحان قصير", "الفصل الأول", 94.0),
                     PublishedGrade("الرياضيات", "امتحان قصير", "الفصل الأول", 88.0),
@@ -114,6 +134,7 @@ object DemoData {
                 relation = "ابن",
                 gradeName = "الصف الأول الثانوي",
                 sectionName = "علمي — شعبة (أ)",
+                schedule = scheduleFor("secondary"),
                 grades = listOf(
                     PublishedGrade("الفيزياء", "اختبار شهري", "الفصل الأول", 82.0),
                     PublishedGrade("الكيمياء", "اختبار شهري", "الفصل الأول", 89.0),
@@ -179,6 +200,7 @@ object DemoData {
                 relation = "ابنة",
                 gradeName = "الصف الثالث الثانوي",
                 sectionName = "أدبي — شعبة (ب)",
+                schedule = scheduleFor("secondary"),
                 grades = listOf(
                     PublishedGrade("اللغة العربية", "اختبار شهري", "الفصل الأول", 95.0),
                     PublishedGrade("التاريخ", "اختبار شهري", "الفصل الأول", 90.0),

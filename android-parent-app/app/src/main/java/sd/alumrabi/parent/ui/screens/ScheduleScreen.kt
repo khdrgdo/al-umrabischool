@@ -1,6 +1,5 @@
 package sd.alumrabi.parent.ui.screens
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -10,7 +9,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.DateRange
+import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -20,69 +19,42 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import sd.alumrabi.parent.data.model.LinkedChild
+import sd.alumrabi.parent.data.model.ScheduleEntry
 import sd.alumrabi.parent.ui.theme.*
 
-data class TimetablePeriod(
-    val periodNumber: Int,
-    val timeRange: String,
-    val subjectName: String,
-    val teacherName: String,
-    val roomName: String
+private data class SchoolWeekday(val key: String, val label: String, val shortKey: String)
+private val schoolWeekdays = listOf(
+    SchoolWeekday("sunday", "الأحد", "sun"),
+    SchoolWeekday("monday", "الاثنين", "mon"),
+    SchoolWeekday("tuesday", "الثلاثاء", "tue"),
+    SchoolWeekday("wednesday", "الأربعاء", "wed"),
+    SchoolWeekday("thursday", "الخميس", "thu")
 )
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ScheduleScreen(
-    child: LinkedChild?,
-    onBack: () -> Unit
-) {
-    val weekdays = listOf(
-        "الأحد",
-        "الاثنين",
-        "الثلاثاء",
-        "الأربعاء",
-        "الخميس"
-    )
+fun ScheduleScreen(child: LinkedChild?, onBack: () -> Unit) {
     var selectedDayIndex by remember { mutableIntStateOf(0) }
-
-    // Authentic timetable periods
-    val periods = listOf(
-        TimetablePeriod(1, "08:00 - 08:45", "الرياضيات", "أ. محمد عبد الرحيم", "قاعة 101"),
-        TimetablePeriod(2, "08:45 - 09:30", "اللغة العربية", "د. عمر البشير", "قاعة 101"),
-        TimetablePeriod(3, "09:45 - 10:30", "الفيزياء", "أ. حسام الدين", "معمل الفيزياء"),
-        TimetablePeriod(4, "10:30 - 11:15", "اللغة الإنجليزية", "أ. سامي عثمان", "قاعة 101"),
-        TimetablePeriod(5, "11:30 - 12:15", "الكيمياء", "أ. فايز أحمد", "معمل الكيمياء"),
-        TimetablePeriod(6, "12:15 - 01:00", "التربية الإسلامية", "الشيخ يوسف صديق", "قاعة 101"),
-        TimetablePeriod(7, "01:00 - 01:45", "نشاط وحاسوب", "أ. خالد النور", "معمل الحاسوب")
-    )
+    val selectedDay = schoolWeekdays[selectedDayIndex]
+    val dayEntries = child?.schedule.orEmpty()
+        .filter { entry ->
+            val day = entry.dayOfWeek.trim().lowercase()
+            day == selectedDay.key || day == selectedDay.shortKey || day == selectedDay.label
+        }
+        .sortedBy { it.periodNumber }
 
     Scaffold(
         topBar = {
             TopAppBar(
                 title = {
                     Column {
-                        Text(
-                            text = "الجدول الدراسي الأسبوعي",
-                            fontSize = 15.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = Color.White
-                        )
-                        if (child != null) {
-                            Text(
-                                text = "${child.fullName} (${child.gradeName})",
-                                fontSize = 11.sp,
-                                color = Color.White.copy(alpha = 0.85f)
-                            )
-                        }
+                        Text("الجدول الدراسي", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                        if (child != null) Text("${child.fullName} (${child.gradeName})", fontSize = 11.sp, color = Color.White.copy(alpha = 0.85f))
                     }
                 },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(
-                            Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "رجوع",
-                            tint = Color.White
-                        )
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "رجوع", tint = Color.White)
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = BurgundyPrimary)
@@ -90,35 +62,25 @@ fun ScheduleScreen(
         },
         containerColor = LavenderCanvas
     ) { padding ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(padding)
-        ) {
-            // Day selector tabs
-            Surface(
-                color = SurfaceWhite,
-                shadowElevation = 1.dp,
-                modifier = Modifier.fillMaxWidth()
-            ) {
+        Column(modifier = Modifier.fillMaxSize().padding(padding)) {
+            Surface(color = SurfaceWhite, shadowElevation = 1.dp, modifier = Modifier.fillMaxWidth()) {
                 LazyRow(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 12.dp),
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp),
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    items(weekdays.size) { index ->
-                        val isSelected = index == selectedDayIndex
+                    items(schoolWeekdays) { day ->
+                        val index = schoolWeekdays.indexOf(day)
+                        val selected = index == selectedDayIndex
                         Surface(
                             shape = RoundedCornerShape(20.dp),
-                            color = if (isSelected) BurgundyPrimary else LavenderCanvas,
+                            color = if (selected) BurgundyPrimary else LavenderCanvas,
                             modifier = Modifier.clickable { selectedDayIndex = index }
                         ) {
                             Text(
-                                text = weekdays[index],
+                                day.label,
                                 fontSize = 12.sp,
-                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
-                                color = if (isSelected) Color.White else TextPrimary,
+                                fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal,
+                                color = if (selected) Color.White else TextPrimary,
                                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
                             )
                         }
@@ -126,81 +88,71 @@ fun ScheduleScreen(
                 }
             }
 
-            // Period list for selected day
             LazyColumn(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(horizontal = 16.dp, vertical = 12.dp),
-                verticalArrangement = Arrangement.spacedBy(10.dp)
+                modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp, vertical = 12.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp),
+                contentPadding = PaddingValues(bottom = 20.dp)
             ) {
-                items(periods) { p ->
-                    Card(
-                        shape = RoundedCornerShape(12.dp),
-                        colors = CardDefaults.cardColors(containerColor = SurfaceWhite),
-                        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(14.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            // Period number badge
-                            Surface(
-                                shape = CircleShape,
-                                color = BurgundyContainer,
-                                modifier = Modifier.size(40.dp)
-                            ) {
-                                Box(contentAlignment = Alignment.Center) {
-                                    Text(
-                                        text = "${p.periodNumber}",
-                                        fontSize = 14.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        color = BurgundyPrimary
-                                    )
-                                }
-                            }
-
-                            Spacer(modifier = Modifier.width(12.dp))
-
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text(
-                                    text = p.subjectName,
-                                    fontSize = 13.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = TextPrimary
-                                )
-                                Spacer(modifier = Modifier.height(2.dp))
-                                Text(
-                                    text = "المعلم: ${p.teacherName}",
-                                    fontSize = 11.sp,
-                                    color = TextSecondary
-                                )
-                                Text(
-                                    text = p.roomName,
-                                    fontSize = 10.sp,
-                                    color = BurgundyDark
-                                )
-                            }
-
-                            Surface(
-                                shape = RoundedCornerShape(8.dp),
-                                color = LavenderCanvas,
-                                modifier = Modifier.padding(start = 8.dp)
-                            ) {
-                                Text(
-                                    text = p.timeRange,
-                                    fontSize = 10.sp,
-                                    fontWeight = FontWeight.Medium,
-                                    color = TextSecondary,
-                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
-                                )
-                            }
-                        }
+                if (child == null) {
+                    item { ScheduleEmptyState("اختر أحد الأبناء أولاً لعرض جدوله الدراسي.") }
+                } else if (dayEntries.isEmpty()) {
+                    item { ScheduleEmptyState("لم يُنشر جدول دراسي لهذا اليوم بعد. ستظهر الحصص هنا بعد اعتمادها من إدارة المؤسسة.") }
+                } else {
+                    items(dayEntries, key = { "${it.dayOfWeek}-${it.periodNumber}-${it.subjectName}" }) { entry ->
+                        SchedulePeriodCard(entry)
                     }
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun SchedulePeriodCard(entry: ScheduleEntry) {
+    Card(
+        shape = RoundedCornerShape(14.dp),
+        colors = CardDefaults.cardColors(containerColor = SurfaceWhite),
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Row(modifier = Modifier.fillMaxWidth().padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
+            Surface(shape = CircleShape, color = BurgundyContainer, modifier = Modifier.size(40.dp)) {
+                Box(contentAlignment = Alignment.Center) {
+                    Text(entry.periodNumber.toString(), fontSize = 14.sp, fontWeight = FontWeight.Bold, color = BurgundyPrimary)
+                }
+            }
+            Spacer(Modifier.width(12.dp))
+            Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                Text(entry.subjectName, fontSize = 13.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
+                entry.teacherName?.takeIf { it.isNotBlank() }?.let { Text("المعلم: $it", fontSize = 11.sp, color = TextSecondary) }
+                entry.roomName?.takeIf { it.isNotBlank() }?.let { Text(it, fontSize = 10.sp, color = BurgundyDark) }
+            }
+            val timeRange = listOf(entry.startsAt, entry.endsAt).filter { it.isNotBlank() }.joinToString(" - ")
+            if (timeRange.isNotBlank()) {
+                Surface(shape = RoundedCornerShape(8.dp), color = LavenderCanvas, modifier = Modifier.padding(start = 8.dp)) {
+                    Text(timeRange, fontSize = 10.sp, fontWeight = FontWeight.Medium, color = TextSecondary, modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp))
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ScheduleEmptyState(message: String) {
+    Surface(
+        shape = RoundedCornerShape(16.dp),
+        color = SurfaceWhite,
+        border = androidx.compose.foundation.BorderStroke(1.dp, BorderLight),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Column(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 22.dp, vertical = 28.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            Icon(Icons.Default.CalendarMonth, contentDescription = null, tint = BurgundyPrimary, modifier = Modifier.size(30.dp))
+            Text("الجدول غير متاح", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
+            Text(message, fontSize = 12.sp, color = TextSecondary, lineHeight = 19.sp)
         }
     }
 }

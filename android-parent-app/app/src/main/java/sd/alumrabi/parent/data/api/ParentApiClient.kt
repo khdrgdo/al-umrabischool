@@ -232,6 +232,21 @@ class ParentApiClient(
                 )
             } ?: emptyList()
 
+            val schedule = obj["schedule"]?.jsonArray?.mapNotNull { item ->
+                val entry = item.jsonObject
+                val day = entry["day_of_week"]?.jsonPrimitive?.contentOrNull ?: return@mapNotNull null
+                val subject = entry["subject_name"]?.jsonPrimitive?.contentOrNull ?: return@mapNotNull null
+                ScheduleEntry(
+                    dayOfWeek = day,
+                    periodNumber = entry["period_number"]?.jsonPrimitive?.intOrNull ?: 0,
+                    startsAt = entry["starts_at"]?.jsonPrimitive?.contentOrNull ?: "",
+                    endsAt = entry["ends_at"]?.jsonPrimitive?.contentOrNull ?: "",
+                    subjectName = subject,
+                    teacherName = entry["teacher_name"]?.jsonPrimitive?.contentOrNull,
+                    roomName = entry["room_name"]?.jsonPrimitive?.contentOrNull
+                )
+            } ?: emptyList()
+
             val feesObj = obj["fees"]?.jsonObject
             val fees = if (feesObj != null) {
                 val totalDue = feesObj["total_due"]?.jsonPrimitive?.doubleOrNull ?: 0.0
@@ -261,6 +276,7 @@ class ParentApiClient(
                 sectionName = sectionName,
                 grades = grades,
                 attendance = attendance,
+                schedule = schedule,
                 fees = fees
             )
         } catch (_: Exception) {
