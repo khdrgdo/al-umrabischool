@@ -49,7 +49,7 @@ fun AnimatedSplashScreen(onSplashFinished: () -> Unit) {
             verticalArrangement = Arrangement.Center,
             modifier = Modifier.fillMaxWidth().padding(horizontal = 28.dp)
         ) {
-            Surface(shape = RoundedCornerShape(34.dp), color = Color.White.copy(alpha = 0.08f), modifier = Modifier.size(156.dp).scale(emblemScale), tonalElevation = 0.dp) {
+            Surface(shape = RoundedCornerShape(34.dp), color = Color.White.copy(alpha = 0.08f), modifier = Modifier.size(156.dp).scale(emblemScale.value), tonalElevation = 0.dp) {
                 Box(contentAlignment = Alignment.Center) {
                     Image(painterResource(R.drawable.ic_alumrabi_mark), "شعار مؤسسة العمرابي", Modifier.size(126.dp).alpha(contentAlpha.value))
                 }
