@@ -7,6 +7,7 @@ val BurgundyPrimary = Color(0xFF5B1313)
 val BurgundyDark = Color(0xFF3F0B0B)
 val BurgundyLight = Color(0xFF8B2525)
 val BurgundyContainer = Color(0xFFF7EDED)
+val GoldAccent = Color(0xFFC4A15A)
 
 val LavenderCanvas = Color(0xFFF6F6FC)
 val SurfaceWhite = Color(0xFFFFFFFF)

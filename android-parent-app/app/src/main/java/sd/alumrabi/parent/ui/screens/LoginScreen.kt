@@ -75,14 +75,14 @@ fun LoginScreen(
         Spacer(modifier = Modifier.height(14.dp))
 
         Text(
-            text = "مدرسة العمرابي الثانوية بنين",
+            text = "مؤسسة العمرابي التعليمية",
             fontSize = 20.sp,
             fontWeight = FontWeight.Bold,
             color = BurgundyPrimary
         )
 
         Text(
-            text = "بوابة أولياء الأمور والمتابعة الأكاديمية الرسمية",
+            text = "بوابة أولياء الأمور والمتابعة الأكاديمية",
             fontSize = 12.sp,
             color = TextSecondary,
             modifier = Modifier.padding(top = 4.dp)
@@ -114,7 +114,7 @@ fun LoginScreen(
                         accountCode = it.uppercase()
                         errorMessage = null
                     },
-                    label = { Text("معرّف الحساب (مثال: PAR-10101)") },
+                    label = { Text("معرّف الحساب الذي سلّمته لك الإدارة") },
                     leadingIcon = { Icon(Icons.Default.Person, contentDescription = null, tint = BurgundyPrimary) },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Ascii, autoCorrect = false),
                     singleLine = true,
@@ -342,7 +342,7 @@ fun LoginScreen(
             )
             Spacer(modifier = Modifier.width(6.dp))
             Text(
-                text = "اتصال آمن ومشفر عبر خوادم مدرسة العمرابي الرسمية",
+                text = "اتصال آمن بخوادم مؤسسة العمرابي التعليمية",
                 fontSize = 11.sp,
                 color = TextSecondary
             )

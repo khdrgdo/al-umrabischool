@@ -204,25 +204,22 @@ fun ParentAppNavHost() {
                 onNavigateToAttendance = { navController.navigate("attendance") },
                 onNavigateToSchedule = { navController.navigate("schedule") },
                 onNavigateToAnnouncements = { navController.navigate("announcements") },
-                onNavigateToAiAssistant = { navController.navigate("ai_assistant") },
+                onNavigateToFees = { navController.navigate("fees") },
                 onNavigateToSettings = { navController.navigate("settings") }
-            )
-        }
-
-        composable("ai_assistant") {
-            val activeChild = currentChildren.getOrNull(selectedChildIndex)
-            AiAssistantScreen(
-                guardian = currentGuardian,
-                activeChild = activeChild,
-                announcements = announcements,
-                events = events,
-                onBack = { navController.popBackStack() }
             )
         }
 
         composable("grades") {
             val activeChild = currentChildren.getOrNull(selectedChildIndex)
             GradesScreen(
+                child = activeChild,
+                onBack = { navController.popBackStack() }
+            )
+        }
+
+        composable("fees") {
+            val activeChild = currentChildren.getOrNull(selectedChildIndex)
+            FeesScreen(
                 child = activeChild,
                 onBack = { navController.popBackStack() }
             )
