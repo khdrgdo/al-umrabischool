@@ -16,7 +16,7 @@ env:
 jobs:
   build-apk:
     name: Build and publish parent APK
-    runs-on: ubuntu-latest
+    runs-on: windows-latest
     timeout-minutes: 30
     steps:
       - name: Checkout source
@@ -33,7 +33,7 @@ jobs:
 
       - name: Assemble debug APK and run unit tests
         working-directory: android-parent-app
-        run: bash ./gradlew --no-daemon --stacktrace testDebugUnitTest assembleDebug
+        run: .\gradlew.bat --no-daemon --stacktrace testDebugUnitTest assembleDebug
 
       - name: Publish installable APK
         uses: actions/upload-artifact@v4
