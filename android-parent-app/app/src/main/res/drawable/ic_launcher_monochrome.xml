@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- طبقة أحادية اللون لأيقونات Android 13 الملوّنة حسب السمة. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="1024"
+    android:viewportHeight="1024">
+    <group android:pivotX="512" android:pivotY="512" android:scaleX="0.56" android:scaleY="0.56">
+        <group android:translateY="26">
+            <path android:fillColor="#FFFFFFFF"
+                android:pathData="M512,95 Q522,165 598,180 Q522,195 512,265 Q502,195 425,180 Q502,165 512,95 Z M464,322 L512,277 L560,322 L560,840 L512,877 L464,840 Z M198,505 L432,627 L450,838 L146,737 Z M150,765 L475,858 L137,814 Z M826,505 L592,627 L574,838 L878,737 Z M874,765 L549,858 L887,814 Z" />
+        </group>
+    </group>
+</vector>
