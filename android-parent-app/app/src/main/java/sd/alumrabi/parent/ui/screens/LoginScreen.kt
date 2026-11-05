@@ -61,17 +61,17 @@ fun LoginScreen(
             .verticalScroll(rememberScrollState()).padding(horizontal = 18.dp, vertical = 16.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Surface(Modifier.fillMaxWidth(), shape = RoundedCornerShape(28.dp), color = BurgundyDark) {
+        Surface(Modifier.fillMaxWidth(), shape = RoundedCornerShape(30.dp), color = BurgundyPrimary) {
             Column(Modifier.padding(horizontal = 22.dp, vertical = 22.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Surface(shape = RoundedCornerShape(20.dp), color = Color.White, modifier = Modifier.size(68.dp)) {
+                    Surface(shape = RoundedCornerShape(20.dp), color = Color.White.copy(alpha = 0.12f), modifier = Modifier.size(68.dp)) {
                         Box(contentAlignment = Alignment.Center) {
-                            Image(painterResource(R.drawable.ic_alumrabi_mark), "شعار العمرابي", Modifier.size(60.dp))
+                            Image(painterResource(R.drawable.brand_mark), "شعار العمرابي", Modifier.size(58.dp))
                         }
                     }
                     Spacer(Modifier.width(14.dp))
                     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                        Text("العمرابي", color = Color.White, fontSize = 25.sp, fontWeight = FontWeight.ExtraBold)
+                        Text("العمرابي", color = Color.White, fontSize = 23.sp, fontWeight = FontWeight.Bold)
                         Text("مؤسسة العمرابي التعليمية", color = Color.White.copy(alpha = 0.76f), fontSize = 12.sp)
                     }
                 }
@@ -86,7 +86,7 @@ fun LoginScreen(
         Spacer(Modifier.height(18.dp))
         Surface(
             Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(24.dp),
+            shape = RoundedCornerShape(26.dp),
             color = SurfaceWhite,
             border = androidx.compose.foundation.BorderStroke(1.dp, BorderLight),
             shadowElevation = 3.dp
