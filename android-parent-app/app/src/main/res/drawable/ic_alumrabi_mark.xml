@@ -1,13 +1,11 @@
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
-    android:width="108dp"
-    android:height="108dp"
-    android:viewportWidth="108"
-    android:viewportHeight="108">
-    <path android:fillColor="#00000000" android:strokeColor="#C49A52" android:strokeWidth="4" android:strokeLineCap="round" android:pathData="M27,45 C27,25 39,15 54,15 C69,15 81,25 81,45" />
-    <path android:fillColor="#FFFEFA" android:pathData="M20,43 C31,35 42,35 52,41 L52,82 C42,76 31,76 20,84 Z" />
-    <path android:fillColor="#E8F0EA" android:pathData="M56,41 C66,35 77,35 88,43 L88,84 C77,76 66,76 56,82 Z" />
-    <path android:fillColor="#C49A52" android:pathData="M52,39 L56,39 L56,84 L52,84 Z" />
-    <path android:fillColor="#C49A52" android:pathData="M54,12 L58,19 L54,26 L50,19 Z" />
-    <path android:fillColor="#17483F" android:pathData="M28,51 C35,47 42,48 47,51 L47,55 C41,52 35,52 28,56 Z M28,62 C35,58 42,59 47,62 L47,66 C41,63 35,63 28,67 Z" />
-    <path android:fillColor="#17483F" android:pathData="M61,51 C67,48 74,47 80,51 L80,56 C73,52 67,52 61,55 Z M61,62 C67,59 74,58 80,62 L80,67 C73,63 67,63 61,66 Z" />
+    android:width="108dp" android:height="108dp"
+    android:viewportWidth="108" android:viewportHeight="108">
+    <path android:fillColor="#B51F2B" android:pathData="M10,76 L44,20 L61,4 L79,24 L61,36 L48,27 L27,69 L10,76 Z" />
+    <path android:fillColor="#B51F2B" android:pathData="M62,37 L77,27 L101,77 L83,71 Z" />
+    <path android:fillColor="#B51F2B" android:pathData="M6,83 C22,61 37,49 56,45 C74,41 90,31 91,17 C99,39 85,53 66,61 C46,69 29,73 6,83 Z" />
+    <path android:fillColor="#B51F2B" android:pathData="M10,83 C26,76 41,76 53,84 C65,75 81,75 98,83 L102,89 C82,82 66,83 53,96 C40,83 23,82 6,90 Z" />
+    <path android:fillColor="#B51F2B" android:pathData="M53,84 L53,96 C41,86 27,85 12,91 L8,87 C25,79 41,79 53,84 Z" />
+    <path android:fillColor="#B51F2B" android:pathData="M53,84 C67,78 82,79 99,87 L95,91 C80,85 66,85 53,96 Z" />
+    <path android:fillColor="#B51F2B" android:pathData="M86,2 L90,11 L100,15 L90,19 L86,29 L82,19 L72,15 L82,11 Z" />
 </vector>
