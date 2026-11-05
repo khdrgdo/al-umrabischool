@@ -3,6 +3,7 @@ package sd.alumrabi.parent.ui.screens
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
@@ -12,11 +13,11 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Lock
-import androidx.compose.material.icons.filled.Person
-import androidx.compose.material.icons.filled.Visibility
-import androidx.compose.material.icons.filled.VisibilityOff
-import androidx.compose.material.icons.filled.School
+import androidx.compose.material.icons.outlined.Lock
+import androidx.compose.material.icons.outlined.Person
+import androidx.compose.material.icons.outlined.Visibility
+import androidx.compose.material.icons.outlined.VisibilityOff
+import androidx.compose.material.icons.outlined.School
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -44,258 +45,180 @@ fun LoginScreen(
     onLoginSuccess: (tokens: AuthTokens, payload: DashboardPayload) -> Unit,
     onDemoLoginSuccess: (payload: DashboardPayload) -> Unit
 ) {
-    val coroutineScope = rememberCoroutineScope()
-    val apiClient = remember { ParentApiClient() }
+    val scope = rememberCoroutineScope()
+    val api = remember { ParentApiClient() }
     var accountCode by remember { mutableStateOf("") }
-    var passwordOrPin by remember { mutableStateOf("") }
-    var activationMode by remember { mutableStateOf(false) }
+    var password by remember { mutableStateOf("") }
     var activationCode by remember { mutableStateOf("") }
     var confirmPassword by remember { mutableStateOf("") }
-    var isPasswordVisible by remember { mutableStateOf(false) }
-    var isLoading by remember { mutableStateOf(false) }
-    var errorMessage by remember { mutableStateOf<String?>(null) }
+    var activationMode by remember { mutableStateOf(false) }
+    var passwordVisible by remember { mutableStateOf(false) }
+    var loading by remember { mutableStateOf(false) }
+    var error by remember { mutableStateOf<String?>(null) }
+    var showDemo by remember { mutableStateOf(false) }
 
     Column(
-        modifier = Modifier.fillMaxSize().background(LavenderCanvas)
-            .statusBarsPadding().navigationBarsPadding().imePadding()
-            .verticalScroll(rememberScrollState()).padding(horizontal = 18.dp, vertical = 16.dp),
-        horizontalAlignment = Alignment.CenterHorizontally
+        Modifier.fillMaxSize().background(AppCanvas).statusBarsPadding().navigationBarsPadding().imePadding().verticalScroll(rememberScrollState())
+            .padding(horizontal = 22.dp, vertical = 22.dp),
+        horizontalAlignment = Alignment.Start
     ) {
-        Surface(Modifier.fillMaxWidth(), shape = RoundedCornerShape(30.dp), color = BurgundyPrimary) {
-            Column(Modifier.padding(horizontal = 22.dp, vertical = 22.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Surface(shape = RoundedCornerShape(20.dp), color = Color.White.copy(alpha = 0.12f), modifier = Modifier.size(68.dp)) {
-                        Box(contentAlignment = Alignment.Center) {
-                            Image(painterResource(R.drawable.ic_alumrabi_mark), "شعار العمرابي", Modifier.size(58.dp))
-                        }
-                    }
-                    Spacer(Modifier.width(14.dp))
-                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                        Text("العمرابي", color = Color.White, fontSize = 23.sp, fontWeight = FontWeight.Bold)
-                        Text("مؤسسة العمرابي التعليمية", color = Color.White.copy(alpha = 0.76f), fontSize = 12.sp)
-                    }
-                }
-                HorizontalDivider(color = Color.White.copy(alpha = 0.16f))
-                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    Text("كل ما يخص أبناءك، في مكان واحد", color = Color.White, fontSize = 21.sp, fontWeight = FontWeight.Bold, lineHeight = 30.sp)
-                    Text("تابع النتائج والحضور والرسوم والإعلانات المعتمدة من المؤسسة.", color = Color.White.copy(alpha = 0.78f), fontSize = 13.sp, lineHeight = 21.sp)
-                }
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            Surface(shape = RoundedCornerShape(18.dp), color = Color.White, border = BorderStroke(1.dp, AppBorder), modifier = Modifier.size(58.dp)) {
+                Image(painterResource(R.drawable.ic_alumrabi_mark), "شعار العمرابي", Modifier.padding(7.dp))
+            }
+            Spacer(Modifier.width(13.dp))
+            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                Text("العمرابي", color = AppInk, fontSize = 21.sp, fontWeight = FontWeight.ExtraBold)
+                Text("AL-OMRABI  /  FAMILY", color = AppMuted, fontSize = 9.sp, letterSpacing = 2.2.sp, fontWeight = FontWeight.SemiBold)
+            }
+            Spacer(Modifier.weight(1f))
+            Surface(shape = CircleShape, color = AppRedSoft) {
+                Icon(Icons.Outlined.School, null, tint = AppRed, modifier = Modifier.padding(11.dp).size(19.dp))
             }
         }
 
-        Spacer(Modifier.height(18.dp))
+        Spacer(Modifier.height(42.dp))
+        Text(if (activationMode) "تفعيل حسابك" else "مرحباً بعودتك", color = AppInk, fontSize = 29.sp, fontWeight = FontWeight.ExtraBold, lineHeight = 38.sp)
+        Spacer(Modifier.height(8.dp))
+        Text(
+            if (activationMode) "أدخل بيانات التفعيل التي استلمتها من إدارة المؤسسة لإنشاء كلمة مرورك."
+            else "مساحة آمنة تجمع متابعة أبنائك الدراسية في مكان واحد.",
+            color = AppMuted, fontSize = 14.sp, lineHeight = 23.sp
+        )
+        Spacer(Modifier.height(28.dp))
+
         Surface(
-            Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(26.dp),
-            color = SurfaceWhite,
-            border = androidx.compose.foundation.BorderStroke(1.dp, BorderLight),
-            shadowElevation = 3.dp
+            modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(26.dp),
+            color = Color.White, border = BorderStroke(1.dp, AppBorder)
         ) {
-            Column(Modifier.padding(horizontal = 20.dp, vertical = 22.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Surface(shape = CircleShape, color = BurgundyContainer, modifier = Modifier.size(44.dp)) {
-                        Box(contentAlignment = Alignment.Center) { Icon(Icons.Default.School, null, tint = BurgundyPrimary) }
-                    }
-                    Spacer(Modifier.width(12.dp))
-                    Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                        Text(if (activationMode) "تفعيل حساب ولي الأمر" else "تسجيل الدخول", color = TextPrimary, fontSize = 20.sp, fontWeight = FontWeight.Bold)
-                        Text(if (activationMode) "أدخل رمز التفعيل المرسل من إدارة المؤسسة." else "أدخل بيانات حسابك للمتابعة.", color = TextSecondary, fontSize = 12.sp)
-                    }
+            Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(15.dp)) {
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Text(if (activationMode) "بيانات التفعيل" else "بيانات الدخول", color = AppInk, fontSize = 17.sp, fontWeight = FontWeight.Bold)
+                    Text("جميع الحقول المطلوبة موضحة أدناه", color = AppMuted, fontSize = 11.sp)
                 }
-
                 OutlinedTextField(
-                    value = accountCode,
-                    onValueChange = { accountCode = it.uppercase(); errorMessage = null },
-                    label = { Text("معرّف حساب ولي الأمر") },
-                    leadingIcon = { Icon(Icons.Default.Person, null) },
+                    value = accountCode, onValueChange = { accountCode = it.uppercase(); error = null },
+                    modifier = Modifier.fillMaxWidth(), singleLine = true,
+                    label = { Text("معرّف حساب ولي الأمر") }, leadingIcon = { Icon(Icons.Outlined.Person, null) },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Ascii, autoCorrect = false),
-                    singleLine = true, modifier = Modifier.fillMaxWidth().heightIn(min = 58.dp),
-                    shape = RoundedCornerShape(16.dp),
-                    colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = BurgundyPrimary, unfocusedBorderColor = BorderLight, focusedLabelColor = BurgundyPrimary, focusedLeadingIconColor = BurgundyPrimary, unfocusedLeadingIconColor = TextSecondary)
+                    shape = RoundedCornerShape(15.dp),
+                    colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = AppRed, focusedLabelColor = AppRed, focusedLeadingIconColor = AppRed)
                 )
-
                 if (activationMode) {
                     OutlinedTextField(
-                        value = activationCode,
-                        onValueChange = { activationCode = it.uppercase(); errorMessage = null },
-                        label = { Text("رمز التفعيل من الإدارة") },
-                        leadingIcon = { Icon(Icons.Default.Lock, null) },
+                        value = activationCode, onValueChange = { activationCode = it.uppercase(); error = null },
+                        modifier = Modifier.fillMaxWidth(), singleLine = true,
+                        label = { Text("رمز التفعيل من الإدارة") }, leadingIcon = { Icon(Icons.Outlined.Lock, null) },
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Ascii, autoCorrect = false),
-                        singleLine = true, modifier = Modifier.fillMaxWidth().heightIn(min = 58.dp),
-                        shape = RoundedCornerShape(16.dp)
+                        shape = RoundedCornerShape(15.dp), colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = AppRed)
                     )
                 }
-
                 OutlinedTextField(
-                    value = passwordOrPin,
-                    onValueChange = { passwordOrPin = it; errorMessage = null },
+                    value = password, onValueChange = { password = it; error = null },
+                    modifier = Modifier.fillMaxWidth(), singleLine = true,
                     label = { Text(if (activationMode) "كلمة المرور الجديدة" else "كلمة المرور") },
-                    leadingIcon = { Icon(Icons.Default.Lock, null) },
-                    trailingIcon = {
-                        IconButton(onClick = { isPasswordVisible = !isPasswordVisible }) {
-                            Icon(if (isPasswordVisible) Icons.Default.VisibilityOff else Icons.Default.Visibility, if (isPasswordVisible) "إخفاء كلمة المرور" else "إظهار كلمة المرور")
-                        }
-                    },
-                    visualTransformation = if (isPasswordVisible) VisualTransformation.None else PasswordVisualTransformation(),
+                    leadingIcon = { Icon(Icons.Outlined.Lock, null) },
+                    trailingIcon = { IconButton(onClick = { passwordVisible = !passwordVisible }) { Icon(if (passwordVisible) Icons.Outlined.VisibilityOff else Icons.Outlined.Visibility, if (passwordVisible) "إخفاء كلمة المرور" else "إظهار كلمة المرور") } },
+                    visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, autoCorrect = false),
-                    singleLine = true, modifier = Modifier.fillMaxWidth().heightIn(min = 58.dp),
-                    shape = RoundedCornerShape(16.dp),
-                    colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = BurgundyPrimary, unfocusedBorderColor = BorderLight, focusedLabelColor = BurgundyPrimary, focusedLeadingIconColor = BurgundyPrimary, unfocusedLeadingIconColor = TextSecondary)
+                    shape = RoundedCornerShape(15.dp), colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = AppRed)
                 )
-
                 if (activationMode) {
                     OutlinedTextField(
-                        value = confirmPassword,
-                        onValueChange = { confirmPassword = it; errorMessage = null },
-                        label = { Text("تأكيد كلمة المرور") },
-                        leadingIcon = { Icon(Icons.Default.Lock, null) },
+                        value = confirmPassword, onValueChange = { confirmPassword = it; error = null },
+                        modifier = Modifier.fillMaxWidth(), singleLine = true,
+                        label = { Text("تأكيد كلمة المرور") }, leadingIcon = { Icon(Icons.Outlined.Lock, null) },
                         visualTransformation = PasswordVisualTransformation(),
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, autoCorrect = false),
-                        singleLine = true, modifier = Modifier.fillMaxWidth().heightIn(min = 58.dp),
-                        shape = RoundedCornerShape(16.dp)
+                        shape = RoundedCornerShape(15.dp), colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = AppRed)
                     )
                 }
-
-                AnimatedVisibility(visible = errorMessage != null, enter = fadeIn(), exit = fadeOut()) {
-                    errorMessage?.let { message ->
-                        Surface(color = StatusDangerBg, shape = RoundedCornerShape(14.dp), modifier = Modifier.fillMaxWidth()) {
-                            Text(message, color = StatusDanger, fontSize = 12.sp, lineHeight = 19.sp, modifier = Modifier.padding(14.dp))
-                        }
-                    }
+                AnimatedVisibility(error != null, enter = fadeIn(), exit = fadeOut()) {
+                    error?.let { Surface(color = StatusDangerBg, shape = RoundedCornerShape(12.dp)) {
+                        Text(it, Modifier.fillMaxWidth().padding(13.dp), color = StatusDanger, fontSize = 12.sp, lineHeight = 19.sp)
+                    } }
                 }
-
                 Button(
                     onClick = {
                         val code = accountCode.trim()
-                        val password = passwordOrPin
-                        if (code.isBlank() || password.isBlank()) {
-                            errorMessage = "يرجى إدخال معرّف الحساب وكلمة المرور."
-                            return@Button
-                        }
+                        if (code.isBlank() || password.isBlank()) { error = "يرجى إدخال معرّف الحساب وكلمة المرور."; return@Button }
                         if (BuildConfig.DEBUG && code.startsWith("DEMO-")) {
-                            val demoPayload = DemoData.authenticate(code, password.trim())
-                            if (demoPayload == null) errorMessage = "بيانات الاختبار لا تطابق الحساب. تحقق من كلمة المرور."
-                            else { passwordOrPin = ""; onDemoLoginSuccess(demoPayload) }
+                            val payload = DemoData.authenticate(code, password.trim())
+                            if (payload == null) error = "بيانات الاختبار لا تطابق الحساب. تحقق من كلمة المرور."
+                            else { password = ""; onDemoLoginSuccess(payload) }
                             return@Button
                         }
                         if (activationMode) {
-                            if (activationCode.isBlank()) { errorMessage = "يرجى إدخال رمز التفعيل الذي سلّمته لك الإدارة."; return@Button }
-                            if (password.length < 8) { errorMessage = "كلمة المرور يجب ألا تقل عن 8 أحرف."; return@Button }
-                            if (password != confirmPassword) { errorMessage = "كلمتا المرور غير متطابقتين."; return@Button }
+                            if (activationCode.isBlank()) { error = "يرجى إدخال رمز التفعيل الذي سلّمته لك الإدارة."; return@Button }
+                            if (password.length < 8) { error = "كلمة المرور يجب ألا تقل عن 8 أحرف."; return@Button }
+                            if (password != confirmPassword) { error = "كلمتا المرور غير متطابقتين."; return@Button }
                         }
-                        isLoading = true
-                        errorMessage = null
-                        coroutineScope.launch {
+                        loading = true; error = null
+                        scope.launch {
                             if (activationMode) {
-                                val activation = apiClient.activate(code, activationCode, password)
-                                if (activation.isFailure) {
-                                    isLoading = false
-                                    errorMessage = activation.exceptionOrNull()?.message ?: "تعذر إكمال التفعيل."
-                                    return@launch
-                                }
+                                val activation = api.activate(code, activationCode, password)
+                                if (activation.isFailure) { loading = false; error = activation.exceptionOrNull()?.message ?: "تعذر إكمال التفعيل."; return@launch }
                             }
-                            val signIn = apiClient.signIn(code, password)
+                            val signIn = api.signIn(code, password)
                             val tokens = signIn.getOrNull()
-                            if (tokens == null) {
-                                isLoading = false
-                                errorMessage = signIn.exceptionOrNull()?.message ?: "تعذر تسجيل الدخول."
-                                return@launch
-                            }
-                            val dashboard = apiClient.fetchDashboard(tokens.accessToken)
+                            if (tokens == null) { loading = false; error = signIn.exceptionOrNull()?.message ?: "تعذر تسجيل الدخول."; return@launch }
+                            val dashboard = api.fetchDashboard(tokens.accessToken)
                             val payload = dashboard.getOrNull()
-                            isLoading = false
-                            if (payload == null) {
-                                errorMessage = dashboard.exceptionOrNull()?.message ?: "تعذر جلب بيانات ولي الأمر."
-                                return@launch
-                            }
-                            passwordOrPin = ""
-                            confirmPassword = ""
-                            activationCode = ""
+                            loading = false
+                            if (payload == null) { error = dashboard.exceptionOrNull()?.message ?: "تعذر جلب بيانات ولي الأمر."; return@launch }
+                            password = ""; confirmPassword = ""; activationCode = ""
                             onLoginSuccess(tokens, payload)
                         }
                     },
-                    enabled = !isLoading,
-                    modifier = Modifier.fillMaxWidth().height(56.dp),
-                    shape = RoundedCornerShape(16.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = BurgundyPrimary, contentColor = Color.White)
+                    enabled = !loading, modifier = Modifier.fillMaxWidth().height(54.dp),
+                    shape = RoundedCornerShape(15.dp), colors = ButtonDefaults.buttonColors(containerColor = AppRed)
                 ) {
-                    if (isLoading) CircularProgressIndicator(Modifier.size(21.dp), color = Color.White, strokeWidth = 2.dp)
-                    else Text(if (activationMode) "تفعيل الحساب والمتابعة" else "الدخول إلى حسابي", fontSize = 15.sp, fontWeight = FontWeight.Bold)
+                    if (loading) CircularProgressIndicator(Modifier.size(20.dp), color = Color.White, strokeWidth = 2.dp)
+                    else Text(if (activationMode) "تفعيل الحساب والمتابعة" else "الدخول إلى حسابي", fontSize = 14.sp, fontWeight = FontWeight.Bold)
                 }
-
                 TextButton(
-                    onClick = {
-                        activationMode = !activationMode
-                        errorMessage = null
-                        passwordOrPin = ""
-                        confirmPassword = ""
-                        activationCode = ""
-                    },
-                    modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)
+                    onClick = { activationMode = !activationMode; error = null; password = ""; confirmPassword = ""; activationCode = "" },
+                    modifier = Modifier.fillMaxWidth().heightIn(min = 46.dp)
                 ) {
-                    Text(if (activationMode) "لدي حساب مفعّل — العودة للدخول" else "لدي رمز تفعيل من إدارة المؤسسة", color = BurgundyPrimary, fontSize = 13.sp)
+                    Text(if (activationMode) "لدي حساب مفعّل — تسجيل الدخول" else "لدي رمز تفعيل من إدارة المؤسسة", color = AppRed, fontSize = 12.sp)
                 }
             }
         }
 
         if (BuildConfig.DEBUG) {
-            Spacer(Modifier.height(16.dp))
-            Surface(
-                Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(22.dp),
-                color = Color(0xFFFFF9EC),
-                border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFE8D7B7))
-            ) {
-                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Text("معاينة النسخة التجريبية", color = BurgundyPrimary, fontSize = 14.sp, fontWeight = FontWeight.Bold)
-                    Text("الحسابات التالية محلية للاختبار ولا تتصل بقاعدة بيانات المؤسسة.", color = TextSecondary, fontSize = 11.sp, lineHeight = 17.sp)
-                    DemoCredentialRow("أسرة متعددة الأبناء", DemoData.FAMILY_ACCOUNT) {
-                        accountCode = DemoData.FAMILY_ACCOUNT
-                        passwordOrPin = DemoData.PASSWORD
-                        activationMode = false
-                        errorMessage = null
+            Spacer(Modifier.height(18.dp))
+            TextButton(onClick = { showDemo = !showDemo }, modifier = Modifier.fillMaxWidth()) {
+                Text(if (showDemo) "إخفاء حسابات المعاينة" else "فتح حسابات المعاينة للمطورين", color = AppMuted, fontSize = 11.sp)
+            }
+            AnimatedVisibility(showDemo) {
+                Surface(color = AppSurface, shape = RoundedCornerShape(20.dp), border = BorderStroke(1.dp, AppBorder)) {
+                    Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        Text("بيانات محلية للاختبار فقط", color = AppInk, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                        Text("لا تتصل هذه الحسابات بقاعدة بيانات المؤسسة.", color = AppMuted, fontSize = 11.sp)
+                        DemoRow("أسرة متعددة الأبناء", DemoData.FAMILY_ACCOUNT) { accountCode = DemoData.FAMILY_ACCOUNT; password = DemoData.PASSWORD; activationMode = false }
+                        HorizontalDivider(color = AppBorder)
+                        DemoRow("ولي أمر — ابن واحد", DemoData.SINGLE_ACCOUNT) { accountCode = DemoData.SINGLE_ACCOUNT; password = DemoData.PASSWORD; activationMode = false }
                     }
-                    HorizontalDivider(color = Color(0xFFE8D7B7))
-                    DemoCredentialRow("ولي أمر — ابن واحد", DemoData.SINGLE_ACCOUNT) {
-                        accountCode = DemoData.SINGLE_ACCOUNT
-                        passwordOrPin = DemoData.PASSWORD
-                        activationMode = false
-                        errorMessage = null
-                    }
-                    Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
-                        OutlinedButton(
-                            onClick = {
-                                val payload = DemoData.authenticate(DemoData.FAMILY_ACCOUNT, DemoData.PASSWORD)
-                                if (payload != null) onDemoLoginSuccess(payload) else errorMessage = "تعذر تحميل بيانات الأسرة التجريبية."
-                            },
-                            modifier = Modifier.weight(1f).heightIn(min = 48.dp), shape = RoundedCornerShape(14.dp)
-                        ) { Text("دخول الأسرة") }
-                        OutlinedButton(
-                            onClick = {
-                                val payload = DemoData.authenticate(DemoData.SINGLE_ACCOUNT, DemoData.PASSWORD)
-                                if (payload != null) onDemoLoginSuccess(payload) else errorMessage = "تعذر تحميل حساب ولي الأمر التجريبي."
-                            },
-                            modifier = Modifier.weight(1f).heightIn(min = 48.dp), shape = RoundedCornerShape(14.dp)
-                        ) { Text("دخول فردي") }
-                    }
-                    Text("كلمة المرور للحسابين: " + DemoData.PASSWORD, color = TextSecondary, fontSize = 11.sp)
                 }
             }
         }
-
-        Spacer(Modifier.height(18.dp))
-        Text("خصوصية الأبناء أولاً — لا تظهر البيانات إلا بعد اعتماد الربط من إدارة المؤسسة.", color = TextSecondary, fontSize = 11.sp, lineHeight = 18.sp, textAlign = TextAlign.Center, modifier = Modifier.padding(horizontal = 14.dp))
+        Spacer(Modifier.height(24.dp))
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
+            Icon(Icons.Outlined.Lock, null, tint = AppMuted, modifier = Modifier.size(14.dp))
+            Spacer(Modifier.width(7.dp))
+            Text("خصوصية الأبناء أولاً · بيانات معتمدة فقط", color = AppMuted, fontSize = 10.sp, textAlign = TextAlign.Center)
+        }
         Spacer(Modifier.height(12.dp))
     }
 }
 
 @Composable
-private fun DemoCredentialRow(title: String, account: String, onUse: () -> Unit) {
-    Row(Modifier.fillMaxWidth().heightIn(min = 48.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-            Text(title, color = TextPrimary, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
-            Text(account, color = TextSecondary, fontSize = 11.sp)
+private fun DemoRow(title: String, account: String, onUse: () -> Unit) {
+    Row(Modifier.fillMaxWidth().heightIn(min = 48.dp), verticalAlignment = Alignment.CenterVertically) {
+        Column(Modifier.weight(1f)) {
+            Text(title, color = AppInk, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+            Text(account, color = AppMuted, fontSize = 10.sp)
         }
-        TextButton(onClick = onUse) { Text("استخدم", color = BurgundyPrimary, fontSize = 12.sp) }
+        TextButton(onClick = onUse) { Text("استخدم", color = AppRed) }
     }
 }

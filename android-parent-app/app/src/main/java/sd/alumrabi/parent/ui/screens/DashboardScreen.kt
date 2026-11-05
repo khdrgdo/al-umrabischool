@@ -1,6 +1,8 @@
 package sd.alumrabi.parent.ui.screens
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -9,22 +11,25 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.AccountBalanceWallet
-import androidx.compose.material.icons.filled.CalendarMonth
-import androidx.compose.material.icons.filled.Campaign
-import androidx.compose.material.icons.filled.CheckCircle
-import androidx.compose.material.icons.filled.Grade
-import androidx.compose.material.icons.filled.Person
-import androidx.compose.material.icons.filled.School
-import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.outlined.AccountBalanceWallet
+import androidx.compose.material.icons.outlined.Announcement
+import androidx.compose.material.icons.outlined.ArrowOutward
+import androidx.compose.material.icons.outlined.CalendarMonth
+import androidx.compose.material.icons.outlined.CheckCircle
+import androidx.compose.material.icons.outlined.ChevronLeft
+import androidx.compose.material.icons.outlined.Grade
+import androidx.compose.material.icons.outlined.Person
+import androidx.compose.material.icons.outlined.School
+import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import sd.alumrabi.parent.R
@@ -32,7 +37,6 @@ import sd.alumrabi.parent.data.model.*
 import sd.alumrabi.parent.ui.theme.*
 import java.util.Locale
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DashboardScreen(
     guardian: GuardianInfo,
@@ -48,214 +52,202 @@ fun DashboardScreen(
     onNavigateToFees: () -> Unit,
     onNavigateToSettings: () -> Unit
 ) {
-    val currentChild = children.getOrNull(selectedChildIndex)
-    val connectionLabel = if (demoMode) "بيانات تجريبية" else when (connectionState) {
-        BackendConnectionState.CONNECTED_LIVE -> "متصل بالخادم"
-        BackendConnectionState.SYNCED_LOCAL -> "آخر بيانات محفوظة"
-        BackendConnectionState.CONNECTING -> "جارٍ الاتصال"
+    val child = children.getOrNull(selectedChildIndex)
+    val statusText = when {
+        demoMode -> "معاينة محلية"
+        connectionState == BackendConnectionState.CONNECTED_LIVE -> "متصل بالمؤسسة"
+        connectionState == BackendConnectionState.SYNCED_LOCAL -> "آخر بيانات محفوظة"
+        else -> "جارٍ التحقق من الاتصال"
     }
-
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = {
-                    Column(verticalArrangement = Arrangement.spacedBy(1.dp)) {
-                        Text("العمرابي", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = BurgundyPrimary)
-                        Text(connectionLabel, fontSize = 11.sp, color = TextSecondary)
-                    }
-                },
-                navigationIcon = {
-                    Surface(shape = RoundedCornerShape(14.dp), color = BurgundyContainer, modifier = Modifier.padding(start = 14.dp).size(44.dp)) {
-                        Box(contentAlignment = Alignment.Center) {
-                            Image(painterResource(R.drawable.ic_alumrabi_mark), "شعار العمرابي", Modifier.size(38.dp))
-                        }
-                    }
-                },
-                actions = {
-                    IconButton(onClick = onNavigateToSettings, modifier = Modifier.size(48.dp)) {
-                        Icon(Icons.Default.Settings, "الإعدادات", tint = BurgundyPrimary)
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = LavenderCanvas)
-            )
-        },
-        containerColor = LavenderCanvas
-    ) { insets ->
-        LazyColumn(
-            Modifier.fillMaxSize().padding(insets),
-            contentPadding = PaddingValues(horizontal = 18.dp, vertical = 16.dp),
-            verticalArrangement = Arrangement.spacedBy(18.dp)
-        ) {
-            item {
-                Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
-                    Text("مرحباً، " + guardian.fullName, fontSize = 22.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
-                    Text("هذه مساحتك لمتابعة الأبناء وشؤونهم الدراسية.", fontSize = 13.sp, color = TextSecondary)
-                }
-            }
-
-            item {
-                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        SectionHeading("الأبناء")
-                        Spacer(Modifier.weight(1f))
-                        Text(children.size.toString() + " مرتبط", fontSize = 11.sp, color = TextSecondary)
-                    }
-                    if (children.isEmpty()) {
-                        Surface(shape = RoundedCornerShape(20.dp), color = SurfaceWhite, border = androidx.compose.foundation.BorderStroke(1.dp, BorderLight)) {
-                            Column(Modifier.fillMaxWidth().padding(18.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                                Text("لا يوجد أبناء مرتبطون بعد", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
-                                Text("يرجى مراجعة إدارة المؤسسة لاعتماد ربط الأبناء بحساب ولي الأمر.", fontSize = 12.sp, lineHeight = 19.sp, color = TextSecondary)
-                            }
-                        }
-                    } else {
-                        LazyRow(horizontalArrangement = Arrangement.spacedBy(9.dp)) {
-                            itemsIndexed(children) { index, child ->
-                                val selected = index == selectedChildIndex
-                                Surface(
-                                    shape = RoundedCornerShape(18.dp),
-                                    color = if (selected) BurgundyPrimary else SurfaceWhite,
-                                    border = if (selected) null else androidx.compose.foundation.BorderStroke(1.dp, BorderLight),
-                                    modifier = Modifier.clickable { onSelectChild(index) }
-                                ) {
-                                    Row(Modifier.padding(horizontal = 16.dp, vertical = 13.dp), verticalAlignment = Alignment.CenterVertically) {
-                                        Surface(shape = CircleShape, color = if (selected) Color.White.copy(alpha = 0.14f) else BurgundyContainer, modifier = Modifier.size(30.dp)) {
-                                            Box(contentAlignment = Alignment.Center) {
-                                                Icon(Icons.Default.Person, null, tint = if (selected) GoldAccent else BurgundyPrimary, modifier = Modifier.size(17.dp))
-                                            }
-                                        }
-                                        Spacer(Modifier.width(9.dp))
-                                        Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                                            Text(child.fullName, color = if (selected) Color.White else TextPrimary, fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                                            Text(child.gradeName, color = if (selected) Color.White.copy(alpha = 0.72f) else TextSecondary, fontSize = 10.sp)
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-
-            if (currentChild != null) {
-                item {
-                    Surface(shape = RoundedCornerShape(26.dp), color = BurgundyPrimary, modifier = Modifier.fillMaxWidth()) {
-                        Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(5.dp)) {
-                                    Text("الملف الدراسي", color = Color.White.copy(alpha = 0.72f), fontSize = 11.sp)
-                                    Text(currentChild.fullName, color = Color.White, fontSize = 18.sp, fontWeight = FontWeight.Bold)
-                                    Text(currentChild.gradeName + " · " + currentChild.sectionName, color = Color.White.copy(alpha = 0.78f), fontSize = 12.sp)
-                                }
-                                Surface(shape = RoundedCornerShape(18.dp), color = Color.White.copy(alpha = 0.12f), modifier = Modifier.size(58.dp)) {
-                                    Box(contentAlignment = Alignment.Center) {
-                                        Icon(Icons.Default.School, null, tint = GoldAccent, modifier = Modifier.size(30.dp))
-                                    }
-                                }
-                            }
-                            HorizontalDivider(color = Color.White.copy(alpha = 0.18f))
-                            Row(horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
-                                Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                                    Text("الرقم المدرسي", fontSize = 10.sp, color = Color.White.copy(alpha = 0.68f))
-                                    Text(currentChild.studentNumber, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = Color.White)
-                                }
-                                Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                                    Text("صلة القرابة", fontSize = 10.sp, color = Color.White.copy(alpha = 0.68f))
-                                    Text(currentChild.relation ?: "ولي أمر", fontSize = 13.sp, fontWeight = FontWeight.Medium, color = Color.White)
-                                }
-                            }
-                            val present = currentChild.attendance.orEmpty().count { it.status == "present" }
-                            val absent = currentChild.attendance.orEmpty().count { it.status == "absent" }
-                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
-                                DarkStat("الحضور", present.toString(), Modifier.weight(1f))
-                                DarkStat("الغياب", absent.toString(), Modifier.weight(1f))
-                                DarkStat("المواد", currentChild.grades.orEmpty().size.toString(), Modifier.weight(1f))
-                            }
-                        }
-                    }
-                }
-
-                if (currentChild.canViewFees && currentChild.fees != null) {
-                    item {
-                        Surface(
-                            shape = RoundedCornerShape(22.dp),
-                            color = SurfaceWhite,
-                            border = androidx.compose.foundation.BorderStroke(1.dp, BorderLight),
-                            modifier = Modifier.fillMaxWidth().clickable(onClick = onNavigateToFees)
-                        ) {
-                            Row(Modifier.padding(18.dp), verticalAlignment = Alignment.CenterVertically) {
-                                Surface(shape = RoundedCornerShape(14.dp), color = BurgundyContainer, modifier = Modifier.size(48.dp)) {
-                                    Box(contentAlignment = Alignment.Center) { Icon(Icons.Default.AccountBalanceWallet, null, tint = BurgundyPrimary) }
-                                }
-                                Spacer(Modifier.width(13.dp))
-                                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                                    Text("الرسوم والمدفوعات", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
-                                    Text("المتبقي: " + formatAmount(currentChild.fees.remainingBalance), fontSize = 12.sp, color = TextSecondary)
-                                }
-                                Text("التفاصيل", fontSize = 12.sp, color = BurgundyPrimary, fontWeight = FontWeight.Bold)
-                            }
-                        }
-                    }
-                }
-            }
-
-            item {
-                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    SectionHeading("الخدمات")
-                    Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
-                        ServiceActionItem("النتائج والدرجات", "النتائج المنشورة", Icons.Default.Grade, Modifier.weight(1f), onNavigateToGrades)
-                        ServiceActionItem("الحضور والغياب", "السجل اليومي", Icons.Default.CheckCircle, Modifier.weight(1f), onNavigateToAttendance)
-                    }
-                    Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
-                        ServiceActionItem("الجدول الدراسي", "الحصص المعتمدة", Icons.Default.CalendarMonth, Modifier.weight(1f), onNavigateToSchedule)
-                        ServiceActionItem("الإعلانات", "التعاميم والتقويم", Icons.Default.Campaign, Modifier.weight(1f), onNavigateToAnnouncements)
-                    }
-                    if (currentChild?.canViewFees == true) {
-                        ServiceActionItem("الرسوم والمدفوعات", "البيان والإيصالات", Icons.Default.AccountBalanceWallet, Modifier.fillMaxWidth(), onNavigateToFees)
-                    }
-                }
-            }
-
-            item {
-                Text("تُعرض المعلومات التي اعتمدتها المؤسسة ونشرتها لحساب ولي الأمر فقط.", fontSize = 11.sp, lineHeight = 18.sp, color = TextSecondary)
-            }
-        }
-    }
-}
-
-@Composable
-private fun SectionHeading(title: String) {
-    Text(title, fontSize = 16.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
-}
-
-@Composable
-private fun DarkStat(label: String, value: String, modifier: Modifier = Modifier) {
-    Surface(modifier.heightIn(min = 66.dp), shape = RoundedCornerShape(16.dp), color = Color.White.copy(alpha = 0.10f)) {
-        Column(Modifier.fillMaxWidth().padding(vertical = 10.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(3.dp)) {
-            Text(value, color = Color.White, fontSize = 17.sp, fontWeight = FontWeight.Bold)
-            Text(label, color = Color.White.copy(alpha = 0.72f), fontSize = 10.sp)
-        }
-    }
-}
-
-@Composable
-fun ServiceActionItem(title: String, subtitle: String, icon: ImageVector, modifier: Modifier = Modifier, onClick: () -> Unit) {
-    Surface(
-        modifier = modifier.heightIn(min = 82.dp).clickable(onClick = onClick),
-        shape = RoundedCornerShape(20.dp),
-        color = SurfaceWhite,
-        border = androidx.compose.foundation.BorderStroke(1.dp, BorderLight)
+    LazyColumn(
+        modifier = Modifier.fillMaxSize().background(AppCanvas).statusBarsPadding(),
+        contentPadding = PaddingValues(start = 20.dp, end = 20.dp, top = 18.dp, bottom = 26.dp),
+        verticalArrangement = Arrangement.spacedBy(22.dp)
     ) {
-        Row(Modifier.padding(horizontal = 13.dp, vertical = 14.dp), verticalAlignment = Alignment.CenterVertically) {
-            Surface(shape = RoundedCornerShape(13.dp), color = BurgundyContainer, modifier = Modifier.size(42.dp)) {
-                Box(contentAlignment = Alignment.Center) { Icon(icon, null, tint = BurgundyPrimary, modifier = Modifier.size(21.dp)) }
+        item {
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
+                    Surface(shape = RoundedCornerShape(13.dp), color = AppSurface, border = BorderStroke(1.dp, AppBorder), modifier = Modifier.size(43.dp)) {
+                        Image(painterResource(R.drawable.ic_alumrabi_mark), "شعار العمرابي", Modifier.padding(5.dp))
+                    }
+                    Spacer(Modifier.width(11.dp))
+                    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                        Text("العمرابي", color = AppInk, fontSize = 17.sp, fontWeight = FontWeight.ExtraBold)
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Box(Modifier.size(6.dp).clip(CircleShape).background(if (connectionState == BackendConnectionState.CONNECTED_LIVE && !demoMode) StatusSuccess else StatusWarning))
+                            Spacer(Modifier.width(5.dp))
+                            Text(statusText, color = AppMuted, fontSize = 10.sp)
+                        }
+                    }
+                }
+                IconButton(onClick = onNavigateToSettings) {
+                    Icon(Icons.Outlined.Settings, "إعدادات الحساب", tint = AppInk)
+                }
+            }
+        }
+        item {
+            Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
+                Text("مساحة الأسرة", color = AppRed, fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
+                Text("أهلاً، ${guardian.fullName}", color = AppInk, fontSize = 25.sp, fontWeight = FontWeight.ExtraBold, lineHeight = 34.sp)
+                Text("هنا تتابع رحلة أبنائك التعليمية في العمرابي.", color = AppMuted, fontSize = 13.sp, lineHeight = 21.sp)
+            }
+        }
+        item {
+            Column(verticalArrangement = Arrangement.spacedBy(11.dp)) {
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    Text("الأبناء المرتبطون", color = AppInk, fontSize = 15.sp, fontWeight = FontWeight.Bold)
+                    Spacer(Modifier.weight(1f))
+                    Text("${children.size} أبناء", color = AppMuted, fontSize = 11.sp)
+                }
+                if (children.isEmpty()) {
+                    Surface(shape = RoundedCornerShape(20.dp), color = AppSurface, border = BorderStroke(1.dp, AppBorder)) {
+                        Row(Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Surface(shape = CircleShape, color = AppRedSoft) { Icon(Icons.Outlined.Person, null, tint = AppRed, modifier = Modifier.padding(12.dp)) }
+                            Spacer(Modifier.width(12.dp))
+                            Column {
+                                Text("لا يوجد أبناء مرتبطون بعد", color = AppInk, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                                Text("راجع إدارة المؤسسة لاعتماد الربط بحسابك.", color = AppMuted, fontSize = 11.sp, lineHeight = 17.sp)
+                            }
+                        }
+                    }
+                } else {
+                    LazyRow(horizontalArrangement = Arrangement.spacedBy(9.dp), contentPadding = PaddingValues(end = 2.dp)) {
+                        itemsIndexed(children) { index, item ->
+                            val selected = index == selectedChildIndex
+                            Surface(
+                                modifier = Modifier.clip(RoundedCornerShape(14.dp)).clickable { onSelectChild(index) },
+                                color = if (selected) AppInk else AppSurface,
+                                shape = RoundedCornerShape(14.dp),
+                                border = if (selected) null else BorderStroke(1.dp, AppBorder)
+                            ) {
+                                Row(Modifier.padding(horizontal = 14.dp, vertical = 11.dp), verticalAlignment = Alignment.CenterVertically) {
+                                    Surface(shape = CircleShape, color = if (selected) Color.White.copy(alpha = .12f) else AppRedSoft) {
+                                        Text(item.fullName.take(1), modifier = Modifier.padding(horizontal = 9.dp, vertical = 7.dp), color = if (selected) Color.White else AppRed, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                                    }
+                                    Spacer(Modifier.width(8.dp))
+                                    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                                        Text(item.fullName.substringBefore(' '), color = if (selected) Color.White else AppInk, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                                        Text(item.gradeName, color = if (selected) Color.White.copy(alpha = .7f) else AppMuted, fontSize = 9.sp)
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        if (child != null) {
+            item {
+                Surface(shape = RoundedCornerShape(25.dp), color = AppInk, modifier = Modifier.fillMaxWidth()) {
+                    Column(Modifier.padding(19.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                        Row(verticalAlignment = Alignment.Top) {
+                            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(5.dp)) {
+                                Text("الملف الدراسي", color = Color.White.copy(alpha = .65f), fontSize = 10.sp, letterSpacing = .7.sp)
+                                Text(child.fullName, color = Color.White, fontSize = 18.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                Text("${child.gradeName}  ·  ${child.sectionName}", color = Color.White.copy(alpha = .76f), fontSize = 12.sp)
+                            }
+                            Surface(shape = RoundedCornerShape(15.dp), color = AppRed, modifier = Modifier.size(47.dp)) {
+                                Box(contentAlignment = Alignment.Center) { Icon(Icons.Outlined.School, null, tint = Color.White, modifier = Modifier.size(25.dp)) }
+                            }
+                        }
+                        HorizontalDivider(color = Color.White.copy(alpha = .15f))
+                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                            Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                                Text("الرقم المدرسي", color = Color.White.copy(alpha = .55f), fontSize = 9.sp)
+                                Text(child.studentNumber, color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                            }
+                            Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                                Text("صلة القرابة", color = Color.White.copy(alpha = .55f), fontSize = 9.sp)
+                                Text(child.relation ?: "ولي أمر", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                            }
+                        }
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            DarkMetric("الحضور", child.attendance.orEmpty().count { it.status == "present" }.toString(), Modifier.weight(1f))
+                            DarkMetric("الغياب", child.attendance.orEmpty().count { it.status == "absent" }.toString(), Modifier.weight(1f))
+                            DarkMetric("المواد", child.grades.orEmpty().size.toString(), Modifier.weight(1f))
+                        }
+                    }
+                }
+            }
+        }
+        item {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    Text("الخدمات الدراسية", color = AppInk, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                    Spacer(Modifier.weight(1f))
+                    Text("الوصول السريع", color = AppMuted, fontSize = 10.sp)
+                }
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    ServiceTile("النتائج", "الدرجات المنشورة", Icons.Outlined.Grade, Modifier.weight(1f), onNavigateToGrades)
+                    ServiceTile("الحضور", "سجل الانتظام", Icons.Outlined.CheckCircle, Modifier.weight(1f), onNavigateToAttendance)
+                }
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    ServiceTile("الجدول", "الحصص الدراسية", Icons.Outlined.CalendarMonth, Modifier.weight(1f), onNavigateToSchedule)
+                    ServiceTile("الإعلانات", "أخبار المؤسسة", Icons.Outlined.Announcement, Modifier.weight(1f), onNavigateToAnnouncements)
+                }
+                if (child?.canViewFees == true) {
+                    ServiceTile("الرسوم", "المستحقات والإيصالات", Icons.Outlined.AccountBalanceWallet, Modifier.fillMaxWidth(), onNavigateToFees)
+                }
+            }
+        }
+        if (child != null && child.canViewFees && child.fees != null) {
+            item {
+                Surface(shape = RoundedCornerShape(20.dp), color = AppRedSoft, modifier = Modifier.fillMaxWidth().clickable(onClick = onNavigateToFees)) {
+                    Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                            Text("المتبقي من الرسوم", color = AppRedDark, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
+                            Text(formatAmount(child.fees.remainingBalance) + " ج.س", color = AppInk, fontSize = 20.sp, fontWeight = FontWeight.ExtraBold)
+                        }
+                        Icon(Icons.Outlined.ArrowOutward, null, tint = AppRed)
+                    }
+                }
+            }
+        }
+        item {
+            Surface(shape = RoundedCornerShape(19.dp), color = AppSurface, border = BorderStroke(1.dp, AppBorder), modifier = Modifier.fillMaxWidth().clickable(onClick = onNavigateToAnnouncements)) {
+                Row(Modifier.padding(15.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Surface(shape = RoundedCornerShape(12.dp), color = AppRedSoft) {
+                        Icon(Icons.Outlined.Announcement, null, tint = AppRed, modifier = Modifier.padding(10.dp).size(20.dp))
+                    }
+                    Spacer(Modifier.width(12.dp))
+                    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                        Text("تواصل مع أخبار المؤسسة", color = AppInk, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                        Text("الإعلانات والتعاميم والتقويم الدراسي", color = AppMuted, fontSize = 10.sp)
+                    }
+                    Icon(Icons.Outlined.ChevronLeft, null, tint = AppMuted)
+                }
+            }
+        }
+        item {
+            Text("تُعرض هنا المعلومات التي اعتمدتها المؤسسة ونشرتها لحساب ولي الأمر.", color = AppMuted, fontSize = 10.sp, lineHeight = 17.sp)
+        }
+    }
+}
+
+@Composable
+private fun DarkMetric(label: String, value: String, modifier: Modifier = Modifier) {
+    Surface(modifier.heightIn(min = 62.dp), shape = RoundedCornerShape(13.dp), color = Color.White.copy(alpha = .08f)) {
+        Column(Modifier.fillMaxWidth().padding(vertical = 9.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            Text(value, color = Color.White, fontSize = 17.sp, fontWeight = FontWeight.Bold)
+            Text(label, color = Color.White.copy(alpha = .65f), fontSize = 9.sp)
+        }
+    }
+}
+
+@Composable
+private fun ServiceTile(title: String, detail: String, icon: androidx.compose.ui.graphics.vector.ImageVector, modifier: Modifier = Modifier, onClick: () -> Unit) {
+    Surface(modifier = modifier.heightIn(min = 82.dp).clickable(onClick = onClick), shape = RoundedCornerShape(18.dp), color = AppSurface, border = BorderStroke(1.dp, AppBorder)) {
+        Row(Modifier.padding(horizontal = 13.dp, vertical = 13.dp), verticalAlignment = Alignment.CenterVertically) {
+            Surface(shape = RoundedCornerShape(12.dp), color = AppRedSoft) {
+                Icon(icon, null, tint = AppRed, modifier = Modifier.padding(10.dp).size(20.dp))
             }
             Spacer(Modifier.width(10.dp))
-            Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                Text(title, fontSize = 12.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
-                Text(subtitle, fontSize = 10.sp, color = TextSecondary)
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                Text(title, color = AppInk, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                Text(detail, color = AppMuted, fontSize = 9.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
         }
     }
 }
 
-private fun formatAmount(value: Double): String = String.format(Locale.US, "%,.2f", value)
+private fun formatAmount(value: Double): String = String.format(Locale.US, "%,.0f", value)

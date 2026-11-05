@@ -46,7 +46,7 @@ fun AnnouncementsScreen(
                         )
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = BurgundyPrimary)
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = AppInk)
             )
         },
         containerColor = LavenderCanvas

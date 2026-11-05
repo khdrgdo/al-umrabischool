@@ -28,7 +28,7 @@ fun FeesScreen(child: LinkedChild?, onBack: () -> Unit) {
             TopAppBar(
                 title = { Text("الرسوم والمدفوعات", fontSize = 17.sp, fontWeight = FontWeight.Bold) },
                 navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.Default.ArrowBack, contentDescription = "رجوع") } },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = BurgundyPrimary, titleContentColor = Color.White, navigationIconContentColor = Color.White)
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = AppInk, titleContentColor = Color.White, navigationIconContentColor = Color.White)
             )
         },
         containerColor = LavenderCanvas

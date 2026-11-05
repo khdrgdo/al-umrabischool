@@ -57,7 +57,7 @@ fun ScheduleScreen(child: LinkedChild?, onBack: () -> Unit) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "رجوع", tint = Color.White)
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = BurgundyPrimary)
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = AppInk)
             )
         },
         containerColor = LavenderCanvas

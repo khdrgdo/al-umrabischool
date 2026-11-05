@@ -55,7 +55,7 @@ fun AttendanceScreen(
                         )
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = BurgundyPrimary)
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = AppInk)
             )
         },
         containerColor = LavenderCanvas

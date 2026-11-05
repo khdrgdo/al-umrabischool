@@ -2,22 +2,36 @@ package sd.alumrabi.parent.ui.theme
 
 import androidx.compose.ui.graphics.Color
 
-// Al Omrabi identity: crimson, charcoal, and quiet warm neutrals.
-val BurgundyPrimary = Color(0xFFB51F2B)
-val BurgundyDark = Color(0xFF74131D)
-val BurgundyLight = Color(0xFFD84750)
-val BurgundyContainer = Color(0xFFF8E8E9)
-val GoldAccent = Color(0xFFFFF7F4) // legacy token; retained only for compatibility, no gold styling
+// Al Omrabi design system — restrained crimson, ink, warm paper and clear status colors.
+val AppRed = Color(0xFFB51F2B)
+val AppRedDark = Color(0xFF7F1721)
+val AppRedSoft = Color(0xFFF8E9EA)
+val AppInk = Color(0xFF1D2026)
+val AppCanvas = Color(0xFFF5F4F1)
+val AppSurface = Color(0xFFFFFFFF)
+val AppMuted = Color(0xFF777A80)
+val AppBorder = Color(0xFFE7E4E0)
+val AppSuccess = Color(0xFF247A55)
+val AppSuccessSoft = Color(0xFFE8F3ED)
+val AppWarning = Color(0xFF94621E)
+val AppWarningSoft = Color(0xFFFAF1E2)
+val AppDanger = Color(0xFFB51F2B)
+val AppDangerSoft = Color(0xFFFBECEE)
 
-val LavenderCanvas = Color(0xFFF5F4F2)
-val SurfaceWhite = Color(0xFFFFFFFF)
-val TextPrimary = Color(0xFF202329)
-val TextSecondary = Color(0xFF73767D)
-val BorderLight = Color(0xFFE7E4E1)
-
-val StatusSuccess = Color(0xFF287A58)
-val StatusSuccessBg = Color(0xFFE9F4EE)
-val StatusWarning = Color(0xFF94611E)
-val StatusWarningBg = Color(0xFFFAF1E2)
-val StatusDanger = Color(0xFFB51F2B)
-val StatusDangerBg = Color(0xFFFBECEE)
+// Compatibility aliases for the existing academic screens during the UI migration.
+val BurgundyPrimary = AppRed
+val BurgundyDark = AppRedDark
+val BurgundyLight = Color(0xFFD94B55)
+val BurgundyContainer = AppRedSoft
+val GoldAccent = AppRedSoft
+val LavenderCanvas = AppCanvas
+val SurfaceWhite = AppSurface
+val TextPrimary = AppInk
+val TextSecondary = AppMuted
+val BorderLight = AppBorder
+val StatusSuccess = AppSuccess
+val StatusSuccessBg = AppSuccessSoft
+val StatusWarning = AppWarning
+val StatusWarningBg = AppWarningSoft
+val StatusDanger = AppDanger
+val StatusDangerBg = AppDangerSoft
