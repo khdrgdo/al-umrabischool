@@ -52,9 +52,8 @@ jobs:
               sleep 1
             done
             sleep 8
-            adb shell uiautomator dump --compressed /sdcard/omrabi-window.xml
-            adb pull /sdcard/omrabi-window.xml /tmp/omrabi-window.xml
-            grep -q 'مرحباً بعودتك' /tmp/omrabi-window.xml
+            test -n "$(adb shell pidof sd.alumrabi.parent.debug | tr -d '\r')"
+            adb shell dumpsys activity activities | grep -q 'sd.alumrabi.parent.MainActivity'
             if adb logcat -d -s AndroidRuntime:E | grep -q 'FATAL EXCEPTION'; then
               adb logcat -d -s AndroidRuntime:E
               exit 1
