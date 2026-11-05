@@ -1,0 +1,51 @@
+name: Parent APK Emulator Smoke Test
+
+on:
+  workflow_dispatch:
+    inputs:
+      source_run_id:
+        description: GitHub Actions run ID containing the APK artifact
+        required: true
+        type: string
+
+permissions:
+  actions: read
+  contents: read
+
+jobs:
+  emulator-smoke-test:
+    name: Install and launch on Android 15 emulator
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Download the exact published APK
+        uses: actions/download-artifact@v4
+        with:
+          name: al-omrabi-parent-app-v3-debug-apk
+          run-id: ${{ inputs.source_run_id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          path: artifacts
+
+      - name: Boot Android 15 emulator and verify app launch
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          target: google_apis
+          arch: x86_64
+          profile: pixel_6
+          disable-animations: true
+          script: |
+            adb logcat -c
+            adb install -r artifacts/app-debug.apk
+            adb shell am start -W -n sd.alumrabi.parent.debug/sd.alumrabi.parent.MainActivity
+            for i in $(seq 1 30); do
+              if adb shell pidof sd.alumrabi.parent.debug >/dev/null 2>&1; then break; fi
+              sleep 1
+            done
+            sleep 8
+            test -n "$(adb shell pidof sd.alumrabi.parent.debug | tr -d '\\r')"
+            adb shell dumpsys activity activities | grep -q 'sd.alumrabi.parent.MainActivity'
+            if adb logcat -d -s AndroidRuntime:E | grep -q 'FATAL EXCEPTION'; then
+              adb logcat -d -s AndroidRuntime:E
+              exit 1
+            fi
