@@ -33,7 +33,7 @@ jobs:
 
       - name: Assemble debug APK
         working-directory: android-parent-app
-        run: ./gradlew --no-daemon --stacktrace testDebugUnitTest assembleDebug
+        run: bash ./gradlew --no-daemon --stacktrace testDebugUnitTest assembleDebug
 
       - name: Install and smoke-test on Android 15 emulator
         uses: reactivecircus/android-emulator-runner@v2
