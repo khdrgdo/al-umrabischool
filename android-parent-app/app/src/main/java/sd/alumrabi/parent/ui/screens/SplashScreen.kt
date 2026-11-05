@@ -43,7 +43,7 @@ fun AnimatedSplashScreen(onSplashFinished: () -> Unit) {
         Column(Modifier.fillMaxWidth().padding(horizontal = 30.dp), horizontalAlignment = Alignment.CenterHorizontally) {
             Surface(shape = RoundedCornerShape(34.dp), color = SurfaceWhite, shadowElevation = 12.dp, modifier = Modifier.size(164.dp).scale(scale.value)) {
                 Box(contentAlignment = Alignment.Center) {
-                    Image(painterResource(R.drawable.brand_mark), "شعار العمرابي", Modifier.size(142.dp).alpha(alpha.value))
+                    Image(painterResource(R.drawable.ic_alumrabi_mark), "شعار العمرابي", Modifier.size(142.dp).alpha(alpha.value))
                 }
             }
             Spacer(Modifier.height(28.dp))

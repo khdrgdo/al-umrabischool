@@ -66,7 +66,7 @@ fun LoginScreen(
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Surface(shape = RoundedCornerShape(20.dp), color = Color.White.copy(alpha = 0.12f), modifier = Modifier.size(68.dp)) {
                         Box(contentAlignment = Alignment.Center) {
-                            Image(painterResource(R.drawable.brand_mark), "شعار العمرابي", Modifier.size(58.dp))
+                            Image(painterResource(R.drawable.ic_alumrabi_mark), "شعار العمرابي", Modifier.size(58.dp))
                         }
                     }
                     Spacer(Modifier.width(14.dp))
