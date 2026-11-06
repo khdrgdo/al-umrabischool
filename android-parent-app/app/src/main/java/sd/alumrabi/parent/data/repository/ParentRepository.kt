@@ -22,12 +22,11 @@ class ParentRepository(
     private val api: ParentApiClient
 ) {
     suspend fun restoreSession(): ParentSessionSnapshot {
-        val connection = api.checkConnection()
         val savedGuardian = sessions.getGuardian()
         val savedChildren = sessions.getChildren()
         val storedTokens = sessions.getTokens()
         if (savedGuardian == null || storedTokens == null) {
-            return ParentSessionSnapshot(connection = connection)
+            return ParentSessionSnapshot(connection = BackendConnectionState.CONNECTING)
         }
 
         var activeTokens: AuthTokens = storedTokens
@@ -60,7 +59,7 @@ class ParentRepository(
 
         if (mustSignOut) {
             sessions.clearSession()
-            return ParentSessionSnapshot(connection = connection)
+            return ParentSessionSnapshot(connection = BackendConnectionState.CONNECTING)
         }
         return ParentSessionSnapshot(
             guardian = savedGuardian, children = savedChildren,
