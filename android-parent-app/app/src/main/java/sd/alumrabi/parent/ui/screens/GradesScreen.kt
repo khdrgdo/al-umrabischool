@@ -1,191 +1,125 @@
 package sd.alumrabi.parent.ui.screens
 
-import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.Star
-import androidx.compose.material3.*
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import sd.alumrabi.parent.data.model.LinkedChild
 import sd.alumrabi.parent.data.model.PublishedGrade
+import sd.alumrabi.parent.ui.components.*
 import sd.alumrabi.parent.ui.theme.*
+import sd.alumrabi.parent.util.Fmt
+import sd.alumrabi.parent.util.gradesSummary
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun GradesScreen(
-    child: LinkedChild?,
-    onBack: () -> Unit
+    children: List<LinkedChild>,
+    selectedChildIndex: Int,
+    onSelectChild: (Int) -> Unit,
+    onSelectTab: (AppTab) -> Unit
 ) {
+    SystemBars(statusBar = Canvas, darkIcons = true)
+    val child = children.getOrNull(selectedChildIndex)
+    val grades = child?.grades.orEmpty()
+
     Scaffold(
-        topBar = {
-            TopAppBar(
-                title = {
-                    Column {
-                        Text(
-                            text = "النتائج والدرجات المعتمدة",
-                            fontSize = 15.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = Color.White
+        containerColor = Canvas,
+        topBar = { OmrabiTopBar(title = "النتائج", subtitle = child?.fullName) },
+        bottomBar = { OmrabiBottomBar(currentRoute = Routes.Results, onSelect = onSelectTab) }
+    ) { padding ->
+        LazyColumn(
+            modifier = Modifier.fillMaxSize().padding(padding),
+            contentPadding = PaddingValues(horizontal = Space.gutter, vertical = Space.lg),
+            verticalArrangement = Arrangement.spacedBy(Space.sm)
+        ) {
+            if (children.size > 1) {
+                item { ChildSwitcher(children, selectedChildIndex, onSelectChild) }
+            }
+            if (child == null) {
+                item { StatePanel(title = "لا يوجد ابن مرتبط", message = noChildMessage()) }
+            } else if (grades.isEmpty()) {
+                item {
+                    StatePanel(
+                        title = "لم تُنشر نتائج بعد",
+                        message = "تظهر النتائج هنا بعد اعتمادها ونشرها من إدارة المدرسة."
+                    )
+                }
+            } else {
+                val summary = grades.gradesSummary()
+                item {
+                    StatStrip(
+                        stats = listOf(
+                            Stat("${summary.count}", "نتيجة منشورة"),
+                            Stat(summary.averagePercent?.let { Fmt.percent(it) } ?: "—", "متوسط النسب"),
+                            Stat("${summary.failed}", "دون درجة النجاح")
                         )
-                        if (child != null) {
-                            Text(
-                                text = "${child.fullName} (${child.gradeName})",
-                                fontSize = 11.sp,
-                                color = Color.White.copy(alpha = 0.85f)
-                            )
+                    )
+                }
+                grades.groupBy { it.subjectName }.forEach { (subject, items) ->
+                    item { SectionLabel(subject) }
+                    item {
+                        GroupedList {
+                            items.forEachIndexed { index, grade ->
+                                if (index > 0) RowDivider()
+                                GradeRow(grade)
+                            }
                         }
                     }
-                },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(
-                            Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "رجوع",
-                            tint = Color.White
-                        )
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = BurgundyPrimary)
-            )
-        },
-        containerColor = LavenderCanvas
-    ) { padding ->
-        val grades = child?.grades ?: emptyList()
-
-        if (grades.isEmpty()) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(padding)
-                    .padding(24.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                Card(
-                    shape = RoundedCornerShape(16.dp),
-                    colors = CardDefaults.cardColors(containerColor = SurfaceWhite),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Column(
-                        modifier = Modifier.padding(24.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
-                        Icon(
-                            Icons.Default.Star,
-                            contentDescription = null,
-                            tint = BurgundyLight,
-                            modifier = Modifier.size(48.dp)
-                        )
-                        Spacer(modifier = Modifier.height(12.dp))
-                        Text(
-                            text = "لم تُنشر نتائج رسمية بعد",
-                            fontSize = 14.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = TextPrimary
-                        )
-                        Spacer(modifier = Modifier.height(6.dp))
-                        Text(
-                            text = "وفقاً لسياسة مدرسة العمرابي، تُعرض النتائج حصراً بعد اعتمادها رسمياً ونشرها من قبل إدارة المدرسة.",
-                            fontSize = 11.sp,
-                            color = TextSecondary,
-                            textAlign = androidx.compose.ui.text.style.TextAlign.Center,
-                            lineHeight = 16.sp
-                        )
-                    }
                 }
-            }
-        } else {
-            LazyColumn(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(padding)
-                    .padding(16.dp),
-                verticalArrangement = Arrangement.spacedBy(10.dp)
-            ) {
-                items(grades) { grade ->
-                    GradeItemCard(grade = grade)
-                }
+                item { Spacer(Modifier.height(Space.sm)) }
             }
         }
     }
 }
 
 @Composable
-fun GradeItemCard(grade: PublishedGrade) {
-    Card(
-        shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(containerColor = SurfaceWhite),
-        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
-        modifier = Modifier.fillMaxWidth()
+private fun GradeRow(grade: PublishedGrade) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .heightIn(min = 56.dp)
+            .padding(horizontal = Space.lg, vertical = Space.md),
+        verticalAlignment = Alignment.CenterVertically
     ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(14.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Column {
+        Column(Modifier.weight(1f)) {
+            Text(grade.title, style = MaterialTheme.typography.bodyLarge, color = Ink900)
+            if (grade.term.isNotBlank()) {
+                Text(grade.term, style = MaterialTheme.typography.bodySmall, color = Ink500)
+            }
+        }
+        val score = grade.score
+        if (grade.isAbsent) {
+            StatusLabel("غائب", Negative, NegativeBg)
+        } else if (score != null) {
+            val pass = score >= grade.passScore
+            Column(horizontalAlignment = Alignment.End) {
                 Text(
-                    text = grade.subjectName,
-                    fontSize = 13.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = TextPrimary
+                    "${Fmt.score(score)} / ${Fmt.score(grade.maxScore)}",
+                    style = MaterialTheme.typography.titleSmall.tabular(),
+                    color = if (pass) Positive else Negative
                 )
                 Text(
-                    text = "${grade.title} (${grade.term})",
-                    fontSize = 11.sp,
-                    color = TextSecondary
+                    if (pass) "ناجح" else "راسب",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = if (pass) Positive else Negative
                 )
             }
-
-            if (grade.isAbsent) {
-                Surface(
-                    shape = CircleShape,
-                    color = StatusDangerBg
-                ) {
-                    Text(
-                        text = "غائب",
-                        fontSize = 11.sp,
-                        color = StatusDanger,
-                        fontWeight = FontWeight.Bold,
-                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
-                    )
-                }
-            } else if (grade.score != null) {
-                val isPass = grade.score >= grade.passScore
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(
-                        text = "${grade.score} / ${grade.maxScore}",
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = if (isPass) StatusSuccess else StatusDanger
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Surface(
-                        shape = CircleShape,
-                        color = if (isPass) StatusSuccessBg else StatusDangerBg
-                    ) {
-                        Text(
-                            text = if (isPass) "ناجح" else "راسب",
-                            fontSize = 10.sp,
-                            color = if (isPass) StatusSuccess else StatusDanger,
-                            fontWeight = FontWeight.Bold,
-                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
-                        )
-                    }
-                }
-            }
+        } else {
+            Text("قيد الرصد", style = MaterialTheme.typography.bodySmall, color = Ink500)
         }
     }
 }
