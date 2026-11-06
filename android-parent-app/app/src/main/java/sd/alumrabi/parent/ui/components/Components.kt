@@ -1,27 +1,58 @@
+@file:OptIn(ExperimentalMaterial3Api::class)
+
 package sd.alumrabi.parent.ui.components
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.IntrinsicSize
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.Info
-import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material.icons.filled.Warning
-import androidx.compose.material3.*
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.material.icons.automirrored.outlined.ArrowBack
+import androidx.compose.material.icons.outlined.CloudOff
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material3.VerticalDivider
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextDirection
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -29,19 +60,25 @@ import sd.alumrabi.parent.R
 import sd.alumrabi.parent.data.model.BackendConnectionState
 import sd.alumrabi.parent.data.model.LinkedChild
 import sd.alumrabi.parent.ui.theme.*
+import sd.alumrabi.parent.util.Fmt
 
-/** رمز العمرابي الرسمي (vector شفاف). */
+/** رمز العمرابي الرسمي (vector شفاف). tint للاستعمال فوق خلفية قرمزية (أبيض). */
 @Composable
-fun OmrabiSymbol(size: Dp, modifier: Modifier = Modifier) {
+fun OmrabiSymbol(
+    size: Dp,
+    modifier: Modifier = Modifier,
+    tint: Color? = null,
+    description: String? = null
+) {
     Image(
         painter = painterResource(R.drawable.ic_omrabi_symbol),
-        contentDescription = "شعار العمرابي",
-        modifier = modifier.size(size)
+        contentDescription = description,
+        modifier = modifier.size(size),
+        colorFilter = if (tint != null) ColorFilter.tint(tint) else null
     )
 }
 
-/** شريط علوي مؤسسي قرمزي، مع رجوع اختياري وسطر فرعي (اسم الابن غالباً). */
-@OptIn(ExperimentalMaterial3Api::class)
+/** شريط علوي فاتح بفاصل رفيع؛ القرمزي محجوز لشاشتي البداية والدخول وللأفعال. */
 @Composable
 fun OmrabiTopBar(
     title: String,
@@ -49,182 +86,353 @@ fun OmrabiTopBar(
     onBack: (() -> Unit)? = null,
     actions: @Composable RowScope.() -> Unit = {}
 ) {
-    TopAppBar(
-        title = {
-            Column {
-                Text(title, style = MaterialTheme.typography.titleMedium, color = OnBrand,
-                    modifier = Modifier.semantics { heading() })
-                if (subtitle != null) {
-                    Text(subtitle, style = MaterialTheme.typography.labelMedium,
-                        color = OnBrand.copy(alpha = 0.82f), maxLines = 1, overflow = TextOverflow.Ellipsis)
+    Column(Modifier.background(Canvas)) {
+        TopAppBar(
+            title = {
+                Column {
+                    Text(
+                        title,
+                        style = MaterialTheme.typography.titleLarge,
+                        color = Ink900,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.semantics { heading() }
+                    )
+                    if (subtitle != null) {
+                        Text(
+                            subtitle,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = Ink500,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
                 }
-            }
-        },
-        navigationIcon = {
-            if (onBack != null) {
-                IconButton(onClick = onBack) {
-                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "رجوع", tint = OnBrand)
+            },
+            navigationIcon = {
+                if (onBack != null) {
+                    IconButton(onClick = onBack) {
+                        Icon(Icons.AutoMirrored.Outlined.ArrowBack, contentDescription = "رجوع", tint = Ink900)
+                    }
                 }
-            }
-        },
-        actions = actions,
-        colors = TopAppBarDefaults.topAppBarColors(containerColor = Crimson700)
+            },
+            actions = actions,
+            colors = TopAppBarDefaults.topAppBarColors(
+                containerColor = Canvas,
+                titleContentColor = Ink900,
+                navigationIconContentColor = Ink900,
+                actionIconContentColor = Ink900
+            )
+        )
+        HorizontalDivider(color = Line)
+    }
+}
+
+/** سطح أبيض واحد بحد رفيع يضم صفوفاً مفصولة بخطوط — بدل بطاقة منفصلة لكل عنصر. */
+@Composable
+fun GroupedList(
+    modifier: Modifier = Modifier,
+    content: @Composable ColumnScope.() -> Unit
+) {
+    Surface(
+        modifier = modifier.fillMaxWidth(),
+        shape = Radius.card,
+        color = Paper,
+        border = BorderStroke(1.dp, Line)
+    ) {
+        Column(content = content)
+    }
+}
+
+@Composable
+fun RowDivider() {
+    HorizontalDivider(color = Line, modifier = Modifier.padding(horizontal = Space.lg))
+}
+
+@Composable
+fun SectionLabel(text: String, modifier: Modifier = Modifier) {
+    Text(
+        text,
+        style = MaterialTheme.typography.titleSmall,
+        color = Ink700,
+        modifier = modifier
+            .padding(top = Space.md, bottom = Space.xs, start = Space.xs)
+            .semantics { heading() }
     )
 }
 
-/** بطاقة بيضاء بحد رفيع — الوحدة الأساسية للمحتوى. */
+/** صف قائمة: عنوان + سطر فرعي، أيقونة اختيارية في البداية، وسهم عند وجود إجراء. */
 @Composable
-fun PanelCard(
+fun ListRow(
+    title: String,
     modifier: Modifier = Modifier,
+    subtitle: String? = null,
+    leading: ImageVector? = null,
     onClick: (() -> Unit)? = null,
-    padding: PaddingValues = PaddingValues(Space.lg),
-    content: @Composable ColumnScope.() -> Unit
+    enabled: Boolean = true
 ) {
-    val base = modifier.fillMaxWidth()
-    Surface(
-        modifier = if (onClick != null) base.clip(Radius.card).clickable(onClick = onClick) else base,
-        shape = Radius.card,
-        color = CardSurface,
-        border = BorderStroke(1.dp, Hairline),
-        tonalElevation = Elevation.flat
-    ) {
-        Column(Modifier.padding(padding), content = content)
-    }
-}
-
-/** عنوان قسم مع خط قرمزي قصير على اليمين (بداية السطر في RTL). */
-@Composable
-fun SectionHeader(text: String, trailing: (@Composable () -> Unit)? = null) {
+    val clickable = onClick != null && enabled
+    val base = modifier
+        .fillMaxWidth()
+        .heightIn(min = 56.dp)
     Row(
-        Modifier.fillMaxWidth().padding(top = Space.sm, bottom = Space.sm),
+        modifier = (if (clickable && onClick != null) base.clickable(onClick = onClick) else base)
+            .padding(horizontal = Space.lg, vertical = Space.md),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Box(Modifier.width(3.dp).height(16.dp).background(Crimson600))
-        Spacer(Modifier.width(Space.sm))
-        Text(text, style = MaterialTheme.typography.titleSmall, color = InkPrimary,
-            modifier = Modifier.weight(1f).semantics { heading() })
-        trailing?.invoke()
-    }
-}
-
-/** شارة حالة نصية دائماً — لا تعتمد على اللون وحده. */
-@Composable
-fun StatusChip(text: String, fg: Color, bg: Color) {
-    Surface(shape = Radius.chip, color = bg) {
-        Text(text, style = MaterialTheme.typography.labelMedium, color = fg,
-            modifier = Modifier.padding(horizontal = Space.sm, vertical = Space.xxs + 1.dp))
-    }
-}
-
-/** قيمة رقمية مع وصف. */
-@Composable
-fun Metric(label: String, value: String, modifier: Modifier = Modifier, accent: Color = InkPrimary) {
-    Column(modifier) {
-        Text(value, style = MaterialTheme.typography.headlineSmall, color = accent)
-        Text(label, style = MaterialTheme.typography.labelMedium, color = InkSecondary)
-    }
-}
-
-/** رمز دائري بحرف أول من الاسم للابن. */
-@Composable
-fun Monogram(name: String, size: Dp = 40.dp, selected: Boolean = true) {
-    Box(
-        Modifier.size(size).clip(CircleShape).background(if (selected) Crimson600 else Gray200),
-        contentAlignment = Alignment.Center
-    ) {
-        Text(name.trim().take(1), style = MaterialTheme.typography.titleMedium,
-            color = if (selected) OnBrand else InkSecondary)
-    }
-}
-
-/** شريط تنبيه حالة الاتصال. */
-@Composable
-fun ConnectionBanner(state: BackendConnectionState) {
-    if (state == BackendConnectionState.CONNECTED_LIVE) return
-    val (text, fg, bg) = when (state) {
-        BackendConnectionState.CONNECTING -> Triple("جارٍ الاتصال بخادم المدرسة…", InkSecondary, Gray200)
-        else -> Triple("أنت غير متصل — تُعرض آخر بيانات محفوظة وقد لا تكون محدثة", Caution, CautionBg)
-    }
-    Row(
-        Modifier.fillMaxWidth().background(bg).padding(horizontal = Space.lg, vertical = Space.sm),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        if (state == BackendConnectionState.CONNECTING) {
-            CircularProgressIndicator(Modifier.size(14.dp), strokeWidth = 2.dp, color = fg)
-        } else {
-            Icon(Icons.Default.Warning, null, tint = fg, modifier = Modifier.size(16.dp))
+        if (leading != null) {
+            Icon(
+                leading,
+                contentDescription = null,
+                tint = if (enabled) Ink700 else Ink500.copy(alpha = 0.6f),
+                modifier = Modifier.size(22.dp)
+            )
+            Spacer(Modifier.width(Space.md))
         }
-        Spacer(Modifier.width(Space.sm))
-        Text(text, style = MaterialTheme.typography.labelMedium, color = fg)
+        Column(Modifier.weight(1f)) {
+            Text(
+                title,
+                style = MaterialTheme.typography.bodyLarge,
+                color = if (enabled) Ink900 else Ink500
+            )
+            if (subtitle != null) {
+                Text(subtitle, style = MaterialTheme.typography.bodySmall, color = Ink500)
+            }
+        }
+        if (clickable) {
+            Spacer(Modifier.width(Space.sm))
+            Icon(
+                Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                contentDescription = null,
+                tint = Ink500
+            )
+        }
     }
 }
 
-/** حالة فارغة / خطأ / عدم توفر — موحدة لكل الشاشات. */
+/** شارة حالة نصية — لا تعتمد على اللون وحده. */
+@Composable
+fun StatusLabel(text: String, fg: Color, bg: Color, modifier: Modifier = Modifier) {
+    Surface(modifier = modifier, shape = Radius.chip, color = bg) {
+        Text(
+            text,
+            style = MaterialTheme.typography.labelMedium,
+            color = fg,
+            modifier = Modifier.padding(horizontal = Space.sm, vertical = 3.dp)
+        )
+    }
+}
+
+data class Stat(val value: String, val label: String)
+
+/** شريط أرقام مفصول بخطوط رأسية (ملخص سريع). */
+@Composable
+fun StatStrip(stats: List<Stat>, modifier: Modifier = Modifier) {
+    GroupedList(modifier) {
+        Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min)) {
+            stats.forEachIndexed { index, stat ->
+                if (index > 0) VerticalDivider(color = Line)
+                Column(
+                    modifier = Modifier
+                        .weight(1f)
+                        .padding(vertical = Space.lg, horizontal = Space.sm),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Text(
+                        stat.value,
+                        style = MaterialTheme.typography.titleLarge.tabular(),
+                        color = Ink900
+                    )
+                    Text(
+                        stat.label,
+                        style = MaterialTheme.typography.labelMedium,
+                        color = Ink500,
+                        textAlign = TextAlign.Center
+                    )
+                }
+            }
+        }
+    }
+}
+
+/** مبدّل الأبناء: يظهر فقط عند وجود أكثر من ابن. */
+@Composable
+fun ChildSwitcher(
+    children: List<LinkedChild>,
+    selectedIndex: Int,
+    onSelect: (Int) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    if (children.size < 2) return
+    LazyRow(modifier = modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(Space.sm)) {
+        itemsIndexed(children) { index, child ->
+            val selected = index == selectedIndex
+            Surface(
+                selected = selected,
+                onClick = { onSelect(index) },
+                shape = Radius.field,
+                color = if (selected) Crimson600 else Paper,
+                border = if (selected) null else BorderStroke(1.dp, LineStrong)
+            ) {
+                Box(
+                    modifier = Modifier
+                        .heightIn(min = 44.dp)
+                        .padding(horizontal = Space.lg),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        Fmt.shortName(child.fullName),
+                        style = MaterialTheme.typography.labelLarge,
+                        color = if (selected) OnBrand else Ink900
+                    )
+                }
+            }
+        }
+    }
+}
+
+/** إشعار حالة المزامنة: لا يظهر عندما تكون البيانات حديثة. */
+@Composable
+fun SyncNotice(state: BackendConnectionState, lastSyncMillis: Long, modifier: Modifier = Modifier) {
+    if (state == BackendConnectionState.CONNECTED_LIVE) return
+    val offline = state == BackendConnectionState.SYNCED_LOCAL
+    val fg = if (offline) Caution else Ink700
+    val bg = if (offline) CautionBg else Wash
+    val text = if (offline) {
+        "لا يوجد اتصال بالخادم. تُعرض آخر بيانات محفوظة (آخر تحديث: ${Fmt.lastSync(lastSyncMillis)})."
+    } else {
+        "جارٍ تحديث البيانات…"
+    }
+    Surface(modifier = modifier.fillMaxWidth(), shape = Radius.field, color = bg) {
+        Row(
+            modifier = Modifier.padding(horizontal = Space.md, vertical = Space.md),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            if (offline) {
+                Icon(Icons.Outlined.CloudOff, contentDescription = null, tint = fg, modifier = Modifier.size(18.dp))
+            } else {
+                CircularProgressIndicator(Modifier.size(16.dp), strokeWidth = 2.dp, color = fg)
+            }
+            Spacer(Modifier.width(Space.md))
+            Text(text, style = MaterialTheme.typography.bodySmall, color = fg)
+        }
+    }
+}
+
+/** حالة فارغة / غير متاحة: نص صريح بدل أيقونة كبيرة. */
 @Composable
 fun StatePanel(
     title: String,
     message: String,
-    icon: ImageVector = Icons.Default.Info,
-    tone: Color = InkSecondary,
+    modifier: Modifier = Modifier,
     actionLabel: String? = null,
-    onAction: (() -> Unit)? = null,
-    modifier: Modifier = Modifier
+    onAction: (() -> Unit)? = null
 ) {
-    Column(
-        modifier.fillMaxWidth().padding(horizontal = Space.xxl, vertical = 48.dp),
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        Box(Modifier.size(56.dp).clip(CircleShape).background(Gray200), contentAlignment = Alignment.Center) {
-            Icon(icon, null, tint = tone, modifier = Modifier.size(26.dp))
-        }
-        Spacer(Modifier.height(Space.lg))
-        Text(title, style = MaterialTheme.typography.titleMedium, color = InkPrimary, textAlign = TextAlign.Center)
-        Spacer(Modifier.height(Space.xs))
-        Text(message, style = MaterialTheme.typography.bodyMedium, color = InkSecondary, textAlign = TextAlign.Center)
-        if (actionLabel != null && onAction != null) {
-            Spacer(Modifier.height(Space.lg))
-            OutlinedButton(onClick = onAction, shape = Radius.field, border = BorderStroke(1.dp, Crimson600)) {
-                Icon(Icons.Default.Refresh, null, tint = Crimson600, modifier = Modifier.size(18.dp))
-                Spacer(Modifier.width(Space.xs))
-                Text(actionLabel, color = Crimson600)
+    GroupedList(modifier) {
+        Column(Modifier.padding(Space.xl)) {
+            Text(title, style = MaterialTheme.typography.titleMedium, color = Ink900)
+            Spacer(Modifier.height(Space.xs))
+            Text(message, style = MaterialTheme.typography.bodyMedium, color = Ink700)
+            if (actionLabel != null && onAction != null) {
+                Spacer(Modifier.height(Space.lg))
+                OutlineButton(text = actionLabel, onClick = onAction)
             }
         }
     }
 }
 
 @Composable
-fun LoadingPanel(message: String = "جارٍ التحميل…") {
-    Column(
-        Modifier.fillMaxWidth().padding(vertical = 64.dp),
-        horizontalAlignment = Alignment.CenterHorizontally
+fun PrimaryButton(
+    text: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    enabled: Boolean = true,
+    loading: Boolean = false
+) {
+    Button(
+        onClick = onClick,
+        enabled = enabled && !loading,
+        modifier = modifier.heightIn(min = 52.dp),
+        shape = Radius.field,
+        colors = ButtonDefaults.buttonColors(
+            containerColor = Crimson600,
+            contentColor = OnBrand,
+            disabledContainerColor = Crimson600.copy(alpha = 0.55f),
+            disabledContentColor = OnBrand
+        )
     ) {
-        CircularProgressIndicator(color = Crimson600, strokeWidth = 3.dp)
-        Spacer(Modifier.height(Space.md))
-        Text(message, style = MaterialTheme.typography.bodyMedium, color = InkSecondary)
+        if (loading) {
+            CircularProgressIndicator(Modifier.size(20.dp), color = OnBrand, strokeWidth = 2.dp)
+        } else {
+            Text(text, style = MaterialTheme.typography.labelLarge)
+        }
     }
 }
 
-/** شريط اختيار الابن النشط داخل الشاشات الفرعية. */
 @Composable
-fun ChildContextBar(child: LinkedChild?, canSwitch: Boolean, onSwitch: () -> Unit) {
-    if (child == null) return
+fun OutlineButton(
+    text: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    enabled: Boolean = true
+) {
+    OutlinedButton(
+        onClick = onClick,
+        enabled = enabled,
+        modifier = modifier.heightIn(min = 48.dp),
+        shape = Radius.field,
+        border = BorderStroke(1.dp, LineStrong),
+        colors = ButtonDefaults.outlinedButtonColors(contentColor = Crimson700)
+    ) {
+        Text(text, style = MaterialTheme.typography.labelLarge)
+    }
+}
+
+/** رمز دائري بحرف أول من الاسم. */
+@Composable
+fun Monogram(name: String, size: Dp = 48.dp) {
+    Box(
+        modifier = Modifier
+            .size(size)
+            .clip(CircleShape)
+            .background(Crimson100),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(
+            name.trim().take(1),
+            style = MaterialTheme.typography.titleMedium,
+            color = Crimson700
+        )
+    }
+}
+
+/** صف «تسمية: قيمة». القيم اللاتينية (أكواد، هواتف) تُعرض LTR داخل الجملة العربية. */
+@Composable
+fun InfoRow(label: String, value: String, ltr: Boolean = false) {
     Row(
-        Modifier.fillMaxWidth().background(CardSurface)
-            .then(if (canSwitch) Modifier.clickable(onClick = onSwitch) else Modifier)
+        modifier = Modifier
+            .fillMaxWidth()
+            .heightIn(min = 52.dp)
             .padding(horizontal = Space.lg, vertical = Space.md),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Monogram(child.fullName, 32.dp)
+        Text(
+            label,
+            style = MaterialTheme.typography.bodyMedium,
+            color = Ink500,
+            modifier = Modifier.weight(1f)
+        )
         Spacer(Modifier.width(Space.md))
-        Column(Modifier.weight(1f)) {
-            Text(child.fullName, style = MaterialTheme.typography.titleSmall, color = InkPrimary,
-                maxLines = 1, overflow = TextOverflow.Ellipsis)
-            Text("${child.gradeName} · ${child.sectionName} · ${child.studentNumber}",
-                style = MaterialTheme.typography.labelSmall, color = InkSecondary, maxLines = 1)
-        }
-        if (canSwitch) Text("تبديل", style = MaterialTheme.typography.labelLarge, color = Crimson600)
+        Text(
+            value,
+            style = if (ltr) {
+                MaterialTheme.typography.bodyMedium.copy(textDirection = TextDirection.Ltr)
+            } else {
+                MaterialTheme.typography.bodyMedium
+            },
+            color = Ink900
+        )
     }
-    HorizontalDivider(color = Hairline)
 }
 
 fun noChildMessage() = "لا يوجد ابن مرتبط بحسابك حالياً. تواصل مع إدارة المدرسة لربط أبنائك."

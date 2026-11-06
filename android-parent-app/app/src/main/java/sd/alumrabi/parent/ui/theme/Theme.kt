@@ -8,6 +8,7 @@ import androidx.compose.material3.Typography
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.SideEffect
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.TextStyle
@@ -27,23 +28,27 @@ val PlexArabic = FontFamily(
     Font(R.font.plex_arabic_bold, FontWeight.Bold)
 )
 
+// ارتفاع السطر ~1.6× لأن الحروف العربية والتشكيل تحتاج مساحة رأسية؛ ولا حجم نص أقل من 12sp.
 private fun style(size: Int, line: Int, weight: FontWeight) =
     TextStyle(fontFamily = PlexArabic, fontSize = size.sp, lineHeight = line.sp, fontWeight = weight)
 
 val OmrabiTypography = Typography(
-    displaySmall = style(30, 38, FontWeight.Bold),
-    headlineMedium = style(24, 32, FontWeight.Bold),
-    headlineSmall = style(20, 28, FontWeight.Bold),
-    titleLarge = style(18, 26, FontWeight.Bold),
-    titleMedium = style(16, 24, FontWeight.SemiBold),
-    titleSmall = style(14, 20, FontWeight.SemiBold),
+    displaySmall = style(28, 38, FontWeight.Bold),
+    headlineMedium = style(24, 34, FontWeight.Bold),
+    headlineSmall = style(20, 30, FontWeight.Bold),
+    titleLarge = style(18, 28, FontWeight.Bold),
+    titleMedium = style(16, 26, FontWeight.SemiBold),
+    titleSmall = style(14, 22, FontWeight.SemiBold),
     bodyLarge = style(16, 26, FontWeight.Normal),
-    bodyMedium = style(14, 22, FontWeight.Normal),
-    bodySmall = style(12, 18, FontWeight.Normal),
-    labelLarge = style(14, 20, FontWeight.SemiBold),
-    labelMedium = style(12, 16, FontWeight.Medium),
-    labelSmall = style(11, 14, FontWeight.Medium)
+    bodyMedium = style(14, 23, FontWeight.Normal),
+    bodySmall = style(12, 19, FontWeight.Normal),
+    labelLarge = style(14, 20, FontWeight.Medium),
+    labelMedium = style(12, 18, FontWeight.Medium),
+    labelSmall = style(12, 16, FontWeight.Medium)
 )
+
+/** أرقام متساوية العرض لتصطف الأعمدة (درجات، مبالغ). */
+fun TextStyle.tabular(): TextStyle = copy(fontFeatureSettings = "tnum")
 
 /** شبكة مسافات 4dp. */
 object Space {
@@ -57,19 +62,11 @@ object Space {
     val gutter = 16.dp
 }
 
-/** زوايا: حادة نسبياً لهوية مؤسسية، دون مبالغة في الاستدارة. */
+/** زوايا هادئة: بلا مبالغة في الاستدارة. */
 object Radius {
     val chip = RoundedCornerShape(6.dp)
     val field = RoundedCornerShape(8.dp)
     val card = RoundedCornerShape(12.dp)
-    val sheet = RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp)
-}
-
-/** ارتفاعات الظل: بطاقات بحدود رفيعة بدل الظلال الثقيلة. */
-object Elevation {
-    val flat = 0.dp
-    val raised = 1.dp
-    val floating = 6.dp
 }
 
 private val OmrabiColors = lightColorScheme(
@@ -77,36 +74,52 @@ private val OmrabiColors = lightColorScheme(
     onPrimary = OnBrand,
     primaryContainer = Crimson100,
     onPrimaryContainer = Crimson800,
-    secondary = Charcoal800,
-    onSecondary = White,
-    secondaryContainer = Gray200,
-    onSecondaryContainer = Charcoal800,
+    secondary = Ink900,
+    onSecondary = OnBrand,
+    secondaryContainer = Wash,
+    onSecondaryContainer = Ink900,
     tertiary = Crimson700,
     background = Canvas,
-    onBackground = InkPrimary,
-    surface = CardSurface,
-    onSurface = InkPrimary,
-    surfaceVariant = Gray100,
-    onSurfaceVariant = InkSecondary,
-    outline = Gray300,
-    outlineVariant = Hairline,
-    error = Crimson700,
-    onError = White
+    onBackground = Ink900,
+    surface = Paper,
+    onSurface = Ink900,
+    surfaceVariant = Wash,
+    onSurfaceVariant = Ink700,
+    surfaceTint = Paper,
+    outline = LineStrong,
+    outlineVariant = Line,
+    error = Negative,
+    onError = OnBrand,
+    surfaceContainerLowest = Paper,
+    surfaceContainerLow = Paper,
+    surfaceContainer = Paper,
+    surfaceContainerHigh = Paper,
+    surfaceContainerHighest = Wash
 )
 
+/** ألوان شريط الحالة وشريط التنقل لكل شاشة (الشاشات الداكنة تحتاج أيقونات فاتحة). */
 @Composable
-fun AlUmrabiParentTheme(content: @Composable () -> Unit) {
+fun SystemBars(
+    statusBar: Color,
+    darkIcons: Boolean,
+    navigationBar: Color = Paper,
+    navigationIconsDark: Boolean = true
+) {
     val view = LocalView.current
     if (!view.isInEditMode) {
         SideEffect {
             val window = (view.context as Activity).window
-            window.statusBarColor = Crimson700.toArgb()
-            window.navigationBarColor = White.toArgb()
+            window.statusBarColor = statusBar.toArgb()
+            window.navigationBarColor = navigationBar.toArgb()
             val controller = WindowCompat.getInsetsController(window, view)
-            controller.isAppearanceLightStatusBars = false
-            controller.isAppearanceLightNavigationBars = true
+            controller.isAppearanceLightStatusBars = darkIcons
+            controller.isAppearanceLightNavigationBars = navigationIconsDark
         }
     }
+}
+
+@Composable
+fun AlUmrabiParentTheme(content: @Composable () -> Unit) {
     MaterialTheme(
         colorScheme = OmrabiColors,
         typography = OmrabiTypography,
