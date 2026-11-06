@@ -12,6 +12,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.unit.dp
 import sd.alumrabi.parent.data.model.GuardianInfo
 import sd.alumrabi.parent.ui.components.*
 import sd.alumrabi.parent.ui.theme.*
