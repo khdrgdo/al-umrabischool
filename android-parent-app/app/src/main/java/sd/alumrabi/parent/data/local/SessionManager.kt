@@ -4,9 +4,12 @@ import android.content.Context
 import android.content.SharedPreferences
 import androidx.security.crypto.EncryptedSharedPreferences
 import androidx.security.crypto.MasterKey
+import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import sd.alumrabi.parent.data.api.AuthTokens
+import sd.alumrabi.parent.data.model.AnnouncementItem
+import sd.alumrabi.parent.data.model.CalendarEventItem
 import sd.alumrabi.parent.data.model.GuardianInfo
 import sd.alumrabi.parent.data.model.LinkedChild
 
@@ -19,7 +22,7 @@ class SessionManager(context: Context) {
     private val prefs: SharedPreferences = openEncrypted(context.applicationContext)
 
     companion object {
-        private const val LEGACY_PREF_NAME = "alumrabi_parent_session" // كان يحوي PIN نصياً
+        private const val LEGACY_PREF_NAME = "alumrabi_parent_session"
         private const val PREF_NAME = "alumrabi_parent_session_secure"
         private const val KEY_IS_LOGGED_IN = "is_logged_in"
         private const val KEY_GUARDIAN_ID = "guardian_id"
@@ -28,13 +31,14 @@ class SessionManager(context: Context) {
         private const val KEY_PHONE = "phone"
         private const val KEY_STATUS = "status"
         private const val KEY_CHILDREN_JSON = "children_json"
+        private const val KEY_ANNOUNCEMENTS_JSON = "announcements_json"
+        private const val KEY_EVENTS_JSON = "events_json"
         private const val KEY_LAST_SYNC = "last_sync"
         private const val KEY_ACCESS = "access_token"
         private const val KEY_REFRESH = "refresh_token"
         private const val KEY_EXPIRES = "expires_at"
 
         private fun openEncrypted(ctx: Context): SharedPreferences {
-            // حذف أي بيانات قديمة غير مشفّرة (تحوي PIN) فوراً.
             runCatching { ctx.deleteSharedPreferences(LEGACY_PREF_NAME) }
             fun create(): SharedPreferences {
                 val key = MasterKey.Builder(ctx).setKeyScheme(MasterKey.KeyScheme.AES256_GCM).build()
@@ -47,7 +51,6 @@ class SessionManager(context: Context) {
             return try {
                 create()
             } catch (_: Exception) {
-                // مفتاح Keystore تالف/مفقود: نبدأ جلسة نظيفة بدل الانهيار أو الرجوع لتخزين غير مشفّر.
                 runCatching { ctx.deleteSharedPreferences(PREF_NAME) }
                 create()
             }
@@ -63,33 +66,35 @@ class SessionManager(context: Context) {
     }
 
     fun getTokens(): AuthTokens? {
-        val a = prefs.getString(KEY_ACCESS, null) ?: return null
-        val r = prefs.getString(KEY_REFRESH, null) ?: return null
-        return AuthTokens(a, r, prefs.getLong(KEY_EXPIRES, 0L))
+        val access = prefs.getString(KEY_ACCESS, null) ?: return null
+        val refresh = prefs.getString(KEY_REFRESH, null) ?: return null
+        return AuthTokens(access, refresh, prefs.getLong(KEY_EXPIRES, 0L))
     }
 
-    fun saveSession(guardian: GuardianInfo, children: List<LinkedChild>) {
+    fun saveSession(
+        guardian: GuardianInfo,
+        children: List<LinkedChild>,
+        announcements: List<AnnouncementItem> = emptyList(),
+        events: List<CalendarEventItem> = emptyList()
+    ) {
         val editor = prefs.edit()
-        editor.putBoolean(KEY_IS_LOGGED_IN, true)
-        editor.putString(KEY_GUARDIAN_ID, guardian.id)
-        editor.putString(KEY_ACCOUNT_CODE, guardian.accountCode)
-        editor.putString(KEY_FULL_NAME, guardian.fullName)
-        editor.putString(KEY_PHONE, guardian.phone)
-        editor.putString(KEY_STATUS, guardian.status)
-        try {
-            editor.putString(KEY_CHILDREN_JSON, json.encodeToString(children))
-        } catch (_: Exception) {
-            // Keep existing if serialization fails
-        }
-        editor.putLong(KEY_LAST_SYNC, System.currentTimeMillis())
+            .putBoolean(KEY_IS_LOGGED_IN, true)
+            .putString(KEY_GUARDIAN_ID, guardian.id)
+            .putString(KEY_ACCOUNT_CODE, guardian.accountCode)
+            .putString(KEY_FULL_NAME, guardian.fullName)
+            .putString(KEY_PHONE, guardian.phone)
+            .putString(KEY_STATUS, guardian.status)
+            .putLong(KEY_LAST_SYNC, System.currentTimeMillis())
+        runCatching { json.encodeToString(children) }.getOrNull()?.let { editor.putString(KEY_CHILDREN_JSON, it) }
+        runCatching { json.encodeToString(announcements) }.getOrNull()?.let { editor.putString(KEY_ANNOUNCEMENTS_JSON, it) }
+        runCatching { json.encodeToString(events) }.getOrNull()?.let { editor.putString(KEY_EVENTS_JSON, it) }
         editor.apply()
     }
 
-    fun isLoggedIn(): Boolean {
-        return prefs.getBoolean(KEY_IS_LOGGED_IN, false) &&
+    fun isLoggedIn(): Boolean =
+        prefs.getBoolean(KEY_IS_LOGGED_IN, false) &&
             !prefs.getString(KEY_ACCOUNT_CODE, null).isNullOrBlank() &&
             getTokens() != null
-    }
 
     fun getGuardian(): GuardianInfo? {
         if (!isLoggedIn()) return null
@@ -102,16 +107,15 @@ class SessionManager(context: Context) {
         )
     }
 
-    fun getChildren(): List<LinkedChild> {
+    private inline fun <reified T> readList(key: String): List<T> {
         if (!isLoggedIn()) return emptyList()
-        val raw = prefs.getString(KEY_CHILDREN_JSON, null) ?: return emptyList()
-        return try {
-            json.decodeFromString(raw)
-        } catch (_: Exception) {
-            emptyList()
-        }
+        val raw = prefs.getString(key, null) ?: return emptyList()
+        return runCatching { json.decodeFromString<List<T>>(raw) }.getOrDefault(emptyList())
     }
 
+    fun getChildren(): List<LinkedChild> = readList(KEY_CHILDREN_JSON)
+    fun getAnnouncements(): List<AnnouncementItem> = readList(KEY_ANNOUNCEMENTS_JSON)
+    fun getEvents(): List<CalendarEventItem> = readList(KEY_EVENTS_JSON)
     fun getLastSyncMillis(): Long = prefs.getLong(KEY_LAST_SYNC, 0L)
 
     fun clearSession() {

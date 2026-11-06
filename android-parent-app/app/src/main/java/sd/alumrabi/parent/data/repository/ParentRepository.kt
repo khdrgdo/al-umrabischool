@@ -25,6 +25,8 @@ class ParentRepository(
         val connection = api.checkConnection()
         val savedGuardian = sessions.getGuardian()
         val savedChildren = sessions.getChildren()
+        val savedAnnouncements = sessions.getAnnouncements()
+        val savedEvents = sessions.getEvents()
         val storedTokens = sessions.getTokens()
         if (savedGuardian == null || storedTokens == null) {
             return ParentSessionSnapshot(connection = connection)
@@ -47,7 +49,7 @@ class ParentRepository(
             val dashboard = api.fetchDashboard(activeTokens.accessToken)
             val payload = dashboard.getOrNull()
             if (payload != null) {
-                sessions.saveSession(payload.guardian, payload.children)
+                sessions.saveSession(payload.guardian, payload.children, payload.announcements, payload.events)
                 return ParentSessionSnapshot(
                     guardian = payload.guardian, children = payload.children,
                     announcements = payload.announcements, events = payload.events,
@@ -64,13 +66,14 @@ class ParentRepository(
         }
         return ParentSessionSnapshot(
             guardian = savedGuardian, children = savedChildren,
+            announcements = savedAnnouncements, events = savedEvents,
             connection = BackendConnectionState.SYNCED_LOCAL, hasSession = true
         )
     }
 
     fun persistAuthenticatedSession(tokens: AuthTokens, payload: DashboardPayload) {
         sessions.saveTokens(tokens)
-        sessions.saveSession(payload.guardian, payload.children)
+        sessions.saveSession(payload.guardian, payload.children, payload.announcements, payload.events)
     }
 
     suspend fun endSession(demoMode: Boolean) {
