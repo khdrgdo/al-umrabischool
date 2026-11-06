@@ -1,8 +1,5 @@
 package sd.alumrabi.parent.ui.screens
 
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -32,9 +29,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.launch
-import sd.alumrabi.parent.BuildConfig
 import sd.alumrabi.parent.R
-import sd.alumrabi.parent.data.DemoData
 import sd.alumrabi.parent.data.api.AuthTokens
 import sd.alumrabi.parent.data.api.ParentApiClient
 import sd.alumrabi.parent.data.model.DashboardPayload
@@ -42,8 +37,7 @@ import sd.alumrabi.parent.ui.theme.*
 
 @Composable
 fun LoginScreen(
-    onLoginSuccess: (tokens: AuthTokens, payload: DashboardPayload) -> Unit,
-    onDemoLoginSuccess: (payload: DashboardPayload) -> Unit
+    onLoginSuccess: (tokens: AuthTokens, payload: DashboardPayload) -> Unit
 ) {
     val scope = rememberCoroutineScope()
     val api = remember { ParentApiClient() }
@@ -55,7 +49,6 @@ fun LoginScreen(
     var passwordVisible by remember { mutableStateOf(false) }
     var loading by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
-    var showDemo by remember { mutableStateOf(false) }
 
     Column(
         Modifier.fillMaxSize().background(AppCanvas).statusBarsPadding().navigationBarsPadding().imePadding().verticalScroll(rememberScrollState())
@@ -142,12 +135,6 @@ fun LoginScreen(
                     onClick = {
                         val code = accountCode.trim()
                         if (code.isBlank() || password.isBlank()) { error = "يرجى إدخال معرّف الحساب وكلمة المرور."; return@Button }
-                        if (BuildConfig.DEBUG && code.startsWith("DEMO-")) {
-                            val payload = DemoData.authenticate(code, password.trim())
-                            if (payload == null) error = "بيانات الاختبار لا تطابق الحساب. تحقق من كلمة المرور."
-                            else { password = ""; onDemoLoginSuccess(payload) }
-                            return@Button
-                        }
                         if (activationMode) {
                             if (activationCode.isBlank()) { error = "يرجى إدخال رمز التفعيل الذي سلّمته لك الإدارة."; return@Button }
                             if (password.length < 8) { error = "كلمة المرور يجب ألا تقل عن 8 أحرف."; return@Button }
@@ -185,23 +172,6 @@ fun LoginScreen(
             }
         }
 
-        if (BuildConfig.DEBUG) {
-            Spacer(Modifier.height(18.dp))
-            TextButton(onClick = { showDemo = !showDemo }, modifier = Modifier.fillMaxWidth()) {
-                Text(if (showDemo) "إخفاء حسابات المعاينة" else "فتح حسابات المعاينة للمطورين", color = AppMuted, fontSize = 11.sp)
-            }
-            AnimatedVisibility(showDemo) {
-                Surface(color = AppSurface, shape = RoundedCornerShape(20.dp), border = BorderStroke(1.dp, AppBorder)) {
-                    Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                        Text("بيانات محلية للاختبار فقط", color = AppInk, fontWeight = FontWeight.Bold, fontSize = 13.sp)
-                        Text("لا تتصل هذه الحسابات بقاعدة بيانات المؤسسة.", color = AppMuted, fontSize = 11.sp)
-                        DemoRow("أسرة متعددة الأبناء", DemoData.FAMILY_ACCOUNT) { accountCode = DemoData.FAMILY_ACCOUNT; password = DemoData.PASSWORD; activationMode = false }
-                        HorizontalDivider(color = AppBorder)
-                        DemoRow("ولي أمر — ابن واحد", DemoData.SINGLE_ACCOUNT) { accountCode = DemoData.SINGLE_ACCOUNT; password = DemoData.PASSWORD; activationMode = false }
-                    }
-                }
-            }
-        }
         Spacer(Modifier.height(24.dp))
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
             Icon(Icons.Outlined.Lock, null, tint = AppMuted, modifier = Modifier.size(14.dp))
@@ -212,13 +182,3 @@ fun LoginScreen(
     }
 }
 
-@Composable
-private fun DemoRow(title: String, account: String, onUse: () -> Unit) {
-    Row(Modifier.fillMaxWidth().heightIn(min = 48.dp), verticalAlignment = Alignment.CenterVertically) {
-        Column(Modifier.weight(1f)) {
-            Text(title, color = AppInk, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
-            Text(account, color = AppMuted, fontSize = 10.sp)
-        }
-        TextButton(onClick = onUse) { Text("استخدم", color = AppRed) }
-    }
-}

@@ -16,7 +16,6 @@ import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.AccountCircle
 import androidx.compose.material.icons.outlined.Campaign
-import androidx.compose.material.icons.outlined.EventAvailable
 import androidx.compose.material.icons.outlined.Home
 import androidx.compose.material.icons.outlined.MenuBook
 import androidx.compose.material3.*
@@ -78,9 +77,8 @@ fun ParentAppNavHost() {
 
     val destinations = listOf(
         MainDestination("home", "الرئيسية", Icons.Outlined.Home),
-        MainDestination("grades", "النتائج", Icons.Outlined.MenuBook),
-        MainDestination("attendance", "الحضور", Icons.Outlined.EventAvailable),
-        MainDestination("announcements", "الأخبار", Icons.Outlined.Campaign),
+        MainDestination("learning", "الدراسة", Icons.Outlined.MenuBook),
+        MainDestination("announcements", "الإعلانات", Icons.Outlined.Campaign),
         MainDestination("settings", "حسابي", Icons.Outlined.AccountCircle)
     )
     val topLevel = destinations.any { it.route == route }
@@ -126,20 +124,16 @@ fun ParentAppNavHost() {
             navController = nav,
             startDestination = "boot",
             modifier = Modifier.fillMaxSize().padding(inner),
-            enterTransition = { slideIntoContainer(AnimatedContentTransitionScope.SlideDirection.Start, tween(220)) + fadeIn(tween(220)) },
-            exitTransition = { slideOutOfContainer(AnimatedContentTransitionScope.SlideDirection.Start, tween(180)) + fadeOut(tween(180)) },
-            popEnterTransition = { slideIntoContainer(AnimatedContentTransitionScope.SlideDirection.End, tween(220)) + fadeIn(tween(220)) },
-            popExitTransition = { slideOutOfContainer(AnimatedContentTransitionScope.SlideDirection.End, tween(180)) + fadeOut(tween(180)) }
+            enterTransition = { fadeIn(tween(120)) },
+            exitTransition = { fadeOut(tween(90)) },
+            popEnterTransition = { fadeIn(tween(120)) },
+            popExitTransition = { fadeOut(tween(90)) }
         ) {
             composable("boot") { BootScreen() }
             composable("login") {
                 LoginScreen(
                     onLoginSuccess = { tokens, payload ->
                         app.onAuthenticated(tokens, payload)
-                        nav.navigate("home") { popUpTo("login") { inclusive = true }; launchSingleTop = true }
-                    },
-                    onDemoLoginSuccess = { payload ->
-                        app.onDemoAuthenticated(payload)
                         nav.navigate("home") { popUpTo("login") { inclusive = true }; launchSingleTop = true }
                     }
                 )
@@ -156,6 +150,14 @@ fun ParentAppNavHost() {
                     onNavigateToAnnouncements = { nav.navigate("announcements") },
                     onNavigateToFees = { nav.navigate("fees") },
                     onNavigateToSettings = { nav.navigate("settings") }
+                )
+            }
+            composable("learning") {
+                LearningScreen(
+                    onNavigateToGrades = { nav.navigate("grades") },
+                    onNavigateToAttendance = { nav.navigate("attendance") },
+                    onNavigateToSchedule = { nav.navigate("schedule") },
+                    onNavigateToFees = { nav.navigate("fees") }
                 )
             }
             composable("grades") { GradesScreen(child = state.children.getOrNull(state.selectedChildIndex), onBack = { nav.popBackStack() }) }
