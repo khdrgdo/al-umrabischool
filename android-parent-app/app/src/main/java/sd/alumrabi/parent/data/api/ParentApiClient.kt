@@ -5,7 +5,6 @@ import io.ktor.client.call.body
 import io.ktor.client.engine.cio.CIO
 import io.ktor.client.plugins.HttpTimeout
 import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
-import io.ktor.client.request.get
 import io.ktor.client.request.headers
 import io.ktor.client.request.post
 import io.ktor.client.request.setBody
@@ -19,7 +18,7 @@ import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.*
 import sd.alumrabi.parent.data.model.*
 
-/** جلسة Supabase Auth لولي الأمر. تُخزَّن مشفّرة فقط (انظر SessionManager). */
+/** جلسة Supabase Auth لولي الأمر. تُخزَّن مشفّرة فقط (انظر SessionManager). */
 data class AuthTokens(
     val accessToken: String,
     val refreshToken: String,
@@ -44,28 +43,11 @@ class ParentApiClient(
         install(ContentNegotiation) {
             json(json)
         }
+        // مهلات كافية لشبكات الهاتف البطيئة
         install(HttpTimeout) {
-            requestTimeoutMillis = 6000
-            connectTimeoutMillis = 5000
-            socketTimeoutMillis = 6000
-        }
-    }
-
-    suspend fun checkConnection(): BackendConnectionState = withContext(Dispatchers.IO) {
-        try {
-            val response = client.get("$baseUrl/rest/v1/") {
-                headers {
-                    append("apikey", anonKey)
-                    append("Authorization", "Bearer $anonKey")
-                }
-            }
-            if (response.status.isSuccess()) {
-                BackendConnectionState.CONNECTED_LIVE
-            } else {
-                BackendConnectionState.SYNCED_LOCAL
-            }
-        } catch (_: Exception) {
-            BackendConnectionState.SYNCED_LOCAL
+            requestTimeoutMillis = 20000
+            connectTimeoutMillis = 10000
+            socketTimeoutMillis = 20000
         }
     }
 
@@ -115,8 +97,10 @@ class ParentApiClient(
             if (response.status.isSuccess()) {
                 parseTokens(response.bodyAsText())?.let { Result.success(it) }
                     ?: Result.failure(Exception("استجابة غير متوقعة من الخادم"))
-            } else {
+            } else if (response.status.value in 400..499) {
                 Result.failure(SessionExpiredException())
+            } else {
+                Result.failure(Exception(networkError))
             }
         } catch (_: Exception) {
             Result.failure(Exception(networkError))
@@ -207,15 +191,15 @@ class ParentApiClient(
             val relation = obj["relation"]?.jsonPrimitive?.contentOrNull ?: "ابن"
             val canViewFees = obj["can_view_fees"]?.jsonPrimitive?.booleanOrNull ?: true
             val receivesNotifications = obj["receives_notifications"]?.jsonPrimitive?.booleanOrNull ?: true
-            val gradeName = obj["grade_name"]?.jsonPrimitive?.contentOrNull ?: "المرحلة الثانوية"
-            val sectionName = obj["section_name"]?.jsonPrimitive?.contentOrNull ?: "شعبة (أ)"
+            val gradeName = obj["grade_name"]?.jsonPrimitive?.contentOrNull ?: "غير محدد"
+            val sectionName = obj["section_name"]?.jsonPrimitive?.contentOrNull ?: "غير محدد"
 
             val grades = obj["grades"]?.jsonArray?.mapNotNull {
                 val g = it.jsonObject
                 PublishedGrade(
                     subjectName = g["subject_name"]?.jsonPrimitive?.content ?: "مادة",
                     title = g["title"]?.jsonPrimitive?.content ?: "تقييم",
-                    term = g["term"]?.jsonPrimitive?.content ?: "الفصل الأول",
+                    term = g["term"]?.jsonPrimitive?.content ?: "",
                     score = g["score"]?.jsonPrimitive?.doubleOrNull,
                     maxScore = g["max_score"]?.jsonPrimitive?.doubleOrNull ?: 100.0,
                     passScore = g["pass_score"]?.jsonPrimitive?.doubleOrNull ?: 50.0,
@@ -242,7 +226,7 @@ class ParentApiClient(
                     PaymentRecord(
                         amount = p["amount"]?.jsonPrimitive?.doubleOrNull ?: 0.0,
                         paymentMethod = p["payment_method"]?.jsonPrimitive?.content ?: "cash",
-                        receiptNumber = p["receipt_number"]?.jsonPrimitive?.content ?: "REC-001",
+                        receiptNumber = p["receipt_number"]?.jsonPrimitive?.content ?: "—",
                         createdAt = p["created_at"]?.jsonPrimitive?.content ?: ""
                     )
                 } ?: emptyList()
@@ -296,215 +280,6 @@ class ParentApiClient(
             null
         }
     }
-
-    suspend fun fetchAnnouncements(): Result<List<AnnouncementItem>> = withContext(Dispatchers.IO) {
-        Result.success(getSeedAnnouncements())
-    }
-
-    suspend fun fetchEvents(): Result<List<CalendarEventItem>> = withContext(Dispatchers.IO) {
-        Result.success(getSeedEvents())
-    }
-
-    fun getSeedChildrenForGuardian(guardianId: String): List<LinkedChild> {
-        return when (guardianId) {
-            "guard-1" -> listOf(
-                LinkedChild(
-                    id = "std-1",
-                    studentNumber = "STD-2026-001",
-                    fullName = "محمد عبد الله أحمد",
-                    status = "active",
-                    relation = "ابن",
-                    canViewFees = true,
-                    gradeName = "الصف الأول الثانوي",
-                    sectionName = "شعبة (أ)",
-                    grades = listOf(
-                        PublishedGrade(
-                            subjectName = "القرآن الكريم والتربية الإسلامية",
-                            title = "امتحان أعمال السنة",
-                            term = "الفصل الأول",
-                            score = 98.0,
-                            maxScore = 100.0,
-                            passScore = 50.0
-                        ),
-                        PublishedGrade(
-                            subjectName = "اللغة العربية",
-                            title = "امتحان أعمال السنة",
-                            term = "الفصل الأول",
-                            score = 91.0,
-                            maxScore = 100.0,
-                            passScore = 50.0
-                        ),
-                        PublishedGrade(
-                            subjectName = "الرياضيات",
-                            title = "امتحان أعمال السنة",
-                            term = "الفصل الأول",
-                            score = 96.0,
-                            maxScore = 100.0,
-                            passScore = 50.0
-                        ),
-                        PublishedGrade(
-                            subjectName = "اللغة الإنجليزية",
-                            title = "امتحان أعمال السنة",
-                            term = "الفصل الأول",
-                            score = 88.0,
-                            maxScore = 100.0,
-                            passScore = 50.0
-                        )
-                    ),
-                    attendance = listOf(
-                        AttendanceRecord(date = "2026-10-23", status = "present"),
-                        AttendanceRecord(date = "2026-10-22", status = "present"),
-                        AttendanceRecord(date = "2026-10-21", status = "present"),
-                        AttendanceRecord(date = "2026-10-20", status = "present")
-                    ),
-                    fees = FeeStatement(
-                        totalDue = 120000.0,
-                        totalDiscounts = 20000.0,
-                        totalPaid = 100000.0,
-                        payments = listOf(
-                            PaymentRecord(
-                                amount = 100000.0,
-                                paymentMethod = "bank_transfer",
-                                receiptNumber = "REC-2026-00101",
-                                createdAt = "2026-09-01 10:30:00"
-                            )
-                        )
-                    )
-                ),
-                LinkedChild(
-                    id = "std-2",
-                    studentNumber = "STD-2026-002",
-                    fullName = "فاطمة عبد الله أحمد",
-                    status = "active",
-                    relation = "ابنة",
-                    canViewFees = true,
-                    gradeName = "الصف الثالث الثانوي",
-                    sectionName = "شعبة علمي (أ)",
-                    grades = listOf(
-                        PublishedGrade(
-                            subjectName = "الفيزياء",
-                            title = "امتحان منتصف الفصل الدراسي الأول",
-                            term = "الفصل الأول",
-                            score = 86.0,
-                            maxScore = 100.0,
-                            passScore = 50.0
-                        ),
-                        PublishedGrade(
-                            subjectName = "الكيمياء",
-                            title = "امتحان منتصف الفصل الدراسي الأول",
-                            term = "الفصل الأول",
-                            score = 92.0,
-                            maxScore = 100.0,
-                            passScore = 50.0
-                        ),
-                        PublishedGrade(
-                            subjectName = "الأحياء",
-                            title = "امتحان منتصف الفصل الدراسي الأول",
-                            term = "الفصل الأول",
-                            score = 90.0,
-                            maxScore = 100.0,
-                            passScore = 50.0
-                        )
-                    ),
-                    attendance = listOf(
-                        AttendanceRecord(date = "2026-10-23", status = "present"),
-                        AttendanceRecord(date = "2026-10-22", status = "present"),
-                        AttendanceRecord(date = "2026-10-21", status = "absent", reason = "إجازة مرضية معتمدة"),
-                        AttendanceRecord(date = "2026-10-20", status = "present")
-                    ),
-                    fees = FeeStatement(
-                        totalDue = 140000.0,
-                        totalDiscounts = 0.0,
-                        totalPaid = 140000.0,
-                        payments = listOf(
-                            PaymentRecord(
-                                amount = 140000.0,
-                                paymentMethod = "cash",
-                                receiptNumber = "REC-2026-00102",
-                                createdAt = "2026-09-02 09:15:00"
-                            )
-                        )
-                    )
-                )
-            )
-            "guard-2" -> listOf(
-                LinkedChild(
-                    id = "std-3",
-                    studentNumber = "STD-2026-003",
-                    fullName = "عمر عثمان علي",
-                    status = "active",
-                    relation = "ابن",
-                    canViewFees = true,
-                    gradeName = "الصف الأول الثانوي",
-                    sectionName = "شعبة (أ)",
-                    grades = listOf(
-                        PublishedGrade(
-                            subjectName = "الرياضيات",
-                            title = "امتحان منتصف الفصل الأول",
-                            term = "الفصل الأول",
-                            score = 92.0,
-                            maxScore = 100.0,
-                            passScore = 50.0
-                        )
-                    ),
-                    attendance = listOf(
-                        AttendanceRecord(date = "2026-10-23", status = "present"),
-                        AttendanceRecord(date = "2026-10-22", status = "present")
-                    ),
-                    fees = FeeStatement(
-                        totalDue = 120000.0,
-                        totalDiscounts = 0.0,
-                        totalPaid = 60000.0,
-                        payments = listOf(
-                            PaymentRecord(
-                                amount = 60000.0,
-                                paymentMethod = "cash",
-                                receiptNumber = "REC-2026-00201",
-                                createdAt = "2026-09-05 11:00:00"
-                            )
-                        )
-                    )
-                )
-            )
-            else -> emptyList()
-        }
-    }
-
-    private fun getSeedAnnouncements(): List<AnnouncementItem> = listOf(
-        AnnouncementItem(
-            id = "ann-1",
-            title = "انطلاق امتحانات منتصف الفصل الدراسي الأول",
-            body = "تعلن إدارة مدرسة العمرابي الثانوية بنين عن انطلاق امتحانات منتصف الفصل الدراسي الأول لجميع الصفوف، يرجى الالتزام بالحضور الصباحي المبكر في تمام الساعة 7:30 صباحاً.",
-            priority = "high",
-            publishedAt = "2026-10-23"
-        ),
-        AnnouncementItem(
-            id = "ann-2",
-            title = "اجتماع مجلس الآباء والمعلمين الدوري",
-            body = "يسر إدارة المدرسة دعوة السادة أولياء الأمور الكرام لحضور اللقاء الدوري لمجلس الآباء والمعلمين لمناقشة المستوى التحصيلي للطلاب وتعزيز سبل الرعاية التربوية.",
-            priority = "normal",
-            publishedAt = "2026-10-21"
-        )
-    )
-
-    private fun getSeedEvents(): List<CalendarEventItem> = listOf(
-        CalendarEventItem(
-            id = "ev-1",
-            title = "امتحانات منتصف الفصل الدراسي الأول",
-            description = "فترة الامتحانات التحريرية الشاملة لجميع المواد الدراسية",
-            eventType = "exam",
-            startsOn = "2026-10-25",
-            endsOn = "2026-11-03"
-        ),
-        CalendarEventItem(
-            id = "ev-2",
-            title = "عطلة نهاية الفصل الدراسي الأول",
-            description = "العطلة الرسمية المدرسية بين الفصلين الدراسيين",
-            eventType = "holiday",
-            startsOn = "2026-12-15",
-            endsOn = "2026-12-25"
-        )
-    )
 }
 
 /** الجلسة منتهية أو مرفوضة: يلزم تسجيل دخول جديد. */
