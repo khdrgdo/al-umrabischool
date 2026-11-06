@@ -45,8 +45,7 @@ fun DashboardScreen(
     connectionState: BackendConnectionState = BackendConnectionState.CONNECTED_LIVE,
     demoMode: Boolean = false,
     onSelectChild: (Int) -> Unit,
-    onNavigateToGrades: () -> Unit,
-    onNavigateToAttendance: () -> Unit,
+    onNavigateToLearning: () -> Unit,
     onNavigateToSchedule: () -> Unit,
     onNavigateToAnnouncements: () -> Unit,
     onNavigateToFees: () -> Unit,
@@ -162,31 +161,31 @@ fun DashboardScreen(
                             }
                         }
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            DarkMetric("الحضور", child.attendance.orEmpty().count { it.status == "present" }.toString(), Modifier.weight(1f))
-                            DarkMetric("الغياب", child.attendance.orEmpty().count { it.status == "absent" }.toString(), Modifier.weight(1f))
-                            DarkMetric("المواد", child.grades.orEmpty().size.toString(), Modifier.weight(1f))
+                            DarkMetric("الحضور", if (child.attendance.orEmpty().isEmpty()) "—" else child.attendance.orEmpty().count { it.status == "present" }.toString(), Modifier.weight(1f))
+                            DarkMetric("الغياب", if (child.attendance.orEmpty().isEmpty()) "—" else child.attendance.orEmpty().count { it.status == "absent" }.toString(), Modifier.weight(1f))
+                            DarkMetric("المواد", if (child.grades.orEmpty().isEmpty()) "—" else child.grades.orEmpty().size.toString(), Modifier.weight(1f))
                         }
                     }
                 }
             }
         }
         item {
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                    Text("الخدمات الدراسية", color = AppInk, fontSize = 16.sp, fontWeight = FontWeight.Bold)
-                    Spacer(Modifier.weight(1f))
-                    Text("الوصول السريع", color = AppMuted, fontSize = 10.sp)
-                }
-                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    ServiceTile("النتائج", "الدرجات المنشورة", Icons.Outlined.Grade, Modifier.weight(1f), onNavigateToGrades)
-                    ServiceTile("الحضور", "سجل الانتظام", Icons.Outlined.CheckCircle, Modifier.weight(1f), onNavigateToAttendance)
-                }
-                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    ServiceTile("الجدول", "الحصص الدراسية", Icons.Outlined.CalendarMonth, Modifier.weight(1f), onNavigateToSchedule)
-                    ServiceTile("الإعلانات", "أخبار المؤسسة", Icons.Outlined.Announcement, Modifier.weight(1f), onNavigateToAnnouncements)
-                }
-                if (child?.canViewFees == true) {
-                    ServiceTile("الرسوم", "المستحقات والإيصالات", Icons.Outlined.AccountBalanceWallet, Modifier.fillMaxWidth(), onNavigateToFees)
+            Surface(
+                shape = RoundedCornerShape(19.dp),
+                color = AppSurface,
+                border = BorderStroke(1.dp, AppBorder),
+                modifier = Modifier.fillMaxWidth().clickable(onClick = onNavigateToLearning)
+            ) {
+                Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Surface(shape = RoundedCornerShape(12.dp), color = AppRedSoft) {
+                        Icon(Icons.Outlined.School, null, tint = AppRed, modifier = Modifier.padding(11.dp).size(22.dp))
+                    }
+                    Spacer(Modifier.width(12.dp))
+                    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                        Text("المتابعة الدراسية", color = AppInk, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                        Text("النتائج والحضور والجدول والرسوم في مكان واحد", color = AppMuted, fontSize = 10.sp)
+                    }
+                    Icon(Icons.Outlined.ChevronLeft, null, tint = AppRed)
                 }
             }
         }
