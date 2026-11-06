@@ -4,17 +4,15 @@ import android.os.Bundle
 import android.view.WindowManager
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.compose.animation.AnimatedContentTransitionScope
-import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.ui.unit.dp
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.AccountCircle
 import androidx.compose.material.icons.outlined.Campaign
 import androidx.compose.material.icons.outlined.EventAvailable
 import androidx.compose.material.icons.outlined.Home
@@ -40,6 +38,9 @@ import sd.alumrabi.parent.ui.ParentAppViewModel
 import sd.alumrabi.parent.ui.screens.*
 import sd.alumrabi.parent.ui.theme.AlUmrabiParentTheme
 import sd.alumrabi.parent.ui.theme.AppCanvas
+import sd.alumrabi.parent.ui.theme.AppMuted
+import sd.alumrabi.parent.ui.theme.AppRed
+import sd.alumrabi.parent.ui.theme.AppRedSoft
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -57,7 +58,11 @@ class MainActivity : ComponentActivity() {
     }
 }
 
-private data class MainDestination(val route: String, val label: String, val icon: androidx.compose.ui.graphics.vector.ImageVector)
+private data class MainDestination(
+    val route: String,
+    val label: String,
+    val icon: androidx.compose.ui.graphics.vector.ImageVector
+)
 
 @Composable
 fun ParentAppNavHost() {
@@ -65,10 +70,13 @@ fun ParentAppNavHost() {
     val sessions = remember { SessionManager(context) }
     val api = remember { ParentApiClient() }
     val repository = remember { ParentRepository(sessions, api) }
-    val factory = remember { object : ViewModelProvider.Factory {
-        @Suppress("UNCHECKED_CAST")
-        override fun <T : ViewModel> create(modelClass: Class<T>): T = ParentAppViewModel(repository) as T
-    } }
+    val factory = remember {
+        object : ViewModelProvider.Factory {
+            @Suppress("UNCHECKED_CAST")
+            override fun <T : ViewModel> create(modelClass: Class<T>): T =
+                ParentAppViewModel(repository) as T
+        }
+    }
     val app: ParentAppViewModel = viewModel(factory = factory)
     val state by app.uiState.collectAsStateWithLifecycle()
     val nav = rememberNavController()
@@ -76,12 +84,13 @@ fun ParentAppNavHost() {
     val entry by nav.currentBackStackEntryAsState()
     val route = entry?.destination?.route ?: "boot"
 
+    // Keep the primary navigation focused on the four most-used parent tasks.
+    // Schedule, fees and account settings remain reachable from the home screen.
     val destinations = listOf(
         MainDestination("home", "الرئيسية", Icons.Outlined.Home),
         MainDestination("grades", "النتائج", Icons.Outlined.MenuBook),
         MainDestination("attendance", "الحضور", Icons.Outlined.EventAvailable),
-        MainDestination("announcements", "الأخبار", Icons.Outlined.Campaign),
-        MainDestination("settings", "حسابي", Icons.Outlined.AccountCircle)
+        MainDestination("announcements", "الأخبار", Icons.Outlined.Campaign)
     )
     val topLevel = destinations.any { it.route == route }
 
@@ -101,7 +110,7 @@ fun ParentAppNavHost() {
         bottomBar = {
             if (topLevel) NavigationBar(
                 containerColor = MaterialTheme.colorScheme.surface,
-                tonalElevation = 3.dp,
+                tonalElevation = 1.dp,
                 windowInsets = NavigationBarDefaults.windowInsets
             ) {
                 destinations.forEach { destination ->
@@ -116,7 +125,14 @@ fun ParentAppNavHost() {
                         },
                         icon = { Icon(destination.icon, contentDescription = destination.label) },
                         label = { Text(destination.label) },
-                        alwaysShowLabel = true
+                        alwaysShowLabel = true,
+                        colors = NavigationBarItemDefaults.colors(
+                            selectedIconColor = AppRed,
+                            selectedTextColor = AppRed,
+                            indicatorColor = AppRedSoft,
+                            unselectedIconColor = AppMuted,
+                            unselectedTextColor = AppMuted
+                        )
                     )
                 }
             }
@@ -126,29 +142,37 @@ fun ParentAppNavHost() {
             navController = nav,
             startDestination = "boot",
             modifier = Modifier.fillMaxSize().padding(inner),
-            enterTransition = { slideIntoContainer(AnimatedContentTransitionScope.SlideDirection.Start, tween(220)) + fadeIn(tween(220)) },
-            exitTransition = { slideOutOfContainer(AnimatedContentTransitionScope.SlideDirection.Start, tween(180)) + fadeOut(tween(180)) },
-            popEnterTransition = { slideIntoContainer(AnimatedContentTransitionScope.SlideDirection.End, tween(220)) + fadeIn(tween(220)) },
-            popExitTransition = { slideOutOfContainer(AnimatedContentTransitionScope.SlideDirection.End, tween(180)) + fadeOut(tween(180)) }
+            enterTransition = { fadeIn(tween(150)) },
+            exitTransition = { fadeOut(tween(110)) },
+            popEnterTransition = { fadeIn(tween(150)) },
+            popExitTransition = { fadeOut(tween(110)) }
         ) {
             composable("boot") { BootScreen() }
             composable("login") {
                 LoginScreen(
                     onLoginSuccess = { tokens, payload ->
                         app.onAuthenticated(tokens, payload)
-                        nav.navigate("home") { popUpTo("login") { inclusive = true }; launchSingleTop = true }
+                        nav.navigate("home") {
+                            popUpTo("login") { inclusive = true }
+                            launchSingleTop = true
+                        }
                     },
                     onDemoLoginSuccess = { payload ->
                         app.onDemoAuthenticated(payload)
-                        nav.navigate("home") { popUpTo("login") { inclusive = true }; launchSingleTop = true }
+                        nav.navigate("home") {
+                            popUpTo("login") { inclusive = true }
+                            launchSingleTop = true
+                        }
                     }
                 )
             }
             composable("home") {
                 DashboardScreen(
-                    guardian = state.guardian, children = state.children,
+                    guardian = state.guardian,
+                    children = state.children,
                     selectedChildIndex = state.selectedChildIndex,
-                    connectionState = state.connection, demoMode = state.demoMode,
+                    connectionState = state.connection,
+                    demoMode = state.demoMode,
                     onSelectChild = app::selectChild,
                     onNavigateToGrades = { nav.navigate("grades") },
                     onNavigateToAttendance = { nav.navigate("attendance") },
@@ -158,18 +182,51 @@ fun ParentAppNavHost() {
                     onNavigateToSettings = { nav.navigate("settings") }
                 )
             }
-            composable("grades") { GradesScreen(child = state.children.getOrNull(state.selectedChildIndex), onBack = { nav.popBackStack() }) }
-            composable("attendance") { AttendanceScreen(child = state.children.getOrNull(state.selectedChildIndex), onBack = { nav.popBackStack() }) }
-            composable("schedule") { ScheduleScreen(child = state.children.getOrNull(state.selectedChildIndex), onBack = { nav.popBackStack() }) }
-            composable("fees") { FeesScreen(child = state.children.getOrNull(state.selectedChildIndex), onBack = { nav.popBackStack() }) }
-            composable("announcements") { AnnouncementsScreen(announcements = state.announcements, events = state.events, onBack = { nav.popBackStack() }) }
+            composable("grades") {
+                GradesScreen(
+                    child = state.children.getOrNull(state.selectedChildIndex),
+                    onBack = { nav.popBackStack() }
+                )
+            }
+            composable("attendance") {
+                AttendanceScreen(
+                    child = state.children.getOrNull(state.selectedChildIndex),
+                    onBack = { nav.popBackStack() }
+                )
+            }
+            composable("schedule") {
+                ScheduleScreen(
+                    child = state.children.getOrNull(state.selectedChildIndex),
+                    onBack = { nav.popBackStack() }
+                )
+            }
+            composable("fees") {
+                FeesScreen(
+                    child = state.children.getOrNull(state.selectedChildIndex),
+                    onBack = { nav.popBackStack() }
+                )
+            }
+            composable("announcements") {
+                AnnouncementsScreen(
+                    announcements = state.announcements,
+                    events = state.events,
+                    onBack = { nav.popBackStack() }
+                )
+            }
             composable("settings") {
-                SettingsScreen(state.guardian, onBack = { nav.popBackStack() }, onLogout = {
-                    scope.launch {
-                        app.logout()
-                        nav.navigate("login") { popUpTo("home") { inclusive = true }; launchSingleTop = true }
+                SettingsScreen(
+                    state.guardian,
+                    onBack = { nav.popBackStack() },
+                    onLogout = {
+                        scope.launch {
+                            app.logout()
+                            nav.navigate("login") {
+                                popUpTo("home") { inclusive = true }
+                                launchSingleTop = true
+                            }
+                        }
                     }
-                })
+                )
             }
         }
     }
