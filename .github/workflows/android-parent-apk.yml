@@ -5,6 +5,7 @@ on:
     branches:
       - feature/parent-app-refresh
       - feature/orb-v2-premium-redesign
+      - feature/parent-app-ux-rebuild
   workflow_dispatch:
 
 permissions:
