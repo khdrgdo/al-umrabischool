@@ -99,6 +99,13 @@
       "when": 1793059200000,
       "tag": "0013_parent_auth_activation_and_owner_bootstrap",
       "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1794060567264,
+      "tag": "0014_verify_parent_auth_hardening",
+      "breakpoints": true
     }
   ]
 }
