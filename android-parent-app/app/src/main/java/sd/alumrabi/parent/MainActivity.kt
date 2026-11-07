@@ -1,5 +1,6 @@
 package sd.alumrabi.parent
 
+import android.content.pm.ApplicationInfo
 import android.os.Bundle
 import android.view.WindowManager
 import androidx.activity.ComponentActivity
@@ -23,6 +24,7 @@ import sd.alumrabi.parent.data.api.AccountBlockedException
 import sd.alumrabi.parent.data.api.AuthTokens
 import sd.alumrabi.parent.data.api.ParentApiClient
 import sd.alumrabi.parent.data.api.SessionExpiredException
+import sd.alumrabi.parent.data.demo.DemoData
 import sd.alumrabi.parent.data.local.SessionManager
 import sd.alumrabi.parent.data.model.*
 import sd.alumrabi.parent.ui.components.AppTab
@@ -68,6 +70,7 @@ fun ParentAppNavHost() {
     val navController = rememberNavController()
     val scope = rememberCoroutineScope()
     val apiClient = remember { ParentApiClient() }
+    val isDebuggable = (context.applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE) != 0
 
     var guardian by remember { mutableStateOf(sessionManager.getGuardian() ?: emptyGuardian()) }
     var children by remember { mutableStateOf(sessionManager.getChildren()) }
@@ -165,6 +168,19 @@ fun ParentAppNavHost() {
 
         composable(Routes.Login) {
             LoginScreen(
+                onDemo = if (isDebuggable) {
+                    {
+                        val demo = DemoData.payload()
+                        guardian = demo.guardian
+                        children = demo.children
+                        announcements = demo.announcements
+                        events = demo.events
+                        selectedChildIndex = 0
+                        lastSync = 0L
+                        connectionState = BackendConnectionState.CONNECTED_LIVE
+                        navController.navigate(Routes.Home) { popUpTo(Routes.Login) { inclusive = true } }
+                    }
+                } else null,
                 onLoginSuccess = { tokens, payload ->
                     guardian = payload.guardian
                     children = payload.children

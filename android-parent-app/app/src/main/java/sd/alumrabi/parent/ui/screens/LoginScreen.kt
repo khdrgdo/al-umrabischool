@@ -45,12 +45,14 @@ import sd.alumrabi.parent.data.api.AuthTokens
 import sd.alumrabi.parent.data.api.ParentApiClient
 import sd.alumrabi.parent.data.model.DashboardPayload
 import sd.alumrabi.parent.ui.components.OmrabiSymbol
+import sd.alumrabi.parent.ui.components.OutlineButton
 import sd.alumrabi.parent.ui.components.PrimaryButton
 import sd.alumrabi.parent.ui.theme.*
 
 @Composable
 fun LoginScreen(
-    onLoginSuccess: (tokens: AuthTokens, payload: DashboardPayload) -> Unit
+    onLoginSuccess: (tokens: AuthTokens, payload: DashboardPayload) -> Unit,
+    onDemo: (() -> Unit)? = null
 ) {
     SystemBars(
         statusBar = Crimson700,
@@ -148,7 +150,7 @@ fun LoginScreen(
                 OmrabiSymbol(size = 56.dp, tint = OnBrand, description = "شعار العمرابي")
                 Spacer(Modifier.height(16.dp))
                 Text(
-                    "مدرسة العمرابي الثانوية بنين",
+                    "العمرابي",
                     style = MaterialTheme.typography.headlineSmall,
                     color = OnBrand
                 )
@@ -280,6 +282,15 @@ fun LoginScreen(
                     },
                     style = MaterialTheme.typography.labelLarge,
                     color = Crimson700
+                )
+            }
+
+            if (onDemo != null) {
+                Spacer(Modifier.height(8.dp))
+                OutlineButton(
+                    text = "تجربة ببيانات تجريبية (للاختبار فقط)",
+                    onClick = onDemo,
+                    modifier = Modifier.fillMaxWidth()
                 )
             }
 

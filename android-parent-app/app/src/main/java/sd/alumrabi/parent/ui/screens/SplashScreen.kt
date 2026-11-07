@@ -49,7 +49,7 @@ fun AnimatedSplashScreen(onSplashFinished: () -> Unit) {
             OmrabiSymbol(size = 96.dp, tint = OnBrand, description = "شعار العمرابي")
             Spacer(Modifier.height(24.dp))
             Text(
-                "مدرسة العمرابي الثانوية بنين",
+                "العمرابي",
                 style = MaterialTheme.typography.titleLarge,
                 color = OnBrand,
                 textAlign = TextAlign.Center
