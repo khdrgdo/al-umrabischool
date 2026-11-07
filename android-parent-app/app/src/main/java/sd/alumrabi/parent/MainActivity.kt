@@ -1,10 +1,10 @@
 package sd.alumrabi.parent
 
+import android.content.pm.ApplicationInfo
 import android.os.Bundle
 import android.view.WindowManager
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.compose.animation.AnimatedContentTransitionScope
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -17,33 +17,36 @@ import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
+import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import kotlinx.coroutines.launch
 import sd.alumrabi.parent.data.api.AccountBlockedException
+import sd.alumrabi.parent.data.api.AuthTokens
 import sd.alumrabi.parent.data.api.ParentApiClient
 import sd.alumrabi.parent.data.api.SessionExpiredException
+import sd.alumrabi.parent.data.demo.DemoData
 import sd.alumrabi.parent.data.local.SessionManager
 import sd.alumrabi.parent.data.model.*
+import sd.alumrabi.parent.ui.components.AppTab
+import sd.alumrabi.parent.ui.components.Routes
 import sd.alumrabi.parent.ui.screens.*
 import sd.alumrabi.parent.ui.theme.AlUmrabiParentTheme
-import sd.alumrabi.parent.ui.theme.LavenderCanvas
+import sd.alumrabi.parent.ui.theme.Canvas
+import sd.alumrabi.parent.ui.theme.Crimson700
+import sd.alumrabi.parent.ui.theme.SystemBars
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        // OWASP MASVS-PLATFORM: Prevent recents snapshot and screenshot data leakage of academic/financial records
+        // OWASP MASVS-PLATFORM: منع لقطات الشاشة ومعاينة التطبيقات الأخيرة للسجلات الأكاديمية والمالية
         window.setFlags(
             WindowManager.LayoutParams.FLAG_SECURE,
             WindowManager.LayoutParams.FLAG_SECURE
         )
         setContent {
-            // Strict Arabic RTL Layout
             CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
                 AlUmrabiParentTheme {
-                    Surface(
-                        modifier = Modifier.fillMaxSize(),
-                        color = LavenderCanvas
-                    ) {
+                    Surface(modifier = Modifier.fillMaxSize(), color = Canvas) {
                         ParentAppNavHost()
                     }
                 }
@@ -52,199 +55,199 @@ class MainActivity : ComponentActivity() {
     }
 }
 
+private fun emptyGuardian() = GuardianInfo(
+    id = "",
+    accountCode = "",
+    fullName = "ولي الأمر",
+    phone = "",
+    status = "active"
+)
+
 @Composable
 fun ParentAppNavHost() {
     val context = LocalContext.current
     val sessionManager = remember { SessionManager(context) }
     val navController = rememberNavController()
-    val coroutineScope = rememberCoroutineScope()
+    val scope = rememberCoroutineScope()
     val apiClient = remember { ParentApiClient() }
+    val isDebuggable = (context.applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE) != 0
 
-    // Session State initialized from persistent local storage
-    var currentGuardian by remember {
-        mutableStateOf(
-            sessionManager.getGuardian() ?: GuardianInfo(
-                id = "",
-                accountCode = "",
-                fullName = "ولي الأمر",
-                phone = "",
-                status = "active"
-            )
-        )
-    }
-
-    var currentChildren by remember {
-        mutableStateOf(sessionManager.getChildren())
-    }
-
-    var announcements by remember {
-        mutableStateOf<List<AnnouncementItem>>(emptyList())
-    }
-
-    var events by remember {
-        mutableStateOf<List<CalendarEventItem>>(emptyList())
-    }
-
-    var connectionState by remember {
-        mutableStateOf(BackendConnectionState.CONNECTING)
-    }
-
+    var guardian by remember { mutableStateOf(sessionManager.getGuardian() ?: emptyGuardian()) }
+    var children by remember { mutableStateOf(sessionManager.getChildren()) }
+    var announcements by remember { mutableStateOf<List<AnnouncementItem>>(emptyList()) }
+    var events by remember { mutableStateOf<List<CalendarEventItem>>(emptyList()) }
+    var connectionState by remember { mutableStateOf(BackendConnectionState.CONNECTING) }
+    var lastSync by remember { mutableLongStateOf(sessionManager.getLastSyncMillis()) }
     var selectedChildIndex by remember { mutableIntStateOf(0) }
 
-    // Background Network Health & Live Sync
-    LaunchedEffect(Unit) {
-        coroutineScope.launch {
-            connectionState = apiClient.checkConnection()
+    val safeIndex = if (children.isEmpty()) 0 else selectedChildIndex.coerceIn(0, children.lastIndex)
 
-            // مزامنة صامتة بجلسة ولي الأمر نفسه (Supabase Auth). لا توجد بيانات تجريبية تُعرض للأهالي.
-            val savedGuardian = sessionManager.getGuardian()
-            var tokens = sessionManager.getTokens()
-            if (savedGuardian != null && tokens != null) {
-                var mustSignOut = false
-                if (tokens.isExpiringSoon()) {
-                    val refreshed = apiClient.refreshSession(tokens.refreshToken)
-                    val newTokens = refreshed.getOrNull()
-                    if (newTokens != null) {
-                        tokens = newTokens
-                        sessionManager.saveTokens(newTokens)
-                    } else if (refreshed.exceptionOrNull() is SessionExpiredException) {
-                        mustSignOut = true
-                    }
+    fun resetLocalState() {
+        sessionManager.clearSession()
+        guardian = emptyGuardian()
+        children = emptyList()
+        announcements = emptyList()
+        events = emptyList()
+        selectedChildIndex = 0
+        lastSync = 0L
+        connectionState = BackendConnectionState.SYNCED_LOCAL
+        navController.navigate(Routes.Login) { popUpTo(0) }
+    }
+
+    suspend fun syncOnce() {
+        val savedGuardian = sessionManager.getGuardian()
+        val savedTokens = sessionManager.getTokens()
+        if (savedGuardian == null || savedTokens == null) return
+        connectionState = BackendConnectionState.CONNECTING
+        var current: AuthTokens = savedTokens
+        if (current.isExpiringSoon()) {
+            val refreshed = apiClient.refreshSession(current.refreshToken)
+            val renewed = refreshed.getOrNull()
+            if (renewed != null) {
+                current = renewed
+                sessionManager.saveTokens(renewed)
+            } else {
+                if (refreshed.exceptionOrNull() is SessionExpiredException) {
+                    resetLocalState()
+                } else {
+                    // فشل شبكة عابر: نبقى على البيانات المحفوظة ولا نقطع الجلسة
+                    connectionState = BackendConnectionState.SYNCED_LOCAL
                 }
-                if (!mustSignOut) {
-                    val dash = apiClient.fetchDashboard(tokens.accessToken)
-                    val payload = dash.getOrNull()
-                    if (payload != null) {
-                        currentGuardian = payload.guardian
-                        currentChildren = payload.children
-                        announcements = payload.announcements
-                        events = payload.events
-                        sessionManager.saveSession(payload.guardian, payload.children)
-                    } else {
-                        val ex = dash.exceptionOrNull()
-                        if (ex is SessionExpiredException || ex is AccountBlockedException) mustSignOut = true
-                    }
-                }
-                if (mustSignOut) {
-                    sessionManager.clearSession()
-                    currentGuardian = GuardianInfo(id = "", accountCode = "", fullName = "ولي الأمر", phone = "", status = "active")
-                    currentChildren = emptyList()
-                    announcements = emptyList()
-                    events = emptyList()
-                    runCatching { navController.navigate("login") { popUpTo(0) } }
-                }
+                return
+            }
+        }
+        val result = apiClient.fetchDashboard(current.accessToken)
+        val payload = result.getOrNull()
+        if (payload != null) {
+            guardian = payload.guardian
+            children = payload.children
+            announcements = payload.announcements
+            events = payload.events
+            sessionManager.saveSession(payload.guardian, payload.children)
+            lastSync = sessionManager.getLastSyncMillis()
+            connectionState = BackendConnectionState.CONNECTED_LIVE
+        } else {
+            val ex = result.exceptionOrNull()
+            if (ex is SessionExpiredException || ex is AccountBlockedException) {
+                resetLocalState()
+            } else {
+                connectionState = BackendConnectionState.SYNCED_LOCAL
             }
         }
     }
 
+    LaunchedEffect(Unit) { syncOnce() }
+
+    fun navigateTab(tab: AppTab) {
+        navController.navigate(tab.route) {
+            popUpTo(Routes.Home) { saveState = true }
+            launchSingleTop = true
+            restoreState = true
+        }
+    }
+
+    val currentRoute = navController.currentBackStackEntryAsState().value?.destination?.route
+    if (currentRoute == Routes.Splash) SystemBars(Crimson700, false) else SystemBars(Canvas, true)
+
     NavHost(
         navController = navController,
-        startDestination = "splash",
-        enterTransition = {
-            slideIntoContainer(
-                AnimatedContentTransitionScope.SlideDirection.Start,
-                animationSpec = tween(320)
-            ) + fadeIn(animationSpec = tween(320))
-        },
-        exitTransition = {
-            slideOutOfContainer(
-                AnimatedContentTransitionScope.SlideDirection.Start,
-                animationSpec = tween(320)
-            ) + fadeOut(animationSpec = tween(320))
-        },
-        popEnterTransition = {
-            slideIntoContainer(
-                AnimatedContentTransitionScope.SlideDirection.End,
-                animationSpec = tween(320)
-            ) + fadeIn(animationSpec = tween(320))
-        },
-        popExitTransition = {
-            slideOutOfContainer(
-                AnimatedContentTransitionScope.SlideDirection.End,
-                animationSpec = tween(320)
-            ) + fadeOut(animationSpec = tween(320))
-        }
+        startDestination = Routes.Splash,
+        enterTransition = { fadeIn(tween(200)) },
+        exitTransition = { fadeOut(tween(120)) },
+        popEnterTransition = { fadeIn(tween(200)) },
+        popExitTransition = { fadeOut(tween(120)) }
     ) {
-        composable("splash") {
+        composable(Routes.Splash) {
             AnimatedSplashScreen(
                 onSplashFinished = {
-                    val target = if (sessionManager.isLoggedIn() && currentChildren.isNotEmpty()) "dashboard" else "login"
-                    navController.navigate(target) {
-                        popUpTo("splash") { inclusive = true }
-                    }
+                    val target = if (sessionManager.isLoggedIn()) Routes.Home else Routes.Login
+                    navController.navigate(target) { popUpTo(Routes.Splash) { inclusive = true } }
                 }
             )
         }
 
-        composable("login") {
+        composable(Routes.Login) {
             LoginScreen(
+                onDemo = if (isDebuggable) {
+                    {
+                        val demo = DemoData.payload()
+                        guardian = demo.guardian
+                        children = demo.children
+                        announcements = demo.announcements
+                        events = demo.events
+                        selectedChildIndex = 0
+                        lastSync = 0L
+                        connectionState = BackendConnectionState.CONNECTED_LIVE
+                        navController.navigate(Routes.Home) { popUpTo(Routes.Login) { inclusive = true } }
+                    }
+                } else null,
                 onLoginSuccess = { tokens, payload ->
-                    currentGuardian = payload.guardian
-                    currentChildren = payload.children
+                    guardian = payload.guardian
+                    children = payload.children
                     announcements = payload.announcements
                     events = payload.events
                     selectedChildIndex = 0
                     sessionManager.saveTokens(tokens)
                     sessionManager.saveSession(payload.guardian, payload.children)
-                    navController.navigate("dashboard") {
-                        popUpTo("login") { inclusive = true }
-                    }
+                    lastSync = sessionManager.getLastSyncMillis()
+                    connectionState = BackendConnectionState.CONNECTED_LIVE
+                    navController.navigate(Routes.Home) { popUpTo(Routes.Login) { inclusive = true } }
                 }
             )
         }
 
-        composable("dashboard") {
-            DashboardScreen(
-                guardian = currentGuardian,
-                children = currentChildren,
-                selectedChildIndex = selectedChildIndex,
-                connectionState = connectionState,
-                onSelectChild = { index -> selectedChildIndex = index },
-                onNavigateToGrades = { navController.navigate("grades") },
-                onNavigateToAttendance = { navController.navigate("attendance") },
-                onNavigateToSchedule = { navController.navigate("schedule") },
-                onNavigateToAnnouncements = { navController.navigate("announcements") },
-                onNavigateToAiAssistant = { navController.navigate("ai_assistant") },
-                onNavigateToSettings = { navController.navigate("settings") }
-            )
-        }
-
-        composable("ai_assistant") {
-            val activeChild = currentChildren.getOrNull(selectedChildIndex)
-            AiAssistantScreen(
-                guardian = currentGuardian,
-                activeChild = activeChild,
+        composable(Routes.Home) {
+            HomeScreen(
+                guardian = guardian,
+                children = children,
+                selectedChildIndex = safeIndex,
                 announcements = announcements,
                 events = events,
-                onBack = { navController.popBackStack() }
+                connectionState = connectionState,
+                lastSyncMillis = lastSync,
+                onSelectChild = { selectedChildIndex = it },
+                onRefresh = { scope.launch { syncOnce() } },
+                onOpenRoute = { navController.navigate(it) },
+                onSelectTab = { navigateTab(it) }
             )
         }
 
-        composable("grades") {
-            val activeChild = currentChildren.getOrNull(selectedChildIndex)
+        composable(Routes.Results) {
             GradesScreen(
-                child = activeChild,
-                onBack = { navController.popBackStack() }
+                children = children,
+                selectedChildIndex = safeIndex,
+                onSelectChild = { selectedChildIndex = it },
+                onSelectTab = { navigateTab(it) }
             )
         }
 
-        composable("attendance") {
-            val activeChild = currentChildren.getOrNull(selectedChildIndex)
+        composable(Routes.Attendance) {
             AttendanceScreen(
-                child = activeChild,
-                onBack = { navController.popBackStack() }
+                children = children,
+                selectedChildIndex = safeIndex,
+                onSelectChild = { selectedChildIndex = it },
+                onSelectTab = { navigateTab(it) }
             )
         }
 
-        composable("schedule") {
-            val activeChild = currentChildren.getOrNull(selectedChildIndex)
-            ScheduleScreen(
-                child = activeChild,
-                onBack = { navController.popBackStack() }
+        composable(Routes.Fees) {
+            FeesScreen(
+                children = children,
+                selectedChildIndex = safeIndex,
+                onSelectChild = { selectedChildIndex = it },
+                onSelectTab = { navigateTab(it) }
             )
         }
 
-        composable("announcements") {
+        composable(Routes.More) {
+            MoreScreen(
+                guardian = guardian,
+                onOpenRoute = { navController.navigate(it) },
+                onSelectTab = { navigateTab(it) }
+            )
+        }
+
+        composable(Routes.Announcements) {
             AnnouncementsScreen(
                 announcements = announcements,
                 events = events,
@@ -252,19 +255,25 @@ fun ParentAppNavHost() {
             )
         }
 
-        composable("settings") {
+        composable(Routes.Assistant) {
+            AiAssistantScreen(
+                guardian = guardian,
+                activeChild = children.getOrNull(safeIndex),
+                announcements = announcements,
+                events = events,
+                onBack = { navController.popBackStack() }
+            )
+        }
+
+        composable(Routes.Settings) {
             SettingsScreen(
-                guardian = currentGuardian,
+                guardian = guardian,
+                lastSyncMillis = lastSync,
                 onBack = { navController.popBackStack() },
                 onLogout = {
-                    val tokenToRevoke = sessionManager.getTokens()?.accessToken
-                    if (tokenToRevoke != null) coroutineScope.launch { apiClient.signOut(tokenToRevoke) }
-                    sessionManager.clearSession()
-                    currentGuardian = GuardianInfo(id = "", accountCode = "", fullName = "ولي الأمر", phone = "", status = "active")
-                    currentChildren = emptyList()
-                    navController.navigate("login") {
-                        popUpTo("dashboard") { inclusive = true }
-                    }
+                    val token = sessionManager.getTokens()?.accessToken
+                    if (token != null) scope.launch { apiClient.signOut(token) }
+                    resetLocalState()
                 }
             )
         }

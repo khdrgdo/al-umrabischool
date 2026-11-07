@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- خلفية النافذة قرمزية لتفادي وميض أبيض قبل أول إطار (شاشة البداية قرمزية). -->
+    <style name="Theme.AlUmrabi" parent="android:Theme.Material.Light.NoActionBar">
+        <item name="android:windowBackground">@color/omrabi_crimson_deep</item>
+        <item name="android:statusBarColor">@color/omrabi_crimson_deep</item>
+        <item name="android:navigationBarColor">@color/omrabi_crimson_deep</item>
+    </style>
+</resources>
