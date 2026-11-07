@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- رمز العمرابي: ألف قائمة من منتصف كتاب مفتوح ونجمة رباعية أعلاه. خلفية شفافة، بلا نص ولا إطار. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="96dp"
+    android:height="96dp"
+    android:viewportWidth="1024"
+    android:viewportHeight="1024">
+    <group android:translateY="26">
+        <path android:fillColor="@color/omrabi_crimson"
+            android:pathData="M512,95 Q522,165 598,180 Q522,195 512,265 Q502,195 425,180 Q502,165 512,95 Z" />
+        <path android:fillColor="@color/omrabi_crimson"
+            android:pathData="M464,322 L512,277 L560,322 L560,840 L512,877 L464,840 Z" />
+        <path android:fillColor="@color/omrabi_crimson"
+            android:pathData="M198,505 L432,627 L450,838 L146,737 Z" />
+        <path android:fillColor="@color/omrabi_crimson"
+            android:pathData="M150,765 L475,858 L137,814 Z" />
+        <path android:fillColor="@color/omrabi_crimson"
+            android:pathData="M826,505 L592,627 L574,838 L878,737 Z" />
+        <path android:fillColor="@color/omrabi_crimson"
+            android:pathData="M874,765 L549,858 L887,814 Z" />
+    </group>
+</vector>
