@@ -5,3 +5,5 @@
 - [ ] Review and apply 0005–0011 in order (blocked: backup confirmation; 0010 seed file must NOT be applied to production).
 - [ ] Decide fate of web parent page src/routes/parent.tsx (user said no web parent portal).
 - [ ] Live UI checks of admin pages (blocked: user must sign in to preview).
+
+- [ ] Replace test data with ~200 students + guardians — BLOCKED: live DB lacks guardians/fees/assessments/announcements/calendar tables (migrations 0005+ not applied); awaiting user approval to apply them
