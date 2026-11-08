@@ -24,8 +24,8 @@
 --   fee_structures.description = العلامة، student_payments.receipt_number يبدأ بـ SEED-
 --   student_fee_discounts.reason يبدأ بـ '[تجريبي]'، fee_types.name تنتهي بـ '(تجريبي)'
 --
--- حالة الاختبار: لم يُشغَّل على قاعدة PostgreSQL فعلية بعد (لا خادم متاح في بيئة الإعداد).
--- شغّله أولاً على نسخة اختبار وراجع supabase/test-seed/verify_parent_app_seed.sql.
+-- حالة الاختبار: نُفِّذ مرة واحدة على قاعدة Lovable الحية في 2026-11-08 (بعد نسخ احتياطي _bak_20261108_*) ونجحت كل فحوص
+-- verify_parent_app_seed.sql.
 -- ============================================================================
 BEGIN;
 
@@ -119,9 +119,9 @@ BEGIN
     FROM _sec s WHERE s.sidx = t.sidx;
 
   -- أولياء الأمور (account_code من الدالة الفعلية؛ الحالة pending_activation؛ بلا Auth/رمز تفعيل)
-  FOR r IN SELECT f.fam, min(s.school_id) AS school_id
-             FROM _stu t JOIN _sec s ON s.sidx = t.sidx JOIN (SELECT DISTINCT fam FROM _stu) f ON f.fam = t.fam
-            GROUP BY f.fam ORDER BY f.fam LOOP
+  FOR r IN SELECT t.fam, (array_agg(s.school_id))[1] AS school_id
+             FROM _stu t JOIN _sec s ON s.sidx = t.sidx
+            GROUP BY t.fam ORDER BY t.fam LOOP
     LOOP
       v_code := public.generate_guardian_account_code();
       EXIT WHEN NOT EXISTS (SELECT 1 FROM public.guardians WHERE account_code = v_code);
