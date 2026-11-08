@@ -77,4 +77,56 @@ object Fmt {
     }
 
     fun days(n: Int): String = plural(n, "يوم واحد", "يومان", "أيام", "يوماً")
+
+    fun money(value: Double): String = number(value) + " جنيه"
+
+    /** 0 = الأحد ... 6 = السبت (نفس ترقيم قاعدة البيانات). */
+    private val weekdaysSun0 = listOf("الأحد", "الاثنين", "الثلاثاء", "الأربعاء", "الخميس", "الجمعة", "السبت")
+    fun weekdayNameSun0(weekday: Int): String = weekdaysSun0.getOrElse(weekday) { "" }
+    fun weekdayIndexSun0(date: LocalDate): Int = date.dayOfWeek.value % 7
+
+    /** «اليوم» / «غداً» / «بعد 5 أيام» / «منذ يومين». */
+    fun relativeDay(date: LocalDate, today: LocalDate = LocalDate.now()): String {
+        val diff = (date.toEpochDay() - today.toEpochDay()).toInt()
+        return when {
+            diff == 0 -> "اليوم"
+            diff == 1 -> "غداً"
+            diff == 2 -> "بعد يومين"
+            diff in 3..10 -> "بعد $diff أيام"
+            diff > 10 -> "بعد $diff يوماً"
+            diff == -1 -> "أمس"
+            diff == -2 -> "منذ يومين"
+            else -> "منذ " + days(-diff)
+        }
+    }
+
+    /** «07:45» → «7:45 ص». */
+    fun time12(hhmm: String): String {
+        val parts = hhmm.split(":")
+        val h = parts.getOrNull(0)?.toIntOrNull() ?: return hhmm
+        val m = parts.getOrNull(1)?.toIntOrNull() ?: 0
+        val h12 = if (h % 12 == 0) 12 else h % 12
+        return String.format(Locale.US, "%d:%02d %s", h12, m, if (h < 12) "ص" else "م")
+    }
+
+    /** صلة ولي الأمر بالطالب كما تُخزَّن في قاعدة البيانات. */
+    fun relation(code: String?): String = when (code) {
+        "father" -> "الأب"
+        "mother" -> "الأم"
+        "brother" -> "الأخ"
+        "uncle" -> "العم/الخال"
+        "legal_guardian" -> "الوصي"
+        "other" -> "قريب"
+        null, "" -> "ولي الأمر"
+        else -> code
+    }
+
+    fun studentStatus(code: String): String = when (code) {
+        "active" -> "منتظم"
+        "transferred_out" -> "منقول"
+        "withdrawn" -> "منسحب"
+        "graduated" -> "متخرج"
+        "suspended" -> "موقوف"
+        else -> code
+    }
 }

@@ -32,6 +32,31 @@ object DemoData {
     private fun grade(subject: String, title: String, score: Double?, max: Double = 100.0, pass: Double = 50.0, absent: Boolean = false) =
         PublishedGrade(subject, title, "الفصل الأول", score, max, pass, absent)
 
+    private fun demoItems(f: FeeStatement, today: LocalDate): List<FeeItem> {
+        val act = f.totalDue * 0.2
+        val tui = f.totalDue - act
+        val actPaid = minOf(f.totalPaid, act)
+        val tuiPaid = (f.totalPaid - actPaid).coerceAtLeast(0.0)
+        return listOf(
+            FeeItem("رسوم دراسية", "القسط الأساسي", tui, f.totalDiscounts, tuiPaid, today.plusDays(25).toString()),
+            FeeItem("رسوم أنشطة", null, act, 0.0, actPaid, today.minusDays(10).toString())
+        )
+    }
+
+    private fun demoSchedule(): List<ScheduleEntry> {
+        val subjects = listOf("اللغة العربية", "الرياضيات", "العلوم", "اللغة الإنجليزية", "التربية الإسلامية", "الاجتماعيات")
+        val starts = listOf("07:45", "08:35", "09:25", "10:35", "11:25", "12:15")
+        val ends = listOf("08:30", "09:20", "10:10", "11:20", "12:10", "13:00")
+        val out = mutableListOf<ScheduleEntry>()
+        for (day in 0..4) {
+            for (p in 0..5) {
+                out.add(ScheduleEntry(day, p + 1, "الحصة ${p + 1}", starts[p], ends[p], false, subjects[(p + day) % subjects.size], "قاعة ${p + 1}"))
+            }
+            out.add(ScheduleEntry(day, 3, "الفسحة", "10:10", "10:35", true, "", null))
+        }
+        return out
+    }
+
     fun payload(): DashboardPayload {
         val today = LocalDate.now()
         val guardian = GuardianInfo(
@@ -102,7 +127,7 @@ object DemoData {
 
         return DashboardPayload(
             guardian = guardian,
-            children = listOf(kg, basic, mid, sec),
+            children = listOf(kg, basic, mid, sec).map { it.copy(fees = it.fees?.let { f -> f.copy(items = demoItems(f, today)) }, schedule = demoSchedule()) },
             announcements = listOf(
                 AnnouncementItem("demo-a1", "إعلان تجريبي هام", "هذا نص إعلان اصطناعي لاختبار شكل الإعلانات المهمة.", "high", today.minusDays(1).toString()),
                 AnnouncementItem("demo-a2", "إعلان تجريبي عادي", "هذا نص إعلان اصطناعي أطول لاختبار توزيع النص على عدة أسطر في الشاشة ومراجعة المسافات وارتفاع السطر في النص العربي.", "normal", today.minusDays(6).toString())

@@ -1,6 +1,8 @@
 package sd.alumrabi.parent.ui.screens
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
@@ -143,8 +145,11 @@ fun LoginScreen(
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .background(Crimson700)
-                .padding(horizontal = 24.dp, vertical = 32.dp)
+                .background(
+                    Brush.verticalGradient(listOf(Crimson800, Crimson700, Crimson600)),
+                    RoundedCornerShape(bottomStart = 32.dp, bottomEnd = 32.dp)
+                )
+                .padding(start = 24.dp, end = 24.dp, top = 36.dp, bottom = 44.dp)
         ) {
             Column {
                 OmrabiSymbol(size = 56.dp, tint = OnBrand, description = "شعار العمرابي")
