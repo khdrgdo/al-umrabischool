@@ -138,7 +138,11 @@ def login_real():
     time.sleep(0.5)
     shot("login_filled")
     hide_keyboard()
-    tap("دخول", exact=True, last=True)
+    o = find("دخول", exact=True, last=True)
+    if o:
+        adb("shell", "input", "tap", str(o["x"]), str(o["y"]))
+    for i in range(8):
+        shot(f"login_to_home_{i}")
 
 
 def main():
@@ -151,10 +155,8 @@ def main():
     adb("shell", "monkey", "-p", PKG, "-c", "android.intent.category.LAUNCHER", "1")
     time.sleep(0.8)
     shot("splash_a")
-    time.sleep(1.2)
-    shot("splash_b")
-    time.sleep(1.4)
-    shot("splash_c")
+    for i in range(8):
+        shot(f"splash_to_login_{i}")
     wait_for("تسجيل الدخول", 30)
     time.sleep(1.5)
     shot("login")
@@ -162,7 +164,13 @@ def main():
     if MODE == "login" and ACCT and PW:
         step("login", login_real)
     else:
-        step("demo", lambda: tap("تجربة ببيانات تجريبية"))
+        def demo():
+            o = find("تجربة ببيانات تجريبية")
+            if o:
+                adb("shell", "input", "tap", str(o["x"]), str(o["y"]))
+            for i in range(8):
+                shot(f"login_to_home_{i}")
+        step("demo", demo)
     if not wait_for("خدماتي", 60):
         shot("after_login_timeout")
         print("home not reached", flush=True)
