@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
@@ -41,7 +42,7 @@ fun FeesScreen(
     val child = children.getOrNull(selectedChildIndex)
     val fees = child?.fees
 
-    Column(Modifier.fillMaxSize().background(Canvas)) {
+    Column(Modifier.fillMaxSize().background(Canvas).statusBarsPadding()) {
         ScreenHeader(
             title = "الرسوم الدراسية",
             subtitle = child?.fullName,

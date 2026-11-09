@@ -143,6 +143,14 @@ class SessionManager(context: Context) {
         prefs.edit().putStringSet("read_announcements", merged).apply()
     }
 
+    fun getNotifiedIds(): Set<String> = prefs.getStringSet("notified_ids", emptySet())?.toSet() ?: emptySet()
+
+    fun hasNotifyBaseline(): Boolean = prefs.contains("notified_ids")
+
+    fun addNotified(ids: Collection<String>) {
+        prefs.edit().putStringSet("notified_ids", getNotifiedIds() + ids).apply()
+    }
+
     fun getLastSyncMillis(): Long = prefs.getLong(KEY_LAST_SYNC, 0L)
 
     fun clearSession() {

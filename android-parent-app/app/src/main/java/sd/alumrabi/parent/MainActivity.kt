@@ -1,6 +1,20 @@
 package sd.alumrabi.parent
 
+import android.Manifest
 import android.content.pm.ApplicationInfo
+import android.content.pm.PackageManager
+import android.os.Build
+import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.layout.imePadding
+import androidx.core.content.ContextCompat
+import androidx.core.view.WindowCompat
+import androidx.work.OneTimeWorkRequestBuilder
+import androidx.work.WorkManager
+import sd.alumrabi.parent.notify.NotificationWorker
+import sd.alumrabi.parent.notify.Notifier
+import sd.alumrabi.parent.ui.components.BrandHeaderLayer
 import android.os.Bundle
 import android.view.WindowManager
 import androidx.activity.ComponentActivity
@@ -45,6 +59,9 @@ import sd.alumrabi.parent.ui.theme.SystemBars
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        // حافة لحافة: الترويسة الحمراء تمتد خلف شريط الحالة
+        WindowCompat.setDecorFitsSystemWindows(window, false)
+        Notifier.ensureChannel(this)
         // OWASP MASVS-PLATFORM: منع لقطات الشاشة ومعاينة التطبيقات الأخيرة للسجلات الأكاديمية والمالية
         // نسخة التجربة (debug) تسمح بلقطات الشاشة لمراجعة التصميم؛ نسخة الإصدار تمنعها دائماً
         val debuggable = (applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE) != 0
@@ -97,6 +114,7 @@ fun ParentAppNavHost() {
     val unread = announcements.count { it.id !in readIds }
 
     fun resetLocalState() {
+        Notifier.cancel(context)
         sessionManager.clearSession()
         guardian = emptyGuardian()
         children = emptyList()
@@ -139,6 +157,7 @@ fun ParentAppNavHost() {
             events = payload.events
             sessionManager.saveSession(payload.guardian, payload.children)
             sessionManager.saveContent(payload.announcements, payload.events)
+            sessionManager.addNotified(Notifier.keys(payload))
             lastSync = sessionManager.getLastSyncMillis()
             connectionState = BackendConnectionState.CONNECTED_LIVE
         } else {
@@ -151,7 +170,12 @@ fun ParentAppNavHost() {
         }
     }
 
-    LaunchedEffect(Unit) { syncOnce() }
+    LaunchedEffect(Unit) {
+        if (sessionManager.isLoggedIn()) Notifier.schedule(context)
+        syncOnce()
+    }
+
+    val notifPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { }
 
     fun navigateTab(tab: AppTab) {
         navController.navigate(tab.route) {
@@ -166,16 +190,30 @@ fun ParentAppNavHost() {
 
     BackHandler(enabled = isTab && currentRoute != Routes.Home) { navigateTab(AppTab.Home) }
 
+    LaunchedEffect(currentRoute) {
+        if (currentRoute == Routes.Home && Build.VERSION.SDK_INT >= 33 &&
+            ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
+        ) {
+            notifPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
+        }
+    }
+
+    Box(Modifier.fillMaxSize()) {
+    BrandHeaderLayer(currentRoute)
     Column(Modifier.fillMaxSize()) {
-        Box(Modifier.weight(1f)) {
+        Box(Modifier.weight(1f).imePadding()) {
             NavHost(
                 navController = navController,
                 startDestination = Routes.Splash,
                 modifier = Modifier.fillMaxSize(),
                 enterTransition = {
                     val to = targetState.destination.route
-                    if (to != null && to in TabRoutes) fadeIn(tween(220))
-                    else slideInHorizontally(tween(260)) { -it / 6 } + fadeIn(tween(220))
+                    when {
+                        to == Routes.Login -> fadeIn(tween(350, delayMillis = 250))
+                        to == Routes.Home -> fadeIn(tween(300, delayMillis = 150))
+                        to != null && to in TabRoutes -> fadeIn(tween(220))
+                        else -> slideInHorizontally(tween(260)) { -it / 6 } + fadeIn(tween(220))
+                    }
                 },
                 exitTransition = {
                     val to = targetState.destination.route
@@ -219,6 +257,8 @@ fun ParentAppNavHost() {
                             sessionManager.saveTokens(tokens)
                             sessionManager.saveSession(payload.guardian, payload.children)
                             sessionManager.saveContent(payload.announcements, payload.events)
+                            sessionManager.addNotified(Notifier.keys(payload))
+                            Notifier.schedule(context)
                             lastSync = sessionManager.getLastSyncMillis()
                             connectionState = BackendConnectionState.CONNECTED_LIVE
                             navController.navigate(Routes.Home) { popUpTo(Routes.Login) { inclusive = true } }
@@ -257,7 +297,13 @@ fun ParentAppNavHost() {
                     MoreScreen(
                         guardian = guardian,
                         unreadAnnouncements = unread,
-                        onOpenRoute = { navController.navigate(it) }
+                        onOpenRoute = { navController.navigate(it) },
+                        onCheckNow = if (isDebuggable) {
+                            {
+                                WorkManager.getInstance(context).enqueue(OneTimeWorkRequestBuilder<NotificationWorker>().build())
+                                Toast.makeText(context, "جارٍ فحص الجديد…", Toast.LENGTH_SHORT).show()
+                            }
+                        } else null
                     )
                 }
 
@@ -314,5 +360,6 @@ fun ParentAppNavHost() {
                 badges = mapOf(Routes.More to unread)
             )
         }
+    }
     }
 }

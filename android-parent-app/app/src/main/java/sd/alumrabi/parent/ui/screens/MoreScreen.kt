@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -13,6 +14,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.AutoAwesome
 import androidx.compose.material.icons.outlined.CalendarMonth
 import androidx.compose.material.icons.outlined.Campaign
+import androidx.compose.material.icons.outlined.Notifications
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -28,13 +30,15 @@ import sd.alumrabi.parent.ui.theme.*
 fun MoreScreen(
     guardian: GuardianInfo,
     unreadAnnouncements: Int,
-    onOpenRoute: (String) -> Unit
+    onOpenRoute: (String) -> Unit,
+    onCheckNow: (() -> Unit)? = null
 ) {
     SystemBars(statusBar = Canvas, darkIcons = true)
     Column(
         Modifier
             .fillMaxSize()
             .background(Canvas)
+            .statusBarsPadding()
             .verticalScroll(rememberScrollState())
             .padding(horizontal = Space.gutter)
     ) {
@@ -95,6 +99,15 @@ fun MoreScreen(
                     leading = Icons.Outlined.Settings,
                     onClick = { onOpenRoute(Routes.Settings) }
                 )
+                if (onCheckNow != null) {
+                    RowDivider()
+                    ListRow(
+                        title = "فحص الإشعارات الآن (للتجربة)",
+                        subtitle = "يشغّل الفحص الدوري فوراً",
+                        leading = Icons.Outlined.Notifications,
+                        onClick = onCheckNow
+                    )
+                }
             }
         }
         Spacer(Modifier.padding(top = Space.xxl))

@@ -117,7 +117,6 @@ fun AnimatedSplashScreen(onSplashFinished: () -> Unit) {
     Box(
         Modifier
             .fillMaxSize()
-            .background(Brush.verticalGradient(listOf(Crimson900, Crimson700, Crimson800)))
             .graphicsLayer {
                 alpha = exit.value
                 scaleX = 1f + (1f - exit.value) * 0.06f

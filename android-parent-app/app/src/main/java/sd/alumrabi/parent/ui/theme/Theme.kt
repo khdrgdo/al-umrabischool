@@ -109,8 +109,10 @@ fun SystemBars(
     if (!view.isInEditMode) {
         SideEffect {
             val window = (view.context as Activity).window
-            window.statusBarColor = statusBar.toArgb()
-            window.navigationBarColor = navigationBar.toArgb()
+            // الشريطان شفافان دائماً (حافة لحافة)؛ لون الخلفية تصنعه الشاشة نفسها خلفهما.
+            window.statusBarColor = android.graphics.Color.TRANSPARENT
+            window.navigationBarColor = android.graphics.Color.TRANSPARENT
+            if (android.os.Build.VERSION.SDK_INT >= 29) window.isNavigationBarContrastEnforced = false
             val controller = WindowCompat.getInsetsController(window, view)
             controller.isAppearanceLightStatusBars = darkIcons
             controller.isAppearanceLightNavigationBars = navigationIconsDark
