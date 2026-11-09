@@ -7,6 +7,8 @@ import androidx.security.crypto.MasterKey
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import sd.alumrabi.parent.data.api.AuthTokens
+import sd.alumrabi.parent.data.model.AnnouncementItem
+import sd.alumrabi.parent.data.model.CalendarEventItem
 import sd.alumrabi.parent.data.model.GuardianInfo
 import sd.alumrabi.parent.data.model.LinkedChild
 
@@ -110,6 +112,35 @@ class SessionManager(context: Context) {
         } catch (_: Exception) {
             emptyList()
         }
+    }
+
+    fun saveContent(announcements: List<AnnouncementItem>, events: List<CalendarEventItem>) {
+        try {
+            prefs.edit()
+                .putString("announcements_json", json.encodeToString(announcements))
+                .putString("events_json", json.encodeToString(events))
+                .apply()
+        } catch (_: Exception) {
+        }
+    }
+
+    fun getAnnouncements(): List<AnnouncementItem> {
+        if (!isLoggedIn()) return emptyList()
+        val raw = prefs.getString("announcements_json", null) ?: return emptyList()
+        return try { json.decodeFromString<List<AnnouncementItem>>(raw) } catch (_: Exception) { emptyList() }
+    }
+
+    fun getEvents(): List<CalendarEventItem> {
+        if (!isLoggedIn()) return emptyList()
+        val raw = prefs.getString("events_json", null) ?: return emptyList()
+        return try { json.decodeFromString<List<CalendarEventItem>>(raw) } catch (_: Exception) { emptyList() }
+    }
+
+    fun getReadIds(): Set<String> = prefs.getStringSet("read_announcements", emptySet())?.toSet() ?: emptySet()
+
+    fun markRead(ids: Collection<String>) {
+        val merged = getReadIds() + ids
+        prefs.edit().putStringSet("read_announcements", merged).apply()
     }
 
     fun getLastSyncMillis(): Long = prefs.getLong(KEY_LAST_SYNC, 0L)

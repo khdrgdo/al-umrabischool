@@ -35,7 +35,34 @@ data class PaymentRecord(
     val amount: Double,
     @SerialName("payment_method") val paymentMethod: String,
     @SerialName("receipt_number") val receiptNumber: String,
-    @SerialName("created_at") val createdAt: String
+    @SerialName("created_at") val createdAt: String,
+    @SerialName("fee_name") val feeName: String? = null
+)
+
+@Serializable
+data class FeeItem(
+    val name: String,
+    val description: String? = null,
+    val amount: Double = 0.0,
+    val discount: Double = 0.0,
+    val paid: Double = 0.0,
+    @SerialName("due_date") val dueDate: String? = null
+) {
+    val net: Double get() = (amount - discount).coerceAtLeast(0.0)
+    val remaining: Double get() = (net - paid).coerceAtLeast(0.0)
+}
+
+/** حصة في الجدول الأسبوعي. weekday: 0 = الأحد ... 6 = السبت. الأوقات بصيغة HH:mm. */
+@Serializable
+data class ScheduleEntry(
+    val weekday: Int,
+    @SerialName("period_order") val periodOrder: Int = 0,
+    val label: String = "",
+    @SerialName("starts_at") val startsAt: String = "",
+    @SerialName("ends_at") val endsAt: String = "",
+    @SerialName("is_break") val isBreak: Boolean = false,
+    val subject: String = "",
+    val room: String? = null
 )
 
 @Serializable
@@ -43,7 +70,8 @@ data class FeeStatement(
     @SerialName("total_due") val totalDue: Double = 0.0,
     @SerialName("total_discounts") val totalDiscounts: Double = 0.0,
     @SerialName("total_paid") val totalPaid: Double = 0.0,
-    val payments: List<PaymentRecord> = emptyList()
+    val payments: List<PaymentRecord> = emptyList(),
+    val items: List<FeeItem> = emptyList()
 ) {
     val netDue: Double get() = (totalDue - totalDiscounts).coerceAtLeast(0.0)
     val remainingBalance: Double get() = (netDue - totalPaid).coerceAtLeast(0.0)
@@ -63,7 +91,8 @@ data class LinkedChild(
     @SerialName("section_name") val sectionName: String = "غير محدد",
     val grades: List<PublishedGrade>? = emptyList(),
     val attendance: List<AttendanceRecord>? = emptyList(),
-    val fees: FeeStatement? = null
+    val fees: FeeStatement? = null,
+    val schedule: List<ScheduleEntry>? = emptyList()
 )
 
 @Serializable

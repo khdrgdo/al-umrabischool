@@ -1,160 +1,181 @@
 package sd.alumrabi.parent.ui.screens
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Lock
+import androidx.compose.material.icons.outlined.Payments
+import androidx.compose.material.icons.outlined.Share
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.TextStyle
-import androidx.compose.ui.text.style.TextDirection
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import sd.alumrabi.parent.data.model.LinkedChild
-import sd.alumrabi.parent.data.model.PaymentRecord
 import sd.alumrabi.parent.ui.components.*
 import sd.alumrabi.parent.ui.theme.*
 import sd.alumrabi.parent.util.Fmt
+import sd.alumrabi.parent.util.Reports
+import sd.alumrabi.parent.util.shareText
 
-/** الرسوم للقراءة فقط (APP-2): مستحق، إعفاءات، مدفوع، متبقٍ، إيصالات. */
 @Composable
 fun FeesScreen(
     children: List<LinkedChild>,
     selectedChildIndex: Int,
-    onSelectChild: (Int) -> Unit,
-    onSelectTab: (AppTab) -> Unit
+    onSelectChild: (Int) -> Unit
 ) {
     SystemBars(statusBar = Canvas, darkIcons = true)
+    val context = LocalContext.current
     val child = children.getOrNull(selectedChildIndex)
     val fees = child?.fees
 
-    Scaffold(
-        containerColor = Canvas,
-        topBar = { OmrabiTopBar(title = "الرسوم الدراسية", subtitle = child?.fullName) },
-        bottomBar = { OmrabiBottomBar(currentRoute = Routes.Fees, onSelect = onSelectTab) }
-    ) { padding ->
-        LazyColumn(
-            modifier = Modifier.fillMaxSize().padding(padding),
-            contentPadding = PaddingValues(horizontal = Space.gutter, vertical = Space.lg),
-            verticalArrangement = Arrangement.spacedBy(Space.sm)
-        ) {
-            if (children.size > 1) {
-                item { ChildSwitcher(children, selectedChildIndex, onSelectChild) }
-            }
-            when {
-                child == null -> item {
-                    StatePanel(title = "لا يوجد ابن مرتبط", message = noChildMessage())
-                }
-                !child.canViewFees -> item {
-                    StatePanel(
-                        title = "الرسوم غير متاحة لحسابك",
-                        message = "لا يملك حسابك صلاحية عرض رسوم هذا الطالب. تواصل مع إدارة المدرسة إن كان ذلك خطأ."
-                    )
-                }
-                fees == null -> item {
-                    StatePanel(
-                        title = "بيانات الرسوم غير متاحة",
-                        message = "تعذّر الحصول على بيانات الرسوم حالياً. حدّث البيانات من الصفحة الرئيسية وحاول لاحقاً."
-                    )
-                }
-                else -> {
-                    item {
-                        GroupedList {
-                            MoneyRow("إجمالي الرسوم المقررة", fees.totalDue)
-                            if (fees.totalDiscounts > 0.0) {
-                                RowDivider()
-                                MoneyRow("الخصومات والمنح", fees.totalDiscounts)
+    Column(Modifier.fillMaxSize().background(Canvas)) {
+        ScreenHeader(
+            title = "الرسوم الدراسية",
+            subtitle = child?.fullName,
+            modifier = Modifier.padding(horizontal = Space.gutter)
+        )
+        ChildChips(children, selectedChildIndex, onSelectChild, Modifier.padding(vertical = Space.sm))
+        when {
+            child == null -> StatePanel("لا يوجد ابن مرتبط", noChildMessage(), Modifier.padding(Space.gutter))
+            !child.canViewFees -> EmptyNote(
+                Icons.Outlined.Lock,
+                "الرسوم غير متاحة لحسابك",
+                "لا تملك صلاحية عرض الرسوم لهذا الابن. تواصل مع إدارة المدرسة.",
+                Modifier.padding(Space.gutter)
+            )
+            fees == null -> EmptyNote(
+                Icons.Outlined.Payments,
+                "بيانات الرسوم غير متاحة حالياً",
+                "ستظهر هنا حالة الرسوم والمدفوعات فور توفرها. جرّب التحديث لاحقاً.",
+                Modifier.padding(Space.gutter)
+            )
+            else -> LazyColumn(
+                contentPadding = PaddingValues(horizontal = Space.gutter, vertical = Space.sm),
+                verticalArrangement = Arrangement.spacedBy(Space.md)
+            ) {
+                item {
+                    Reveal(0) {
+                        val frac = if (fees.netDue <= 0.0) 0f else (fees.totalPaid / fees.netDue).toFloat().coerceIn(0f, 1f)
+                        Panel {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                ProgressRing(progress = frac, ringSize = 88.dp, color = Gold) {
+                                    Text(
+                                        Fmt.percent(frac * 100.0),
+                                        style = MaterialTheme.typography.titleMedium.tabular(),
+                                        color = Ink900
+                                    )
+                                }
+                                Spacer(Modifier.width(Space.lg))
+                                Column(Modifier.weight(1f)) {
+                                    Text("المتبقي", style = MaterialTheme.typography.labelMedium, color = Ink500)
+                                    Text(
+                                        Fmt.money(fees.remainingBalance),
+                                        style = MaterialTheme.typography.titleLarge.tabular(),
+                                        color = if (fees.isFullyPaid) Positive else Ink900
+                                    )
+                                    Spacer(Modifier.height(4.dp))
+                                    if (fees.isFullyPaid && fees.netDue > 0.0) Pill("مسدّدة بالكامل", Positive, PositiveBg)
+                                    else if (fees.totalDue <= 0.0) Pill("لا رسوم مقررة", Ink700, Wash)
+                                }
                             }
+                            Spacer(Modifier.height(Space.lg))
                             RowDivider()
-                            MoneyRow("المدفوع", fees.totalPaid)
-                            RowDivider()
-                            MoneyRow("المتبقي", fees.remainingBalance, emphasize = true)
+                            FigureRow("إجمالي الرسوم", Fmt.money(fees.totalDue))
+                            if (fees.totalDiscounts > 0.0) FigureRow("الخصومات", "− " + Fmt.money(fees.totalDiscounts), Positive)
+                            FigureRow("المستحق بعد الخصم", Fmt.money(fees.netDue))
+                            FigureRow("المدفوع", Fmt.money(fees.totalPaid))
                         }
                     }
-                    if (fees.totalDue > 0.0 && fees.isFullyPaid) {
-                        item {
-                            StatusLabel("مسدّدة بالكامل", Positive, PositiveBg)
-                        }
-                    }
-                    item { SectionLabel("الإيصالات") }
-                    if (fees.payments.isEmpty()) {
-                        item {
-                            StatePanel(
-                                title = "لا توجد مدفوعات مسجّلة",
-                                message = "تظهر إيصالات السداد هنا بعد تسجيلها لدى الإدارة المالية."
-                            )
-                        }
-                    } else {
-                        item {
-                            GroupedList {
-                                fees.payments.forEachIndexed { index, payment ->
-                                    if (index > 0) RowDivider()
-                                    PaymentRow(payment)
+                }
+                if (fees.items.isNotEmpty()) {
+                    item { SectionLabel("بنود الرسوم") }
+                    item {
+                        Panel {
+                            fees.items.forEachIndexed { i, it ->
+                                if (i > 0) { Spacer(Modifier.height(Space.md)); RowDivider(); Spacer(Modifier.height(Space.md)) }
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Column(Modifier.weight(1f)) {
+                                        Text(it.name, style = MaterialTheme.typography.titleSmall, color = Ink900)
+                                        if (!it.dueDate.isNullOrBlank()) {
+                                            Text("الاستحقاق: ${Fmt.dateOrRaw(it.dueDate)}", style = MaterialTheme.typography.bodySmall, color = Ink500)
+                                        }
+                                    }
+                                    if (it.remaining <= 0.0 && it.net > 0.0) Pill("مسدّد", Positive, PositiveBg)
+                                    else Text(Fmt.money(it.remaining), style = MaterialTheme.typography.titleSmall.tabular(), color = Ink900)
+                                }
+                                if (it.net > 0.0) {
+                                    Spacer(Modifier.height(Space.sm))
+                                    FillBar(fraction = (it.paid / it.net).toFloat().coerceIn(0f, 1f), color = Gold, height = 6.dp)
+                                    Spacer(Modifier.height(4.dp))
+                                    Text(
+                                        "المدفوع ${Fmt.money(it.paid)} من ${Fmt.money(it.net)}",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = Ink500
+                                    )
                                 }
                             }
                         }
                     }
                 }
+                item { SectionLabel("سجل المدفوعات") }
+                if (fees.payments.isEmpty()) {
+                    item { EmptyNote(Icons.Outlined.Payments, "لا مدفوعات مسجلة", "ستظهر الإيصالات هنا بعد تسجيل أول دفعة.") }
+                } else {
+                    item {
+                        Panel(padding = 0.dp) {
+                            fees.payments.forEachIndexed { i, p ->
+                                if (i > 0) RowDivider()
+                                Row(
+                                    Modifier.fillMaxWidth().padding(Space.lg),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Column(Modifier.weight(1f)) {
+                                        Text(Fmt.money(p.amount), style = MaterialTheme.typography.titleSmall.tabular(), color = Ink900)
+                                        Text(
+                                            listOfNotNull(p.feeName, Fmt.dateOrRaw(p.createdAt)).joinToString(" · "),
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = Ink500
+                                        )
+                                        Text("إيصال ${p.receiptNumber}", style = MaterialTheme.typography.labelSmall, color = Ink500)
+                                    }
+                                    CircleIconButton(
+                                        icon = Icons.Outlined.Share,
+                                        description = "مشاركة الإيصال",
+                                        onClick = {
+                                            shareText(
+                                                context, "إيصال سداد",
+                                                Reports.receipt(child, p.amount, p.receiptNumber, Fmt.dateOrRaw(p.createdAt), p.paymentMethod)
+                                            )
+                                        }
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+                item { Spacer(Modifier.height(Space.lg)) }
             }
         }
     }
 }
 
 @Composable
-private fun MoneyRow(label: String, amount: Double, emphasize: Boolean = false) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .heightIn(min = 52.dp)
-            .padding(horizontal = Space.lg, vertical = Space.md),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Text(
-            label,
-            style = if (emphasize) MaterialTheme.typography.titleSmall else MaterialTheme.typography.bodyMedium,
-            color = if (emphasize) Ink900 else Ink700,
-            modifier = Modifier.weight(1f)
-        )
-        Text(
-            "${Fmt.number(amount)} جنيه",
-            style = (if (emphasize) MaterialTheme.typography.titleMedium else MaterialTheme.typography.bodyLarge).tabular(),
-            color = if (emphasize && amount > 0.0) Crimson700 else Ink900
-        )
-    }
-}
-
-@Composable
-private fun PaymentRow(payment: PaymentRecord) {
-    val date = Fmt.dateOrRaw(payment.createdAt)
-    val method = when (payment.paymentMethod) {
-        "cash" -> "نقداً"
-        "bank", "bank_transfer", "transfer" -> "تحويل بنكي"
-        else -> payment.paymentMethod
-    }
-    val ltr: TextStyle = MaterialTheme.typography.bodySmall.copy(textDirection = TextDirection.Ltr)
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .heightIn(min = 56.dp)
-            .padding(horizontal = Space.lg, vertical = Space.md),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Column(Modifier.weight(1f)) {
-            Text("$date · $method", style = MaterialTheme.typography.bodyMedium, color = Ink900)
-            Text("إيصال ${payment.receiptNumber}", style = ltr, color = Ink500)
-        }
-        Text(
-            "${Fmt.number(payment.amount)} جنيه",
-            style = MaterialTheme.typography.titleSmall.tabular(),
-            color = Ink900
-        )
+private fun FigureRow(label: String, value: String, color: androidx.compose.ui.graphics.Color = Ink900) {
+    Row(Modifier.fillMaxWidth().padding(top = Space.md), verticalAlignment = Alignment.CenterVertically) {
+        Text(label, style = MaterialTheme.typography.bodyMedium, color = Ink700, modifier = Modifier.weight(1f))
+        Text(value, style = MaterialTheme.typography.titleSmall.tabular(), color = color)
     }
 }

@@ -32,3 +32,11 @@ val Caution = Color(0xFF8A5700)
 val CautionBg = Color(0xFFF9EFD8)
 val Negative = Crimson700
 val NegativeBg = Crimson100
+
+// ── ألوان البيانات (للرسوم والبلاطات فقط؛ القرمزي يبقى لون العلامة والأفعال) ──
+val Teal = Color(0xFF1F7A7A)
+val TealBg = Color(0xFFE2F1F1)
+val Indigo = Color(0xFF3F4C9A)
+val IndigoBg = Color(0xFFE8EAF6)
+val Gold = Color(0xFF9A6B00)
+val GoldBg = Color(0xFFFBF1D4)

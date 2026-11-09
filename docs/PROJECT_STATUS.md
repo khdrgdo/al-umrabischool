@@ -43,3 +43,11 @@
 - Live database contains migrations 0000–0004 only. Tables from 0005–0011 (fees, guardians, assessments, calendar, rollover, parent app) do not exist, so those pages cannot load real data.
 - No database change made: backup existence could not be verified by the agent.
 - Open: remove first-user-owner grant in handle_new_user; apply 0005–0011 after backup and review; seed migration 0010 must never run in production.
+
+
+## 2026-11-09 — تطبيق ولي الأمر 1.2.0 (فرع feature/parent-app-v1.2)
+- إعادة تصميم كاملة: شاشة بداية متحركة، رئيسية ببطاقات أبناء وحلقات تقدّم، نتائج/حضور/رسوم محسّنة، جدول دراسي، إعلانات مع حالة القراءة، شريط تنقل واحد، تحديث بالسحب، تخزين محلي للإعلانات والتقويم.
+- الترحيل 0015 (`parent_get_dashboard_data`): يضيف لكل ابن `fees` (إن كان can_view_fees) و`schedule` (جداول معتمدة فقط). إضافة قراءة فقط. **طُبّق على القاعدة الحية بتاريخ 2026-11-09** واختُبر داخل معاملة ملغاة: عزل الأسر سليم.
+- بيانات الاختبار (`supabase/test-seed/`) منفّذة على القاعدة: 200 طالب و115 ولي أمر بعلامة `SEED:alumrabi-test-v1`. جداول `_bak_20261108_*` نسخة احتياطية للبيانات القديمة وتُحذف عند انتفاء الحاجة.
+- الـAPK المبني من CI هو نسخة debug للتجربة؛ **لم يُنتج APK Release مُوقَّعاً**.
+- معلوم: اختباران في `src/test/db` يفشلان بسبب fixture قديم معطّل (`LEGACY_SEED_DISABLED`) وهما غير مرتبطين بهذا التغيير.

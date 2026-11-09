@@ -165,7 +165,7 @@ class ParentApiClient(
                 val msg = element["message"]?.jsonPrimitive?.contentOrNull ?: "تعذر جلب بيانات ولي الأمر"
                 return@withContext Result.failure(if (err == "ACCOUNT_SUSPENDED" || err == "ACCOUNT_INACTIVE" || err == "NOT_REGISTERED") AccountBlockedException(msg) else Exception(msg))
             }
-            val g = element["guardian"]?.jsonObject ?: return@withContext Result.failure(Exception("استجابة غير متوقعة من الخادم"))
+            val g = element.obj("guardian") ?: return@withContext Result.failure(Exception("استجابة غير متوقعة من الخادم"))
             val guardian = GuardianInfo(
                 id = g["id"]?.jsonPrimitive?.content ?: "",
                 accountCode = g["account_code"]?.jsonPrimitive?.contentOrNull,
@@ -173,14 +173,18 @@ class ParentApiClient(
                 phone = g["phone"]?.jsonPrimitive?.contentOrNull ?: "",
                 status = g["status"]?.jsonPrimitive?.contentOrNull ?: "active"
             )
-            val children = element["children"]?.jsonArray?.mapNotNull { parseChild(it.jsonObject) } ?: emptyList()
-            val announcements = element["announcements"]?.jsonArray?.mapNotNull { parseAnnouncement(it.jsonObject) } ?: emptyList()
-            val events = element["events"]?.jsonArray?.mapNotNull { parseEvent(it.jsonObject) } ?: emptyList()
+            val children = element.arr("children")?.mapNotNull { (it as? JsonObject)?.let(::parseChild) } ?: emptyList()
+            val announcements = element.arr("announcements")?.mapNotNull { (it as? JsonObject)?.let(::parseAnnouncement) } ?: emptyList()
+            val events = element.arr("events")?.mapNotNull { (it as? JsonObject)?.let(::parseEvent) } ?: emptyList()
             Result.success(DashboardPayload(guardian, children, announcements, events))
         } catch (_: Exception) {
             Result.failure(Exception("تعذر الاتصال بخادم المدرسة. يرجى التحقق من اتصال الإنترنت."))
         }
     }
+
+    // الخادم يعيد null (لا مصفوفة فارغة) عند غياب الدرجات/الحضور؛ القراءة الآمنة تمنع إسقاط الابن كله.
+    private fun JsonObject.arr(key: String): JsonArray? = this[key] as? JsonArray
+    private fun JsonObject.obj(key: String): JsonObject? = this[key] as? JsonObject
 
     private fun parseChild(obj: JsonObject): LinkedChild? {
         return try {
@@ -194,7 +198,7 @@ class ParentApiClient(
             val gradeName = obj["grade_name"]?.jsonPrimitive?.contentOrNull ?: "غير محدد"
             val sectionName = obj["section_name"]?.jsonPrimitive?.contentOrNull ?: "غير محدد"
 
-            val grades = obj["grades"]?.jsonArray?.mapNotNull {
+            val grades = obj.arr("grades")?.mapNotNull {
                 val g = it.jsonObject
                 PublishedGrade(
                     subjectName = g["subject_name"]?.jsonPrimitive?.content ?: "مادة",
@@ -207,7 +211,7 @@ class ParentApiClient(
                 )
             } ?: emptyList()
 
-            val attendance = obj["attendance"]?.jsonArray?.mapNotNull {
+            val attendance = obj.arr("attendance")?.mapNotNull {
                 val a = it.jsonObject
                 AttendanceRecord(
                     date = a["date"]?.jsonPrimitive?.content ?: "",
@@ -216,22 +220,48 @@ class ParentApiClient(
                 )
             } ?: emptyList()
 
-            val feesObj = obj["fees"]?.jsonObject
+            val feesObj = obj.obj("fees")
             val fees = if (feesObj != null) {
                 val totalDue = feesObj["total_due"]?.jsonPrimitive?.doubleOrNull ?: 0.0
                 val totalDiscounts = feesObj["total_discounts"]?.jsonPrimitive?.doubleOrNull ?: 0.0
                 val totalPaid = feesObj["total_paid"]?.jsonPrimitive?.doubleOrNull ?: 0.0
-                val payments = feesObj["payments"]?.jsonArray?.mapNotNull {
+                val payments = feesObj.arr("payments")?.mapNotNull {
                     val p = it.jsonObject
                     PaymentRecord(
                         amount = p["amount"]?.jsonPrimitive?.doubleOrNull ?: 0.0,
                         paymentMethod = p["payment_method"]?.jsonPrimitive?.content ?: "cash",
                         receiptNumber = p["receipt_number"]?.jsonPrimitive?.content ?: "—",
-                        createdAt = p["created_at"]?.jsonPrimitive?.content ?: ""
+                        createdAt = p["created_at"]?.jsonPrimitive?.content ?: "",
+                        feeName = p["fee_name"]?.jsonPrimitive?.contentOrNull
                     )
                 } ?: emptyList()
-                FeeStatement(totalDue, totalDiscounts, totalPaid, payments)
+                val items = feesObj.arr("items")?.mapNotNull {
+                    val f = it as? JsonObject ?: return@mapNotNull null
+                    FeeItem(
+                        name = f["name"]?.jsonPrimitive?.contentOrNull ?: "رسوم",
+                        description = f["description"]?.jsonPrimitive?.contentOrNull,
+                        amount = f["amount"]?.jsonPrimitive?.doubleOrNull ?: 0.0,
+                        discount = f["discount"]?.jsonPrimitive?.doubleOrNull ?: 0.0,
+                        paid = f["paid"]?.jsonPrimitive?.doubleOrNull ?: 0.0,
+                        dueDate = f["due_date"]?.jsonPrimitive?.contentOrNull
+                    )
+                } ?: emptyList()
+                FeeStatement(totalDue, totalDiscounts, totalPaid, payments, items)
             } else null
+
+            val schedule = obj.arr("schedule")?.mapNotNull {
+                val s = it as? JsonObject ?: return@mapNotNull null
+                ScheduleEntry(
+                    weekday = s["weekday"]?.jsonPrimitive?.intOrNull ?: return@mapNotNull null,
+                    periodOrder = s["period_order"]?.jsonPrimitive?.intOrNull ?: 0,
+                    label = s["label"]?.jsonPrimitive?.contentOrNull ?: "",
+                    startsAt = s["starts_at"]?.jsonPrimitive?.contentOrNull ?: "",
+                    endsAt = s["ends_at"]?.jsonPrimitive?.contentOrNull ?: "",
+                    isBreak = s["is_break"]?.jsonPrimitive?.booleanOrNull ?: false,
+                    subject = s["subject"]?.jsonPrimitive?.contentOrNull ?: "",
+                    room = s["room"]?.jsonPrimitive?.contentOrNull
+                )
+            } ?: emptyList()
 
             LinkedChild(
                 id = id,
@@ -245,7 +275,8 @@ class ParentApiClient(
                 sectionName = sectionName,
                 grades = grades,
                 attendance = attendance,
-                fees = fees
+                fees = fees,
+                schedule = schedule
             )
         } catch (_: Exception) {
             null

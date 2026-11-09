@@ -8,6 +8,11 @@ import androidx.activity.compose.setContent
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
+import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.*
@@ -28,7 +33,9 @@ import sd.alumrabi.parent.data.demo.DemoData
 import sd.alumrabi.parent.data.local.SessionManager
 import sd.alumrabi.parent.data.model.*
 import sd.alumrabi.parent.ui.components.AppTab
+import sd.alumrabi.parent.ui.components.OmrabiBottomBar
 import sd.alumrabi.parent.ui.components.Routes
+import sd.alumrabi.parent.ui.components.TabRoutes
 import sd.alumrabi.parent.ui.screens.*
 import sd.alumrabi.parent.ui.theme.AlUmrabiParentTheme
 import sd.alumrabi.parent.ui.theme.Canvas
@@ -74,13 +81,16 @@ fun ParentAppNavHost() {
 
     var guardian by remember { mutableStateOf(sessionManager.getGuardian() ?: emptyGuardian()) }
     var children by remember { mutableStateOf(sessionManager.getChildren()) }
-    var announcements by remember { mutableStateOf<List<AnnouncementItem>>(emptyList()) }
-    var events by remember { mutableStateOf<List<CalendarEventItem>>(emptyList()) }
+    var announcements by remember { mutableStateOf(sessionManager.getAnnouncements()) }
+    var events by remember { mutableStateOf(sessionManager.getEvents()) }
+    var readIds by remember { mutableStateOf(sessionManager.getReadIds()) }
     var connectionState by remember { mutableStateOf(BackendConnectionState.CONNECTING) }
     var lastSync by remember { mutableLongStateOf(sessionManager.getLastSyncMillis()) }
     var selectedChildIndex by remember { mutableIntStateOf(0) }
+    var refreshing by remember { mutableStateOf(false) }
 
     val safeIndex = if (children.isEmpty()) 0 else selectedChildIndex.coerceIn(0, children.lastIndex)
+    val unread = announcements.count { it.id !in readIds }
 
     fun resetLocalState() {
         sessionManager.clearSession()
@@ -88,6 +98,7 @@ fun ParentAppNavHost() {
         children = emptyList()
         announcements = emptyList()
         events = emptyList()
+        readIds = emptySet()
         selectedChildIndex = 0
         lastSync = 0L
         connectionState = BackendConnectionState.SYNCED_LOCAL
@@ -110,7 +121,6 @@ fun ParentAppNavHost() {
                 if (refreshed.exceptionOrNull() is SessionExpiredException) {
                     resetLocalState()
                 } else {
-                    // فشل شبكة عابر: نبقى على البيانات المحفوظة ولا نقطع الجلسة
                     connectionState = BackendConnectionState.SYNCED_LOCAL
                 }
                 return
@@ -124,6 +134,7 @@ fun ParentAppNavHost() {
             announcements = payload.announcements
             events = payload.events
             sessionManager.saveSession(payload.guardian, payload.children)
+            sessionManager.saveContent(payload.announcements, payload.events)
             lastSync = sessionManager.getLastSyncMillis()
             connectionState = BackendConnectionState.CONNECTED_LIVE
         } else {
@@ -147,134 +158,156 @@ fun ParentAppNavHost() {
     }
 
     val currentRoute = navController.currentBackStackEntryAsState().value?.destination?.route
-    if (currentRoute == Routes.Splash) SystemBars(Crimson700, false) else SystemBars(Canvas, true)
+    val isTab = currentRoute != null && currentRoute in TabRoutes
 
-    NavHost(
-        navController = navController,
-        startDestination = Routes.Splash,
-        enterTransition = { fadeIn(tween(200)) },
-        exitTransition = { fadeOut(tween(120)) },
-        popEnterTransition = { fadeIn(tween(200)) },
-        popExitTransition = { fadeOut(tween(120)) }
-    ) {
-        composable(Routes.Splash) {
-            AnimatedSplashScreen(
-                onSplashFinished = {
-                    val target = if (sessionManager.isLoggedIn()) Routes.Home else Routes.Login
-                    navController.navigate(target) { popUpTo(Routes.Splash) { inclusive = true } }
+    BackHandler(enabled = isTab && currentRoute != Routes.Home) { navigateTab(AppTab.Home) }
+
+    Column(Modifier.fillMaxSize()) {
+        Box(Modifier.weight(1f)) {
+            NavHost(
+                navController = navController,
+                startDestination = Routes.Splash,
+                modifier = Modifier.fillMaxSize(),
+                enterTransition = {
+                    val to = targetState.destination.route
+                    if (to != null && to in TabRoutes) fadeIn(tween(220))
+                    else slideInHorizontally(tween(260)) { -it / 6 } + fadeIn(tween(220))
+                },
+                exitTransition = {
+                    val to = targetState.destination.route
+                    if (to != null && to in TabRoutes) fadeOut(tween(120))
+                    else slideOutHorizontally(tween(260)) { it / 8 } + fadeOut(tween(140))
+                },
+                popEnterTransition = { fadeIn(tween(220)) + slideInHorizontally(tween(260)) { it / 8 } },
+                popExitTransition = { slideOutHorizontally(tween(260)) { -it / 6 } + fadeOut(tween(160)) }
+            ) {
+                composable(Routes.Splash) {
+                    AnimatedSplashScreen(
+                        onSplashFinished = {
+                            val target = if (sessionManager.isLoggedIn()) Routes.Home else Routes.Login
+                            navController.navigate(target) { popUpTo(Routes.Splash) { inclusive = true } }
+                        }
+                    )
                 }
-            )
-        }
 
-        composable(Routes.Login) {
-            LoginScreen(
-                onDemo = if (isDebuggable) {
-                    {
-                        val demo = DemoData.payload()
-                        guardian = demo.guardian
-                        children = demo.children
-                        announcements = demo.announcements
-                        events = demo.events
-                        selectedChildIndex = 0
-                        lastSync = 0L
-                        connectionState = BackendConnectionState.CONNECTED_LIVE
-                        navController.navigate(Routes.Home) { popUpTo(Routes.Login) { inclusive = true } }
-                    }
-                } else null,
-                onLoginSuccess = { tokens, payload ->
-                    guardian = payload.guardian
-                    children = payload.children
-                    announcements = payload.announcements
-                    events = payload.events
-                    selectedChildIndex = 0
-                    sessionManager.saveTokens(tokens)
-                    sessionManager.saveSession(payload.guardian, payload.children)
-                    lastSync = sessionManager.getLastSyncMillis()
-                    connectionState = BackendConnectionState.CONNECTED_LIVE
-                    navController.navigate(Routes.Home) { popUpTo(Routes.Login) { inclusive = true } }
+                composable(Routes.Login) {
+                    LoginScreen(
+                        onDemo = if (isDebuggable) {
+                            {
+                                val demo = DemoData.payload()
+                                guardian = demo.guardian
+                                children = demo.children
+                                announcements = demo.announcements
+                                events = demo.events
+                                selectedChildIndex = 0
+                                lastSync = 0L
+                                connectionState = BackendConnectionState.CONNECTED_LIVE
+                                navController.navigate(Routes.Home) { popUpTo(Routes.Login) { inclusive = true } }
+                            }
+                        } else null,
+                        onLoginSuccess = { tokens, payload ->
+                            guardian = payload.guardian
+                            children = payload.children
+                            announcements = payload.announcements
+                            events = payload.events
+                            readIds = sessionManager.getReadIds()
+                            selectedChildIndex = 0
+                            sessionManager.saveTokens(tokens)
+                            sessionManager.saveSession(payload.guardian, payload.children)
+                            sessionManager.saveContent(payload.announcements, payload.events)
+                            lastSync = sessionManager.getLastSyncMillis()
+                            connectionState = BackendConnectionState.CONNECTED_LIVE
+                            navController.navigate(Routes.Home) { popUpTo(Routes.Login) { inclusive = true } }
+                        }
+                    )
                 }
-            )
-        }
 
-        composable(Routes.Home) {
-            HomeScreen(
-                guardian = guardian,
-                children = children,
-                selectedChildIndex = safeIndex,
-                announcements = announcements,
-                events = events,
-                connectionState = connectionState,
-                lastSyncMillis = lastSync,
-                onSelectChild = { selectedChildIndex = it },
-                onRefresh = { scope.launch { syncOnce() } },
-                onOpenRoute = { navController.navigate(it) },
-                onSelectTab = { navigateTab(it) }
-            )
-        }
-
-        composable(Routes.Results) {
-            GradesScreen(
-                children = children,
-                selectedChildIndex = safeIndex,
-                onSelectChild = { selectedChildIndex = it },
-                onSelectTab = { navigateTab(it) }
-            )
-        }
-
-        composable(Routes.Attendance) {
-            AttendanceScreen(
-                children = children,
-                selectedChildIndex = safeIndex,
-                onSelectChild = { selectedChildIndex = it },
-                onSelectTab = { navigateTab(it) }
-            )
-        }
-
-        composable(Routes.Fees) {
-            FeesScreen(
-                children = children,
-                selectedChildIndex = safeIndex,
-                onSelectChild = { selectedChildIndex = it },
-                onSelectTab = { navigateTab(it) }
-            )
-        }
-
-        composable(Routes.More) {
-            MoreScreen(
-                guardian = guardian,
-                onOpenRoute = { navController.navigate(it) },
-                onSelectTab = { navigateTab(it) }
-            )
-        }
-
-        composable(Routes.Announcements) {
-            AnnouncementsScreen(
-                announcements = announcements,
-                events = events,
-                onBack = { navController.popBackStack() }
-            )
-        }
-
-        composable(Routes.Assistant) {
-            AiAssistantScreen(
-                guardian = guardian,
-                activeChild = children.getOrNull(safeIndex),
-                announcements = announcements,
-                events = events,
-                onBack = { navController.popBackStack() }
-            )
-        }
-
-        composable(Routes.Settings) {
-            SettingsScreen(
-                guardian = guardian,
-                lastSyncMillis = lastSync,
-                onBack = { navController.popBackStack() },
-                onLogout = {
-                    val token = sessionManager.getTokens()?.accessToken
-                    if (token != null) scope.launch { apiClient.signOut(token) }
-                    resetLocalState()
+                composable(Routes.Home) {
+                    HomeScreen(
+                        guardian = guardian,
+                        children = children,
+                        selectedChildIndex = safeIndex,
+                        announcements = announcements,
+                        events = events,
+                        readIds = readIds,
+                        connectionState = connectionState,
+                        lastSyncMillis = lastSync,
+                        isRefreshing = refreshing,
+                        onSelectChild = { selectedChildIndex = it },
+                        onRefresh = {
+                            scope.launch {
+                                refreshing = true
+                                try { syncOnce() } finally { refreshing = false }
+                            }
+                        },
+                        onOpenRoute = { navController.navigate(it) },
+                        onSelectTab = { navigateTab(it) }
+                    )
                 }
+
+                composable(Routes.Results) { GradesScreen(children, safeIndex) { selectedChildIndex = it } }
+                composable(Routes.Attendance) { AttendanceScreen(children, safeIndex) { selectedChildIndex = it } }
+                composable(Routes.Fees) { FeesScreen(children, safeIndex) { selectedChildIndex = it } }
+
+                composable(Routes.More) {
+                    MoreScreen(
+                        guardian = guardian,
+                        unreadAnnouncements = unread,
+                        onOpenRoute = { navController.navigate(it) }
+                    )
+                }
+
+                composable(Routes.Schedule) {
+                    ScheduleScreen(
+                        children = children,
+                        selectedChildIndex = safeIndex,
+                        onSelectChild = { selectedChildIndex = it },
+                        onBack = { navController.popBackStack() }
+                    )
+                }
+
+                composable(Routes.Announcements) {
+                    AnnouncementsScreen(
+                        announcements = announcements,
+                        events = events,
+                        readIds = readIds,
+                        onMarkRead = { ids ->
+                            sessionManager.markRead(ids)
+                            readIds = sessionManager.getReadIds()
+                        },
+                        onBack = { navController.popBackStack() }
+                    )
+                }
+
+                composable(Routes.Assistant) {
+                    AiAssistantScreen(
+                        guardian = guardian,
+                        activeChild = children.getOrNull(safeIndex),
+                        announcements = announcements,
+                        events = events,
+                        onBack = { navController.popBackStack() }
+                    )
+                }
+
+                composable(Routes.Settings) {
+                    SettingsScreen(
+                        guardian = guardian,
+                        lastSyncMillis = lastSync,
+                        onBack = { navController.popBackStack() },
+                        onLogout = {
+                            val token = sessionManager.getTokens()?.accessToken
+                            if (token != null) scope.launch { apiClient.signOut(token) }
+                            resetLocalState()
+                        }
+                    )
+                }
+            }
+        }
+        if (isTab) {
+            OmrabiBottomBar(
+                currentRoute = currentRoute,
+                onSelect = { navigateTab(it) },
+                badges = mapOf(Routes.More to unread)
             )
         }
     }
