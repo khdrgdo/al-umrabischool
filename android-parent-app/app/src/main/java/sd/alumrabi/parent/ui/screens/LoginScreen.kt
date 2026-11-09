@@ -192,7 +192,7 @@ fun LoginScreen(
                     errorMessage = null
                 },
                 label = "معرّف الحساب",
-                placeholder = "PAR-10101",
+                placeholder = "123456",
                 ltr = true
             )
 
