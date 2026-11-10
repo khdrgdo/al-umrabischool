@@ -57,7 +57,16 @@ jobs:
           profile: pixel_6
           disable-animations: false
           emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none -no-snapshot
-          script: python3 android-parent-app/scripts/shoot.py
+          script: |
+            mkdir -p shots
+            adb install -r android-parent-app/app/build/outputs/apk/debug/app-debug.apk
+            adb logcat -c
+            adb shell am start -n sd.alumrabi.parent.debug/sd.alumrabi.parent.MainActivity
+            sleep 15
+            adb logcat -d -b all '*:W' > shots/logcat_launch.txt
+            adb shell pidof sd.alumrabi.parent.debug || echo NOT_RUNNING_AFTER_LAUNCH >> shots/logcat_launch.txt
+            python3 android-parent-app/scripts/shoot.py || true
+            adb logcat -d -b crash > shots/logcat_crash.txt
 
       - name: Upload screenshots
         if: always()
