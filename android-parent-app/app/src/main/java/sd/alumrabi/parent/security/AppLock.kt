@@ -47,7 +47,7 @@ class AppLock(private val session: SessionManager) {
         locked = false
     }
 
-    fun setBiometric(on: Boolean) {
+    fun enableBiometric(on: Boolean) {
         session.setBiometricEnabled(on)
         biometric = on
     }

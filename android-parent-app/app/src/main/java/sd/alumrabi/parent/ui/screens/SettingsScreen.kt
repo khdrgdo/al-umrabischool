@@ -144,10 +144,10 @@ fun SettingsScreen(
                                     title = "تفعيل الفتح بالبصمة",
                                     subtitle = "المس مستشعر البصمة للتأكيد",
                                     cancelText = "إلغاء",
-                                    onSuccess = { lock.setBiometric(true) }
+                                    onSuccess = { lock.enableBiometric(true) }
                                 )
                             } else {
-                                lock.setBiometric(false)
+                                lock.enableBiometric(false)
                             }
                         }
                     )
