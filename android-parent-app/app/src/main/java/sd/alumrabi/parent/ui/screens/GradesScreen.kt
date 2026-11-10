@@ -54,6 +54,7 @@ fun GradesScreen(
     val subjects = child?.grades.bySubject()
     val overall = child?.grades.overallPercent()
     var expanded by remember(selectedChildIndex) { mutableStateOf<String?>(null) }
+    var trendScope by remember(selectedChildIndex) { mutableStateOf<String?>(null) }
 
     Column(Modifier.fillMaxSize().background(Canvas).statusBarsPadding()) {
         ScreenHeader(
@@ -113,6 +114,16 @@ fun GradesScreen(
                                 }
                             }
                         }
+                    }
+                }
+                item {
+                    Reveal(1) {
+                        TrendPanel(
+                            grades = child?.grades.orEmpty(),
+                            subjects = subjects.map { it.subject },
+                            scope = trendScope,
+                            onScope = { trendScope = it }
+                        )
                     }
                 }
                 items(subjects, key = { it.subject }) { s ->

@@ -20,7 +20,8 @@ data class PublishedGrade(
     val score: Double? = null,
     @SerialName("max_score") val maxScore: Double = 100.0,
     @SerialName("pass_score") val passScore: Double = 50.0,
-    @SerialName("is_absent") val isAbsent: Boolean = false
+    @SerialName("is_absent") val isAbsent: Boolean = false,
+    @SerialName("created_at") val createdAt: String? = null
 )
 
 @Serializable

@@ -20,7 +20,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import sd.alumrabi.parent.ui.theme.Crimson600
-import sd.alumrabi.parent.ui.theme.Crimson700
+import sd.alumrabi.parent.ui.theme.CrimsonHeaderMid
 import sd.alumrabi.parent.ui.theme.Crimson800
 
 /** ارتفاع محتوى الترويسة تحت شريط الحالة في كل شاشة. */
@@ -52,7 +52,7 @@ fun BrandHeaderLayer(route: String?, modifier: Modifier = Modifier) {
                 .fillMaxWidth()
                 .height(height)
                 .background(
-                    Brush.verticalGradient(listOf(Crimson800, Crimson700, Crimson600)),
+                    Brush.verticalGradient(listOf(Crimson800, CrimsonHeaderMid, Crimson600)),
                     RoundedCornerShape(bottomStart = corner, bottomEnd = corner)
                 )
         )

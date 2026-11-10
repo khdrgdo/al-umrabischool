@@ -13,6 +13,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.AutoAwesome
 import androidx.compose.material.icons.outlined.CalendarMonth
+import androidx.compose.material.icons.outlined.Chat
 import androidx.compose.material.icons.outlined.Campaign
 import androidx.compose.material.icons.outlined.Notifications
 import androidx.compose.material.icons.outlined.Settings
@@ -31,6 +32,7 @@ fun MoreScreen(
     guardian: GuardianInfo,
     unreadAnnouncements: Int,
     onOpenRoute: (String) -> Unit,
+    onContactSchool: () -> Unit,
     onCheckNow: (() -> Unit)? = null
 ) {
     SystemBars(statusBar = Canvas, darkIcons = true)
@@ -86,6 +88,13 @@ fun MoreScreen(
                     subtitle = "ملخصات وإجابات من بيانات ابنك",
                     leading = Icons.Outlined.AutoAwesome,
                     onClick = { onOpenRoute(Routes.Assistant) }
+                )
+                RowDivider()
+                ListRow(
+                    title = "تواصل مع المدرسة",
+                    subtitle = "مراسلة الإدارة عبر واتساب",
+                    leading = Icons.Outlined.Chat,
+                    onClick = onContactSchool
                 )
             }
         }

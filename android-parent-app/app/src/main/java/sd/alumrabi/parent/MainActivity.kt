@@ -15,9 +15,17 @@ import androidx.work.WorkManager
 import sd.alumrabi.parent.notify.NotificationWorker
 import sd.alumrabi.parent.notify.Notifier
 import sd.alumrabi.parent.ui.components.BrandHeaderLayer
+import android.net.ConnectivityManager
+import android.net.Network
 import android.os.Bundle
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.compose.ui.platform.LocalLifecycleOwner
+import sd.alumrabi.parent.security.AppLock
+import sd.alumrabi.parent.util.SchoolContact
+import sd.alumrabi.parent.ui.theme.ThemeState
 import android.view.WindowManager
-import androidx.activity.ComponentActivity
+import androidx.fragment.app.FragmentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
@@ -56,7 +64,7 @@ import sd.alumrabi.parent.ui.theme.Canvas
 import sd.alumrabi.parent.ui.theme.Crimson700
 import sd.alumrabi.parent.ui.theme.SystemBars
 
-class MainActivity : ComponentActivity() {
+class MainActivity : FragmentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         // حافة لحافة: الترويسة الحمراء تمتد خلف شريط الحالة
@@ -71,6 +79,7 @@ class MainActivity : ComponentActivity() {
                 WindowManager.LayoutParams.FLAG_SECURE
             )
         }
+        ThemeState.load(this)
         setContent {
             CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
                 AlUmrabiParentTheme {
@@ -98,6 +107,7 @@ fun ParentAppNavHost() {
     val navController = rememberNavController()
     val scope = rememberCoroutineScope()
     val apiClient = remember { ParentApiClient() }
+    val lock = remember { AppLock(sessionManager) }
     val isDebuggable = (context.applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE) != 0
 
     var guardian by remember { mutableStateOf(sessionManager.getGuardian() ?: emptyGuardian()) }
@@ -116,6 +126,7 @@ fun ParentAppNavHost() {
     fun resetLocalState() {
         Notifier.cancel(context)
         sessionManager.clearSession()
+        lock.reset()
         guardian = emptyGuardian()
         children = emptyList()
         announcements = emptyList()
@@ -125,6 +136,12 @@ fun ParentAppNavHost() {
         lastSync = 0L
         connectionState = BackendConnectionState.SYNCED_LOCAL
         navController.navigate(Routes.Login) { popUpTo(0) }
+    }
+
+    fun doLogout() {
+        val token = sessionManager.getTokens()?.accessToken
+        if (token != null) scope.launch { apiClient.signOut(token) }
+        resetLocalState()
     }
 
     suspend fun syncOnce() {
@@ -173,6 +190,40 @@ fun ParentAppNavHost() {
     LaunchedEffect(Unit) {
         if (sessionManager.isLoggedIn()) Notifier.schedule(context)
         syncOnce()
+    }
+
+    // عمل دون إنترنت: عند عودة الشبكة نعيد المزامنة تلقائياً إن كنا نعرض بيانات محفوظة،
+    // وعند العودة للتطبيق بعد أكثر من 10 دقائق نحدّث البيانات. القفل يُفعَّل عند مغادرة التطبيق.
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            when (event) {
+                Lifecycle.Event.ON_STOP -> lock.onBackground()
+                Lifecycle.Event.ON_START -> {
+                    lock.onForeground()
+                    if (connectionState != BackendConnectionState.CONNECTING &&
+                        sessionManager.isLoggedIn() &&
+                        System.currentTimeMillis() - lastSync > 10 * 60_000L
+                    ) scope.launch { syncOnce() }
+                }
+                else -> {}
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
+
+    DisposableEffect(Unit) {
+        val cm = context.getSystemService(ConnectivityManager::class.java)
+        val callback = object : ConnectivityManager.NetworkCallback() {
+            override fun onAvailable(network: Network) {
+                scope.launch {
+                    if (connectionState == BackendConnectionState.SYNCED_LOCAL && sessionManager.isLoggedIn()) syncOnce()
+                }
+            }
+        }
+        runCatching { cm?.registerDefaultNetworkCallback(callback) }
+        onDispose { runCatching { cm?.unregisterNetworkCallback(callback) } }
     }
 
     val notifPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { }
@@ -298,6 +349,9 @@ fun ParentAppNavHost() {
                         guardian = guardian,
                         unreadAnnouncements = unread,
                         onOpenRoute = { navController.navigate(it) },
+                        onContactSchool = {
+                            SchoolContact.openWhatsApp(context, guardian.fullName, guardian.accountCode, children.getOrNull(safeIndex)?.fullName)
+                        },
                         onCheckNow = if (isDebuggable) {
                             {
                                 WorkManager.getInstance(context).enqueue(OneTimeWorkRequestBuilder<NotificationWorker>().build())
@@ -343,12 +397,9 @@ fun ParentAppNavHost() {
                     SettingsScreen(
                         guardian = guardian,
                         lastSyncMillis = lastSync,
+                        lock = lock,
                         onBack = { navController.popBackStack() },
-                        onLogout = {
-                            val token = sessionManager.getTokens()?.accessToken
-                            if (token != null) scope.launch { apiClient.signOut(token) }
-                            resetLocalState()
-                        }
+                        onLogout = { doLogout() }
                     )
                 }
             }
@@ -360,6 +411,9 @@ fun ParentAppNavHost() {
                 badges = mapOf(Routes.More to unread)
             )
         }
+    }
+    if (lock.locked) {
+        LockScreen(lock = lock, guardianName = guardian.fullName, onForgot = { doLogout() })
     }
     }
 }

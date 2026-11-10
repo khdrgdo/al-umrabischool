@@ -1,4 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">تطبيق العمرابي</string>
+    <!-- رقم واتساب المدرسة بالصيغة الدولية بلا + (مثال: 249912345678). فارغ = يفتح واتساب لاختيار جهة الاتصال. -->
+    <string name="school_whatsapp_number" translatable="false"></string>
 </resources>
