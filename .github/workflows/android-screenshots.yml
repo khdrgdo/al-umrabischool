@@ -67,6 +67,14 @@ jobs:
             adb shell pidof sd.alumrabi.parent.debug || echo NOT_RUNNING_AFTER_LAUNCH >> shots/logcat_launch.txt
             python3 android-parent-app/scripts/shoot.py || true
             adb logcat -d -b crash > shots/logcat_crash.txt
+            adb shell cmd uimode night yes
+            adb shell am force-stop sd.alumrabi.parent.debug
+            adb logcat -c
+            adb shell am start -n sd.alumrabi.parent.debug/sd.alumrabi.parent.MainActivity
+            sleep 12
+            adb exec-out screencap -p > shots/99_dark_warm_start.png
+            adb logcat -d -b crash > shots/logcat_crash_warm.txt
+            adb shell pidof sd.alumrabi.parent.debug > shots/pid_after_warm.txt || echo NOT_RUNNING > shots/pid_after_warm.txt
 
       - name: Upload screenshots
         if: always()

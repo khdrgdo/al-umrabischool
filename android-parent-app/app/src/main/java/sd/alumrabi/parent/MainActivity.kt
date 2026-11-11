@@ -67,6 +67,15 @@ import sd.alumrabi.parent.ui.theme.SystemBars
 class MainActivity : FragmentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        val isDebugBuild = (applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE) != 0
+        if (isDebugBuild) {
+            sd.alumrabi.parent.util.CrashReporter.install(this)
+            val crash = sd.alumrabi.parent.util.CrashReporter.consume(this)
+            if (crash != null) {
+                showCrashScreen(crash)
+                return
+            }
+        }
         // حافة لحافة: الترويسة الحمراء تمتد خلف شريط الحالة
         WindowCompat.setDecorFitsSystemWindows(window, false)
         Notifier.ensureChannel(this)
@@ -90,6 +99,39 @@ class MainActivity : FragmentActivity() {
             }
         }
     }
+}
+
+private fun MainActivity.showCrashScreen(text: String) {
+    val pad = (16 * resources.displayMetrics.density).toInt()
+    val tv = android.widget.TextView(this).apply {
+        this.text = text
+        setTextIsSelectable(true)
+        textSize = 11f
+        setTextColor(android.graphics.Color.BLACK)
+        setPadding(pad, pad, pad, pad)
+        layoutDirection = android.view.View.LAYOUT_DIRECTION_LTR
+    }
+    val btn = android.widget.Button(this).apply {
+        this.text = "متابعة تشغيل التطبيق"
+        setOnClickListener { recreate() }
+    }
+    val title = android.widget.TextView(this).apply {
+        this.text = "توقف التطبيق في المرة السابقة بسبب هذا الخطأ (صوّر الشاشة وأرسلها):"
+        setTextColor(android.graphics.Color.BLACK)
+        textSize = 14f
+        setPadding(pad, pad * 2, pad, 0)
+    }
+    val col = android.widget.LinearLayout(this).apply {
+        orientation = android.widget.LinearLayout.VERTICAL
+        setBackgroundColor(android.graphics.Color.WHITE)
+        addView(title)
+        addView(
+            android.widget.ScrollView(this@showCrashScreen).apply { addView(tv) },
+            android.widget.LinearLayout.LayoutParams(android.view.ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f)
+        )
+        addView(btn)
+    }
+    setContentView(col)
 }
 
 private fun emptyGuardian() = GuardianInfo(
