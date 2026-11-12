@@ -144,6 +144,7 @@ function FeesPage() {
         payments,
         discounts,
         feeTypes,
+        optAssignments,
       ] = await Promise.all([
         safeFetchList(supabase.from("students").select("*").order("full_name")),
         year
@@ -181,6 +182,21 @@ function FeesPage() {
             )
           : Promise.resolve([]),
         safeFetchList(supabase.from("fee_types").select("*").order("name")),
+        // إسنادات الرسوم الاختيارية (رحلات/دروس خاصة): لا يُحاسَب بها إلا من أُسندت إليه.
+        year
+          ? safeFetchList(
+              (
+                supabase as unknown as {
+                  from: (t: string) => {
+                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                    select: (c: string) => PromiseLike<{ data: any[] | null; error: any }>;
+                  };
+                }
+              )
+                .from("fee_structure_assignments")
+                .select("fee_structure_id,student_id")
+            )
+          : Promise.resolve([]),
       ]);
 
       return {
@@ -199,6 +215,7 @@ function FeesPage() {
         payments,
         discounts,
         feeTypes,
+        optAssignments: optAssignments as Array<{ fee_structure_id: string; student_id: string }>,
       };
     },
   });
@@ -211,11 +228,32 @@ function FeesPage() {
     const map = new Map<string, number>();
     for (const fs of data?.feeStructures ?? []) {
       if (!fs?.grade_id) continue;
+      // الرسم الاختياري لا يُضاف لكل طلاب الصف؛ يُحسب فقط للطلاب المُسنَد إليهم (انظر optionalByStudent).
+      if ((fs as { is_optional?: boolean }).is_optional) continue;
       const current = map.get(fs.grade_id) ?? 0;
       map.set(fs.grade_id, current + (Number(fs.amount) || 0));
     }
     return map;
   }, [data?.feeStructures]);
+
+  // الرسوم الاختيارية المُسنَدة لكل طالب
+  const optionalByStudent = useMemo(() => {
+    const byId = new Map<string, { amount: number; gradeId: string | null }>();
+    for (const fs of data?.feeStructures ?? []) {
+      if ((fs as { is_optional?: boolean }).is_optional) {
+        byId.set(fs.id, { amount: Number(fs.amount) || 0, gradeId: fs.grade_id ?? null });
+      }
+    }
+    const map = new Map<string, Array<{ amount: number; gradeId: string | null }>>();
+    for (const a of data?.optAssignments ?? []) {
+      const fs = byId.get(a.fee_structure_id);
+      if (!fs) continue;
+      const arr = map.get(a.student_id) ?? [];
+      arr.push(fs);
+      map.set(a.student_id, arr);
+    }
+    return map;
+  }, [data?.feeStructures, data?.optAssignments]);
 
   // Payments and discounts per student
   const paymentsByStudent = useMemo(() => {
@@ -254,6 +292,9 @@ function FeesPage() {
       let baseAmount = 0;
       if (gradeId && structureByGrade.has(gradeId)) {
         baseAmount = structureByGrade.get(gradeId) ?? 0;
+      }
+      for (const o of optionalByStudent.get(s.id) ?? []) {
+        if (gradeId && o.gradeId === gradeId) baseAmount += o.amount;
       }
 
       // Discounts
@@ -307,7 +348,7 @@ function FeesPage() {
     }
 
     return list;
-  }, [data, enrBy, secById, structureByGrade, discountsByStudent, paymentsByStudent]);
+  }, [data, enrBy, secById, structureByGrade, optionalByStudent, discountsByStudent, paymentsByStudent]);
 
   // Filtered rows
   const filteredRows = useMemo(() => {
