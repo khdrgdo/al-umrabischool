@@ -86,6 +86,8 @@ function Layout() {
     { to: "/guardians", label: "أولياء الأمور", icon: UserCheck },
     { to: "/attendance", label: "الحضور والغياب", icon: ClipboardCheck },
     { to: "/fees", label: "الرسوم والمالية", icon: Banknote },
+    { to: "/optional-fees", label: "رسوم اختيارية", icon: Banknote },
+    { to: "/parent-reports", label: "بلاغات أولياء الأمور", icon: FileText },
     { to: "/grades", label: "الدرجات والتقييمات", icon: Award },
     { to: "/calendar", label: "التقويم والإعلانات", icon: Calendar },
     { to: "/timetable", label: "الجدول المدرسي", icon: CalendarDays },

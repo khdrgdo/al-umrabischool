@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { PageHead, Field, Empty } from "@/components/app/kit";
+import { SchoolWhatsapp } from "@/components/app/SchoolWhatsapp";
 
 export const Route = createFileRoute("/_authenticated/structure")({
   head: () => schoolPageHead("الصفوف والشعب — مدرسة العمرابي", "الصفوف والشعب في نظام إدارة مدرسة العمرابي الثانوية."),
@@ -84,6 +85,7 @@ function Structure() {
   return (
     <div className="space-y-10">
       <PageHead title="الصفوف والشعب" sub="الأعوام الدراسية، الصفوف، المسارات، التخصصات، والشعب" />
+      <SchoolWhatsapp />
 
       <section>
         <div className="flex items-center justify-between mb-3">

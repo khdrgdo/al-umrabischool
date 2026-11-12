@@ -1,3 +1,7 @@
+import { z } from "zod";
+import { SearchChecklist } from "@/components/app/SearchChecklist";
+import { useAdminRoster } from "@/lib/adminFeatureQueries";
+import { emptyTargets, targetRows, readAll, replaceAnnouncementTargets, type TargetSelection } from "@/lib/adminFeatures";
 import { schoolPageHead } from "@/lib/pageHead";
 import { createFileRoute } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -128,6 +132,34 @@ function CalendarPage() {
   const [annAudience, setAnnAudience] = useState<TargetAudience>("all");
   const [annPublished, setAnnPublished] = useState(true);
 
+  const [editingAnnId, setEditingAnnId] = useState<string | null>(null);
+  const [directed, setDirected] = useState(false);
+  const [targets, setTargets] = useState<TargetSelection>(emptyTargets);
+  const roster = useAdminRoster(school?.id);
+  const targeting = useQuery({
+    queryKey: ["announcement-targeting", school?.id], enabled: !!school,
+    queryFn: async () => {
+      const [targets, reads] = await Promise.all([
+        readAll((a, b) => supabase.from("announcement_targets").select("announcement_id,grade_id,section_id,student_id").order("id").range(a, b)),
+        readAll((a, b) => supabase.from("announcement_reads").select("announcement_id,guardian_id").order("announcement_id").order("guardian_id").range(a, b)),
+      ]);
+      return { targets, reads };
+    },
+  });
+  const newAnnouncement = () => {
+    setEditingAnnId(null); setDirected(false); setTargets(emptyTargets());
+    setAnnTitle(""); setAnnBody(""); setAnnPriority("normal"); setAnnAudience("all"); setAnnPublished(true);
+    setOpenAnnounceModal(true);
+  };
+  const editAnnouncement = (ann: Announcement) => {
+    if (!targeting.data) return;
+    const rows = targeting.data.targets.filter((t) => t.announcement_id === ann.id);
+    setEditingAnnId(ann.id); setDirected(rows.length > 0);
+    setTargets({ grades: rows.flatMap((t) => t.grade_id ? [t.grade_id] : []), sections: rows.flatMap((t) => t.section_id ? [t.section_id] : []), students: rows.flatMap((t) => t.student_id ? [t.student_id] : []) });
+    setAnnTitle(ann.title); setAnnBody(ann.body); setAnnPriority(ann.priority); setAnnAudience(ann.target_audience); setAnnPublished(ann.is_published);
+    setOpenAnnounceModal(true);
+  };
+
   // Query: Events and Announcements
   const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ["school_calendar_and_announcements"],
@@ -215,32 +247,48 @@ function CalendarPage() {
     onError: (e) => toast.error(errMsg(e)),
   });
 
-  // Create Announcement Mutation
+  // Existing RLS enforces management. Never publish while replacing target rows.
   const createAnnouncement = useMutation({
     mutationFn: async () => {
-      if (!annTitle.trim()) throw new Error("يرجى كتابة عنوان الإعلان");
-      if (!annBody.trim()) throw new Error("يرجى كتابة نص الإعلان");
-
+      if (!manager) throw new Error("ليست لديك صلاحية لهذه العملية");
+      const content = z.object({ title: z.string().trim().min(1).max(200), body: z.string().trim().min(1).max(10000) }).parse({ title: annTitle, body: annBody });
+      if (directed && !targets.grades.length && !targets.sections.length && !targets.students.length) throw new Error("اختر مجموعة واحدة على الأقل؛ أو اختر جميع أولياء الأمور");
+      if (directed && (!roster.data || roster.isError)) throw new Error("تعذر تحميل قائمة المستهدفين");
       const schoolId = await getSchoolId();
-
-      const { error } = await supabase.from("announcements").insert({
-        school_id: schoolId,
-        title: annTitle.trim(),
-        body: annBody.trim(),
-        priority: annPriority,
-        target_audience: annAudience,
-        is_published: annPublished,
+      let id = editingAnnId;
+      if (!id) {
+        const { data: created, error } = await supabase.from("announcements").insert({ school_id: schoolId, ...content, priority: annPriority, target_audience: annAudience, is_published: false }).select("id").single();
+        if (error) throw error;
+        id = created.id;
+        setEditingAnnId(id); // A failed target write can retry without creating another announcement.
+      }
+      const announcementId = id;
+      const rows = directed ? targetRows(announcementId, targets) : [];
+      await replaceAnnouncementTargets({
+        hide: async () => {
+          const { error } = await supabase.from("announcements").update({ is_published: false }).eq("id", announcementId).select("id").single();
+          if (error) throw error;
+        },
+        replace: async () => {
+          const { error } = await supabase.from("announcement_targets").delete().eq("announcement_id", announcementId);
+          if (error) throw error;
+          if (rows.length) {
+            const { error: insertError } = await supabase.from("announcement_targets").insert(rows);
+            if (insertError) throw insertError;
+          }
+        },
+        finish: async () => {
+          const { error } = await supabase.from("announcements").update({ ...content, priority: annPriority, target_audience: annAudience, is_published: annPublished }).eq("id", announcementId).select("id").single();
+          if (error) throw error;
+        },
       });
-      if (error) throw error;
     },
     onSuccess: () => {
-      toast.success("تم نشر الإعلان المدرسي بنجاح");
-      setOpenAnnounceModal(false);
-      setAnnTitle("");
-      setAnnBody("");
-      refresh();
+      toast.success("حُفظ الإعلان وتوجيهه بنجاح");
+      setOpenAnnounceModal(false); setEditingAnnId(null); setAnnTitle(""); setAnnBody("");
+      refresh(); qc.invalidateQueries({ queryKey: ["announcement-targeting"] });
     },
-    onError: (e) => toast.error(errMsg(e)),
+    onError: (e) => { toast.error(`تعذر إكمال حفظ الإعلان؛ قد يبقى مسودة حتى إعادة الحفظ. ${errMsg(e)}`); refresh(); qc.invalidateQueries({ queryKey: ["announcement-targeting"] }); },
   });
 
   // Toggle Event Publish
@@ -391,7 +439,7 @@ function CalendarPage() {
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => setOpenAnnounceModal(true)}
+                  onClick={newAnnouncement}
                   className="h-9 gap-1.5 text-xs border-primary/40 text-primary hover:bg-primary/5"
                 >
                   <Megaphone className="h-3.5 w-3.5" />
@@ -790,6 +838,7 @@ function CalendarPage() {
       {/* TAB 3: ANNOUNCEMENTS BOARD */}
       {activeTab === "announcements" && (
         <div className="space-y-4">
+          {targeting.isError && <div role="alert" className="text-sm text-destructive">تعذر تحميل التوجيه وعدد القراءات. <Button variant="outline" onClick={() => targeting.refetch()}>إعادة المحاولة</Button></div>}
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {filteredAnnouncements.map((ann) => {
               const priority = PRIORITY_LABELS[ann.priority] ?? PRIORITY_LABELS.normal;
@@ -805,6 +854,11 @@ function CalendarPage() {
                       </span>
                     </div>
 
+                    <div className="flex flex-wrap gap-2 text-xs">
+                      {targeting.data?.targets.some((t) => t.announcement_id === ann.id) && <span className="stamp text-primary">موجّه</span>}
+                      <span className="text-muted-foreground">{targeting.data ? `اطّلع ${targeting.data.reads.filter((r) => r.announcement_id === ann.id).length}` : "القراءات غير متاحة"}</span>
+                      {manager && <Button variant="ghost" size="sm" disabled={!targeting.data || targeting.isError} onClick={() => editAnnouncement(ann)}>تعديل</Button>}
+                    </div>
                     <h3 className="text-sm font-bold text-foreground leading-snug">{ann.title}</h3>
                     <p className="text-xs text-muted-foreground leading-relaxed whitespace-pre-line">{ann.body}</p>
                   </div>
@@ -815,7 +869,7 @@ function CalendarPage() {
                       <span>{AUDIENCE_LABELS[ann.target_audience]}</span>
                     </span>
                     <span className={ann.is_published ? "text-emerald-600 font-medium" : "text-muted-foreground"}>
-                      {ann.is_published ? "معروض للجميع" : "مسودة داخلية"}
+                      {ann.is_published ? "منشور" : "مسودة داخلية"}
                     </span>
                   </div>
                 </div>
@@ -944,10 +998,10 @@ function CalendarPage() {
       </Dialog>
 
       {/* MODAL: ADD ANNOUNCEMENT */}
-      <Dialog open={openAnnounceModal} onOpenChange={setOpenAnnounceModal}>
+      <Dialog open={openAnnounceModal} onOpenChange={(open) => !createAnnouncement.isPending && setOpenAnnounceModal(open)}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
-            <DialogTitle className="text-lg font-bold">إصدار ونشر إعلان مدرسي جديد</DialogTitle>
+            <DialogTitle className="text-lg font-bold">{editingAnnId ? "تعديل الإعلان المدرسي" : "إصدار إعلان مدرسي جديد"}</DialogTitle>
           </DialogHeader>
 
           <form
@@ -960,6 +1014,7 @@ function CalendarPage() {
             <Field label="عنوان الإعلان أو التعميم *">
               <Input
                 placeholder="مثال: إشعار هام بخصوص موعد طابور الصباح…"
+                maxLength={200}
                 value={annTitle}
                 onChange={(e) => setAnnTitle(e.target.value)}
                 required
@@ -997,9 +1052,24 @@ function CalendarPage() {
               </Field>
             </div>
 
+            <Field label="التوجيه">
+              <select aria-label="التوجيه" className="field-select w-full" value={directed ? "group" : "all"} disabled={createAnnouncement.isPending} onChange={(e) => setDirected(e.target.value === "group")}>
+                <option value="all">جميع أولياء الأمور</option><option value="group">توجيه لمجموعة محددة</option>
+              </select>
+            </Field>
+            {directed && <div className="space-y-3">
+              {roster.isError ? <p className="text-destructive">تعذر تحميل المستهدفين <Button type="button" variant="outline" onClick={() => roster.refetch()}>إعادة المحاولة</Button></p> : !roster.data ? <p>جارٍ تحميل المستهدفين…</p> : <>
+                <SearchChecklist label="الصفوف" options={roster.data.grades.map((g) => ({ id: g.id, label: g.name }))} selected={targets.grades} disabled={createAnnouncement.isPending} onChange={(grades) => setTargets({ ...targets, grades })} />
+                <SearchChecklist label="الشعب — العام الحالي" options={roster.data.sections.map((s) => ({ id: s.id, label: `${roster.data.grades.find((g) => g.id === s.grade_id)?.name ?? ""} — ${s.name}` }))} selected={targets.sections} disabled={createAnnouncement.isPending} onChange={(sections) => setTargets({ ...targets, sections })} />
+                <SearchChecklist label="الطلاب" options={roster.data.students.map((s) => ({ id: s.id, label: `${s.student_number} — ${s.full_name}` }))} selected={targets.students} disabled={createAnnouncement.isPending} onChange={(students) => setTargets({ ...targets, students })} />
+                {targets.sections.filter((id) => !roster.data.sections.some((s) => s.id === id)).map((id) => <div className="text-xs" key={id}>شعبة مستهدفة من عام سابق: <span dir="ltr">{id}</span> <Button type="button" variant="ghost" size="sm" onClick={() => setTargets({ ...targets, sections: targets.sections.filter((s) => s !== id) })}>إزالة</Button></div>)}
+              </>}
+            </div>}
+
             <Field label="نص التعميم المدرسي *">
               <Textarea
                 placeholder="اكتب التوجيهات أو التعليمات بالتفصيل…"
+                maxLength={10000}
                 value={annBody}
                 onChange={(e) => setAnnBody(e.target.value)}
                 required
@@ -1026,7 +1096,7 @@ function CalendarPage() {
                 إلغاء
               </Button>
               <Button type="submit" size="sm" disabled={createAnnouncement.isPending} className="h-9 text-xs">
-                نشر التعميم
+                حفظ الإعلان
               </Button>
             </div>
           </form>

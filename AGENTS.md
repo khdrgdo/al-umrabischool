@@ -16,3 +16,4 @@
 - Core tables carry the `audit_trigger`; add it to every new sensitive table. Why: auditable changes.
 - Keep `docs/PROJECT_STATUS.md` and `docs/ANTIGRAVITY_HANDOFF.md` updated with each phase. Why: knowledge continuity for Antigravity handoff.
 - Admin UI is Arabic, RTL.
+- Admin extensions use the generated browser client with RLS and paginated staff reads; announcement target replacement keeps the announcement unpublished until every write succeeds to avoid accidental broadcast.

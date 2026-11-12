@@ -20,6 +20,8 @@ import { Route as AuthenticatedDashboardRouteImport } from './routes/_authentica
 import { Route as AuthenticatedFeesRouteImport } from './routes/_authenticated/fees'
 import { Route as AuthenticatedGradesRouteImport } from './routes/_authenticated/grades'
 import { Route as AuthenticatedGuardiansRouteImport } from './routes/_authenticated/guardians'
+import { Route as AuthenticatedOptionalFeesRouteImport } from './routes/_authenticated/optional-fees'
+import { Route as AuthenticatedParentReportsRouteImport } from './routes/_authenticated/parent-reports'
 import { Route as AuthenticatedRolloverRouteImport } from './routes/_authenticated/rollover'
 import { Route as AuthenticatedStructureRouteImport } from './routes/_authenticated/structure'
 import { Route as AuthenticatedSubjectsRouteImport } from './routes/_authenticated/subjects'
@@ -85,6 +87,18 @@ const AuthenticatedGuardiansRoute = AuthenticatedGuardiansRouteImport.update({
   path: '/guardians',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedOptionalFeesRoute =
+  AuthenticatedOptionalFeesRouteImport.update({
+    id: '/optional-fees',
+    path: '/optional-fees',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
+const AuthenticatedParentReportsRoute =
+  AuthenticatedParentReportsRouteImport.update({
+    id: '/parent-reports',
+    path: '/parent-reports',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedRolloverRoute = AuthenticatedRolloverRouteImport.update({
   id: '/rollover',
   path: '/rollover',
@@ -148,6 +162,8 @@ export interface FileRoutesByFullPath {
   '/fees': typeof AuthenticatedFeesRoute
   '/grades': typeof AuthenticatedGradesRoute
   '/guardians': typeof AuthenticatedGuardiansRoute
+  '/optional-fees': typeof AuthenticatedOptionalFeesRoute
+  '/parent-reports': typeof AuthenticatedParentReportsRoute
   '/rollover': typeof AuthenticatedRolloverRoute
   '/structure': typeof AuthenticatedStructureRoute
   '/subjects': typeof AuthenticatedSubjectsRoute
@@ -170,6 +186,8 @@ export interface FileRoutesByTo {
   '/fees': typeof AuthenticatedFeesRoute
   '/grades': typeof AuthenticatedGradesRoute
   '/guardians': typeof AuthenticatedGuardiansRoute
+  '/optional-fees': typeof AuthenticatedOptionalFeesRoute
+  '/parent-reports': typeof AuthenticatedParentReportsRoute
   '/rollover': typeof AuthenticatedRolloverRoute
   '/structure': typeof AuthenticatedStructureRoute
   '/subjects': typeof AuthenticatedSubjectsRoute
@@ -194,6 +212,8 @@ export interface FileRoutesById {
   '/_authenticated/fees': typeof AuthenticatedFeesRoute
   '/_authenticated/grades': typeof AuthenticatedGradesRoute
   '/_authenticated/guardians': typeof AuthenticatedGuardiansRoute
+  '/_authenticated/optional-fees': typeof AuthenticatedOptionalFeesRoute
+  '/_authenticated/parent-reports': typeof AuthenticatedParentReportsRoute
   '/_authenticated/rollover': typeof AuthenticatedRolloverRoute
   '/_authenticated/structure': typeof AuthenticatedStructureRoute
   '/_authenticated/subjects': typeof AuthenticatedSubjectsRoute
@@ -218,6 +238,8 @@ export interface FileRouteTypes {
     | '/fees'
     | '/grades'
     | '/guardians'
+    | '/optional-fees'
+    | '/parent-reports'
     | '/rollover'
     | '/structure'
     | '/subjects'
@@ -240,6 +262,8 @@ export interface FileRouteTypes {
     | '/fees'
     | '/grades'
     | '/guardians'
+    | '/optional-fees'
+    | '/parent-reports'
     | '/rollover'
     | '/structure'
     | '/subjects'
@@ -263,6 +287,8 @@ export interface FileRouteTypes {
     | '/_authenticated/fees'
     | '/_authenticated/grades'
     | '/_authenticated/guardians'
+    | '/_authenticated/optional-fees'
+    | '/_authenticated/parent-reports'
     | '/_authenticated/rollover'
     | '/_authenticated/structure'
     | '/_authenticated/subjects'
@@ -362,6 +388,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedGuardiansRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/optional-fees': {
+      id: '/_authenticated/optional-fees'
+      path: '/optional-fees'
+      fullPath: '/optional-fees'
+      preLoaderRoute: typeof AuthenticatedOptionalFeesRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/parent-reports': {
+      id: '/_authenticated/parent-reports'
+      path: '/parent-reports'
+      fullPath: '/parent-reports'
+      preLoaderRoute: typeof AuthenticatedParentReportsRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/rollover': {
       id: '/_authenticated/rollover'
       path: '/rollover'
@@ -443,6 +483,8 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedFeesRoute: typeof AuthenticatedFeesRoute
   AuthenticatedGradesRoute: typeof AuthenticatedGradesRoute
   AuthenticatedGuardiansRoute: typeof AuthenticatedGuardiansRoute
+  AuthenticatedOptionalFeesRoute: typeof AuthenticatedOptionalFeesRoute
+  AuthenticatedParentReportsRoute: typeof AuthenticatedParentReportsRoute
   AuthenticatedRolloverRoute: typeof AuthenticatedRolloverRoute
   AuthenticatedStructureRoute: typeof AuthenticatedStructureRoute
   AuthenticatedSubjectsRoute: typeof AuthenticatedSubjectsRoute
@@ -462,6 +504,8 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedFeesRoute: AuthenticatedFeesRoute,
   AuthenticatedGradesRoute: AuthenticatedGradesRoute,
   AuthenticatedGuardiansRoute: AuthenticatedGuardiansRoute,
+  AuthenticatedOptionalFeesRoute: AuthenticatedOptionalFeesRoute,
+  AuthenticatedParentReportsRoute: AuthenticatedParentReportsRoute,
   AuthenticatedRolloverRoute: AuthenticatedRolloverRoute,
   AuthenticatedStructureRoute: AuthenticatedStructureRoute,
   AuthenticatedSubjectsRoute: AuthenticatedSubjectsRoute,

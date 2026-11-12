@@ -5,14 +5,16 @@ import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuItem } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
+import { useNewParentReports } from "@/lib/adminFeatureQueries";
 
-type NavDestination = "/dashboard" | "/students" | "/guardians" | "/attendance" | "/fees" | "/grades" | "/calendar" | "/timetable" | "/structure" | "/teachers" | "/subjects" | "/templates" | "/rollover" | "/audit" | "/users" | "/parent";
+type NavDestination = "/dashboard" | "/students" | "/guardians" | "/attendance" | "/fees" | "/optional-fees" | "/parent-reports" | "/grades" | "/calendar" | "/timetable" | "/structure" | "/teachers" | "/subjects" | "/templates" | "/rollover" | "/audit" | "/users" | "/parent";
 export type SchoolNavItem = { to: NavDestination; label: string; icon: LucideIcon };
 
 export function AppShell({ email, roleName, navItems, onSignOut, children }: {
   email?: string | undefined; roleName: string; navItems: readonly SchoolNavItem[]; onSignOut: () => void; children: ReactNode;
 }) {
   const location = useLocation();
+  const newReports = useNewParentReports();
   const [mobileOpen, setMobileOpen] = useState(false);
   const userName = email?.split("@")[0] ?? roleName;
   useEffect(() => {
@@ -41,6 +43,7 @@ export function AppShell({ email, roleName, navItems, onSignOut, children }: {
             className={cn("flex min-w-0 items-center gap-3 rounded-md border-s-2 px-3 py-3 text-sm transition-colors focus-visible:outline-2 focus-visible:outline-ring",
               active ? "border-primary bg-sidebar-accent text-sidebar-accent-foreground font-semibold" : "border-transparent text-sidebar-foreground hover:bg-muted hover:text-foreground")}>
             <Icon className="size-4 shrink-0" /><span className="min-w-0">{label}</span>
+            {to === "/parent-reports" && newReports.data !== undefined && newReports.data > 0 && <span aria-label={`${newReports.data} بلاغات جديدة`} className="ms-auto rounded-md bg-primary px-1.5 text-xs text-primary-foreground tabular-nums">{newReports.data}</span>}
           </Link>;
         })}
       </nav>
