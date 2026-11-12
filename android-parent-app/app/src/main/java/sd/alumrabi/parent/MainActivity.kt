@@ -287,7 +287,8 @@ fun ParentAppNavHost() {
         if (currentRoute == Routes.Home && Build.VERSION.SDK_INT >= 33 &&
             ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
         ) {
-            notifPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
+            // بعض الأجهزة (ColorOS وغيرها) لا تجد نافذة الإذن فتنهار؛ نتجاهل الفشل بدل إغلاق التطبيق.
+            runCatching { notifPermission.launch(Manifest.permission.POST_NOTIFICATIONS) }
         }
     }
 
