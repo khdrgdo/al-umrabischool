@@ -1,6 +1,8 @@
 package sd.alumrabi.parent.ui.screens
 
 import android.widget.Toast
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Lock
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -51,6 +53,7 @@ fun SettingsScreen(
     guardian: GuardianInfo,
     lastSyncMillis: Long,
     lock: AppLock,
+    onChangePassword: suspend (String, String) -> Result<Unit>,
     onBack: () -> Unit,
     onLogout: () -> Unit
 ) {
@@ -66,6 +69,7 @@ fun SettingsScreen(
         }
     }
     var confirming by remember { mutableStateOf(false) }
+    var changingPw by remember { mutableStateOf(false) }
     var flow by remember { mutableStateOf(PinFlow.None) }
     var firstPin by remember { mutableStateOf("") }
     var flowError by remember { mutableStateOf<String?>(null) }
@@ -121,6 +125,13 @@ fun SettingsScreen(
 
             SectionLabel("الأمان")
             GroupedList {
+                ListRow(
+                    title = "تغيير كلمة المرور",
+                    subtitle = "أدخل كلمة المرور الحالية ثم الجديدة",
+                    leading = Icons.Outlined.Lock,
+                    onClick = { changingPw = true }
+                )
+                RowDivider()
                 SwitchRow(
                     title = "قفل التطبيق برمز",
                     subtitle = "يُطلب رمز من 4 أرقام عند فتح التطبيق وبعد مغادرته",
@@ -234,6 +245,10 @@ fun SettingsScreen(
                 onDismiss = { flow = PinFlow.None; flowError = null }
             )
         }
+    }
+
+    if (changingPw) {
+        ChangePasswordDialog(onDismiss = { changingPw = false }, onSubmit = onChangePassword)
     }
 
     if (confirming) {

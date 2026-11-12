@@ -19,6 +19,7 @@ import java.time.LocalDate
 import java.util.concurrent.TimeUnit
 import sd.alumrabi.parent.R
 import sd.alumrabi.parent.data.model.DashboardPayload
+import sd.alumrabi.parent.data.model.PublishedGrade
 
 object Notifier {
     const val CHANNEL_ID = "alumrabi_updates"
@@ -29,7 +30,7 @@ object Notifier {
         val nm = ctx.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         if (nm.getNotificationChannel(CHANNEL_ID) == null) {
             val ch = NotificationChannel(CHANNEL_ID, "تحديثات المدرسة", NotificationManager.IMPORTANCE_DEFAULT)
-            ch.description = "الإعلانات والمواعيد وتنبيهات الغياب"
+            ch.description = "الإعلانات والمواعيد والنتائج والدفعات وتنبيهات الغياب"
             nm.createNotificationChannel(ch)
         }
     }
@@ -47,6 +48,10 @@ object Notifier {
         WorkManager.getInstance(ctx.applicationContext).cancelUniqueWork(WORK_NAME)
     }
 
+    fun gradeKey(childId: String, g: PublishedGrade): String = "g:" + childId + ":" + g.subjectName + "|" + g.title + "|" + g.term
+
+    private fun num(d: Double): String = if (d % 1.0 == 0.0) d.toLong().toString() else String.format(java.util.Locale.US, "%.1f", d)
+
     /** مفاتيح العناصر الحالية: a: إعلان، e: موعد، abs: غياب اليوم لابن مفعّلة له الإشعارات. */
     fun keys(payload: DashboardPayload): Set<String> {
         val today = LocalDate.now().toString()
@@ -56,6 +61,10 @@ object Notifier {
         payload.children.forEach { c ->
             val absentToday = c.attendance.orEmpty().any { it.status == "absent" && it.date.startsWith(today) }
             if (c.receivesNotifications && absentToday) set.add("abs:" + c.id + ":" + today)
+            if (c.receivesNotifications) {
+                c.grades.orEmpty().filter { it.score != null && !it.isAbsent }.forEach { set.add(gradeKey(c.id, it)) }
+                if (c.canViewFees) c.fees?.payments.orEmpty().forEach { set.add("p:" + c.id + ":" + it.receiptNumber) }
+            }
         }
         return set
     }
@@ -78,6 +87,20 @@ object Notifier {
         payload.children.filter { "abs:" + it.id + ":" + today in fresh }.forEach {
             items.add("تنبيه غياب" to (it.fullName + " مسجَّل غائباً اليوم"))
         }
+        payload.children.filter { it.receivesNotifications }.forEach { c ->
+            val gs = c.grades.orEmpty().filter { gradeKey(c.id, it) in fresh }
+            if (gs.size == 1) {
+                val g = gs[0]
+                items.add(("نتيجة جديدة: " + g.subjectName) to (c.fullName + " — " + g.title + ": " + num(g.score ?: 0.0) + " / " + num(g.maxScore)))
+            } else if (gs.size > 1) {
+                items.add(("نتائج جديدة لـ " + c.fullName) to ("نشرت المدرسة " + gs.size + " نتائج جديدة."))
+            }
+            if (c.canViewFees) {
+                c.fees?.payments.orEmpty().filter { "p:" + c.id + ":" + it.receiptNumber in fresh }.forEach { p ->
+                    items.add("تم تسجيل دفعة" to (c.fullName + " — " + num(p.amount) + " (إيصال " + p.receiptNumber + ")"))
+                }
+            }
+        }
         if (items.isEmpty()) return
 
         val launch = ctx.packageManager.getLaunchIntentForPackage(ctx.packageName)
@@ -86,7 +109,7 @@ object Notifier {
         } else null
 
         val shown: List<Pair<String, String>> =
-            if (items.size > 3) listOf("لديك ${items.size} تحديثات جديدة" to "افتح التطبيق لعرض الإعلانات والمواعيد.") else items
+            if (items.size > 3) listOf("لديك ${items.size} تحديثات جديدة" to "افتح التطبيق لعرض التفاصيل.") else items
         val baseId = (System.currentTimeMillis() % 100000L).toInt()
         shown.forEachIndexed { i, (title, text) ->
             val n = NotificationCompat.Builder(ctx, CHANNEL_ID)

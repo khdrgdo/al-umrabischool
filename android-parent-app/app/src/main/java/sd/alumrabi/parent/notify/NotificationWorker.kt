@@ -23,9 +23,10 @@ class NotificationWorker(context: Context, params: WorkerParameters) : Coroutine
         sm.saveContent(payload.announcements, payload.events)
 
         val keys = Notifier.keys(payload)
-        if (!sm.hasNotifyBaseline()) {
+        if (!sm.hasNotifyBaseline() || !sm.hasBaselineV2()) {
             // أول فحص: نسجّل الموجود دون إزعاج، والإشعارات تبدأ مما يأتي بعده.
             sm.addNotified(keys)
+            sm.markBaselineV2()
             return Result.success()
         }
         val fresh = keys - sm.getNotifiedIds()

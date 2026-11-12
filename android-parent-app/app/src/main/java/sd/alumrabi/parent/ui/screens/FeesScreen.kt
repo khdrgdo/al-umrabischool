@@ -24,6 +24,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import sd.alumrabi.parent.data.model.FeeItem
 import sd.alumrabi.parent.data.model.LinkedChild
 import sd.alumrabi.parent.ui.components.*
 import sd.alumrabi.parent.ui.theme.*
@@ -101,35 +102,15 @@ fun FeesScreen(
                         }
                     }
                 }
-                if (fees.items.isNotEmpty()) {
+                val regularItems = fees.items.filter { !it.isOptional }
+                val optionalItems = fees.items.filter { it.isOptional }
+                if (regularItems.isNotEmpty()) {
                     item { SectionLabel("بنود الرسوم") }
-                    item {
-                        Panel {
-                            fees.items.forEachIndexed { i, it ->
-                                if (i > 0) { Spacer(Modifier.height(Space.md)); RowDivider(); Spacer(Modifier.height(Space.md)) }
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Column(Modifier.weight(1f)) {
-                                        Text(it.name, style = MaterialTheme.typography.titleSmall, color = Ink900)
-                                        if (!it.dueDate.isNullOrBlank()) {
-                                            Text("الاستحقاق: ${Fmt.dateOrRaw(it.dueDate)}", style = MaterialTheme.typography.bodySmall, color = Ink500)
-                                        }
-                                    }
-                                    if (it.remaining <= 0.0 && it.net > 0.0) Pill("مسدّد", Positive, PositiveBg)
-                                    else Text(Fmt.money(it.remaining), style = MaterialTheme.typography.titleSmall.tabular(), color = Ink900)
-                                }
-                                if (it.net > 0.0) {
-                                    Spacer(Modifier.height(Space.sm))
-                                    FillBar(fraction = (it.paid / it.net).toFloat().coerceIn(0f, 1f), color = Gold, height = 6.dp)
-                                    Spacer(Modifier.height(4.dp))
-                                    Text(
-                                        "المدفوع ${Fmt.money(it.paid)} من ${Fmt.money(it.net)}",
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = Ink500
-                                    )
-                                }
-                            }
-                        }
-                    }
+                    item { FeeItemsPanel(regularItems) }
+                }
+                if (optionalItems.isNotEmpty()) {
+                    item { SectionLabel("رسوم اختيارية مسجَّلة لابنك") }
+                    item { FeeItemsPanel(optionalItems) }
                 }
                 item { SectionLabel("سجل المدفوعات") }
                 if (fees.payments.isEmpty()) {
@@ -178,5 +159,34 @@ private fun FigureRow(label: String, value: String, color: androidx.compose.ui.g
     Row(Modifier.fillMaxWidth().padding(top = Space.md), verticalAlignment = Alignment.CenterVertically) {
         Text(label, style = MaterialTheme.typography.bodyMedium, color = Ink700, modifier = Modifier.weight(1f))
         Text(value, style = MaterialTheme.typography.titleSmall.tabular(), color = color)
+    }
+}
+
+@Composable
+private fun FeeItemsPanel(list: List<FeeItem>) {
+    Panel {
+        list.forEachIndexed { i, fee ->
+            if (i > 0) { Spacer(Modifier.height(Space.md)); RowDivider(); Spacer(Modifier.height(Space.md)) }
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text(fee.name, style = MaterialTheme.typography.titleSmall, color = Ink900)
+                    if (!fee.dueDate.isNullOrBlank()) {
+                        Text("الاستحقاق: ${Fmt.dateOrRaw(fee.dueDate)}", style = MaterialTheme.typography.bodySmall, color = Ink500)
+                    }
+                }
+                if (fee.remaining <= 0.0 && fee.net > 0.0) Pill("مسدّد", Positive, PositiveBg)
+                else Text(Fmt.money(fee.remaining), style = MaterialTheme.typography.titleSmall.tabular(), color = Ink900)
+            }
+            if (fee.net > 0.0) {
+                Spacer(Modifier.height(Space.sm))
+                FillBar(fraction = (fee.paid / fee.net).toFloat().coerceIn(0f, 1f), color = Gold, height = 6.dp)
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    "المدفوع ${Fmt.money(fee.paid)} من ${Fmt.money(fee.net)}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = Ink500
+                )
+            }
+        }
     }
 }

@@ -13,8 +13,8 @@ android {
         applicationId = "sd.alumrabi.parent"
         minSdk = 26
         targetSdk = 34
-        versionCode = 6
-        versionName = "1.3.1"
+        versionCode = 7
+        versionName = "1.4.0"
         multiDexEnabled = true
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"

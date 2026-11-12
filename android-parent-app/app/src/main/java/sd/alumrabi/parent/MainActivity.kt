@@ -1,6 +1,8 @@
 package sd.alumrabi.parent
 
 import android.Manifest
+import sd.alumrabi.parent.ui.components.ReportDialog
+import sd.alumrabi.parent.ui.screens.SubjectsScreen
 import android.content.pm.ApplicationInfo
 import android.content.pm.PackageManager
 import android.os.Build
@@ -161,6 +163,8 @@ fun ParentAppNavHost() {
     var lastSync by remember { mutableLongStateOf(sessionManager.getLastSyncMillis()) }
     var selectedChildIndex by remember { mutableIntStateOf(0) }
     var refreshing by remember { mutableStateOf(false) }
+    var school by remember { mutableStateOf(sessionManager.getSchool()) }
+    var showReport by remember { mutableStateOf(false) }
 
     val safeIndex = if (children.isEmpty()) 0 else selectedChildIndex.coerceIn(0, children.lastIndex)
     val unread = announcements.count { it.id !in readIds }
@@ -174,6 +178,7 @@ fun ParentAppNavHost() {
         announcements = emptyList()
         events = emptyList()
         readIds = emptySet()
+        school = null
         selectedChildIndex = 0
         lastSync = 0L
         connectionState = BackendConnectionState.SYNCED_LOCAL
@@ -184,6 +189,24 @@ fun ParentAppNavHost() {
         val token = sessionManager.getTokens()?.accessToken
         if (token != null) scope.launch { apiClient.signOut(token) }
         resetLocalState()
+    }
+
+    suspend fun freshToken(): String? {
+        var tk = sessionManager.getTokens() ?: return null
+        if (tk.isExpiringSoon()) {
+            val renewed = apiClient.refreshSession(tk.refreshToken).getOrNull() ?: return null
+            sessionManager.saveTokens(renewed)
+            tk = renewed
+        }
+        return tk.accessToken
+    }
+
+    // تسجيل اطلاع ولي الأمر على الإعلانات للإدارة؛ ما تعذّر إرساله (دون إنترنت) يُعاد لاحقاً.
+    suspend fun flushReads() {
+        val ids = sessionManager.getUnsyncedReads()
+        if (ids.isEmpty()) return
+        val token = freshToken() ?: return
+        if (apiClient.markAnnouncementsRead(token, ids.toList()).isSuccess) sessionManager.clearUnsyncedReads(ids)
     }
 
     suspend fun syncOnce() {
@@ -216,9 +239,13 @@ fun ParentAppNavHost() {
             events = payload.events
             sessionManager.saveSession(payload.guardian, payload.children)
             sessionManager.saveContent(payload.announcements, payload.events)
-            sessionManager.addNotified(Notifier.keys(payload))
+            sessionManager.addNotified(Notifier.keys(payload)); sessionManager.markBaselineV2()
             lastSync = sessionManager.getLastSyncMillis()
+            payload.school?.let { school = it; sessionManager.saveSchool(it) }
+            sessionManager.markRead(payload.announcements.filter { it.readAt != null }.map { it.id })
+            readIds = sessionManager.getReadIds()
             connectionState = BackendConnectionState.CONNECTED_LIVE
+            flushReads()
         } else {
             val ex = result.exceptionOrNull()
             if (ex is SessionExpiredException || ex is AccountBlockedException) {
@@ -347,11 +374,13 @@ fun ParentAppNavHost() {
                             announcements = payload.announcements
                             events = payload.events
                             readIds = sessionManager.getReadIds()
+                            school = payload.school
+                            sessionManager.saveSchool(payload.school)
                             selectedChildIndex = 0
                             sessionManager.saveTokens(tokens)
                             sessionManager.saveSession(payload.guardian, payload.children)
                             sessionManager.saveContent(payload.announcements, payload.events)
-                            sessionManager.addNotified(Notifier.keys(payload))
+                            sessionManager.addNotified(Notifier.keys(payload)); sessionManager.markBaselineV2()
                             Notifier.schedule(context)
                             lastSync = sessionManager.getLastSyncMillis()
                             connectionState = BackendConnectionState.CONNECTED_LIVE
@@ -383,9 +412,20 @@ fun ParentAppNavHost() {
                     )
                 }
 
-                composable(Routes.Results) { GradesScreen(children, safeIndex) { selectedChildIndex = it } }
+                composable(Routes.Results) {
+                    GradesScreen(children, safeIndex, onOpenSubjects = { navController.navigate(Routes.Subjects) }) { selectedChildIndex = it }
+                }
                 composable(Routes.Attendance) { AttendanceScreen(children, safeIndex) { selectedChildIndex = it } }
                 composable(Routes.Fees) { FeesScreen(children, safeIndex) { selectedChildIndex = it } }
+
+                composable(Routes.Subjects) {
+                    SubjectsScreen(
+                        children = children,
+                        selectedChildIndex = safeIndex,
+                        onSelectChild = { selectedChildIndex = it },
+                        onBack = { navController.popBackStack() }
+                    )
+                }
 
                 composable(Routes.More) {
                     MoreScreen(
@@ -393,8 +433,9 @@ fun ParentAppNavHost() {
                         unreadAnnouncements = unread,
                         onOpenRoute = { navController.navigate(it) },
                         onContactSchool = {
-                            SchoolContact.openWhatsApp(context, guardian.fullName, guardian.accountCode, children.getOrNull(safeIndex)?.fullName)
+                            SchoolContact.openWhatsApp(context, school?.whatsappNumber, guardian.fullName, guardian.accountCode, children.getOrNull(safeIndex)?.fullName)
                         },
+                        onReport = { showReport = true },
                         onCheckNow = if (isDebuggable) {
                             {
                                 WorkManager.getInstance(context).enqueue(OneTimeWorkRequestBuilder<NotificationWorker>().build())
@@ -422,6 +463,12 @@ fun ParentAppNavHost() {
                             sessionManager.markRead(ids)
                             readIds = sessionManager.getReadIds()
                         },
+                        onOpened = { id ->
+                            sessionManager.markRead(listOf(id))
+                            readIds = sessionManager.getReadIds()
+                            sessionManager.addUnsyncedReads(listOf(id))
+                            scope.launch { flushReads() }
+                        },
                         onBack = { navController.popBackStack() }
                     )
                 }
@@ -441,6 +488,10 @@ fun ParentAppNavHost() {
                         guardian = guardian,
                         lastSyncMillis = lastSync,
                         lock = lock,
+                        onChangePassword = { old, newPassword ->
+                            apiClient.changePassword(guardian.accountCode ?: "", old, newPassword)
+                                .map { tokens -> sessionManager.saveTokens(tokens) }
+                        },
                         onBack = { navController.popBackStack() },
                         onLogout = { doLogout() }
                     )
@@ -454,6 +505,20 @@ fun ParentAppNavHost() {
                 badges = mapOf(Routes.More to unread)
             )
         }
+    }
+    if (showReport) {
+        ReportDialog(
+            onDismiss = { showReport = false },
+            onSubmit = { category, text ->
+                val token = freshToken()
+                if (token == null) {
+                    Result.failure<Unit>(Exception("تعذر التحقق من الجلسة، حاول لاحقاً"))
+                } else {
+                    val ver = runCatching { context.packageManager.getPackageInfo(context.packageName, 0).versionName }.getOrNull() ?: "?"
+                    apiClient.submitReport(token, category, text, children.getOrNull(safeIndex)?.id, ver, Build.MANUFACTURER + " " + Build.MODEL)
+                }
+            }
+        )
     }
     if (lock.locked) {
         LockScreen(lock = lock, guardianName = guardian.fullName, onForgot = { doLogout() })

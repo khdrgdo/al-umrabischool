@@ -127,6 +127,20 @@
       "when": 1794320167264,
       "tag": "0017_parent_grades_created_at",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1794320168264,
+      "tag": "0018_parent_features_v2",
+      "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1794320169264,
+      "tag": "0019_parent_subjects_and_grade_times",
+      "breakpoints": true
     }
   ]
 }

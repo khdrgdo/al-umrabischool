@@ -56,6 +56,7 @@ object Routes {
     const val Assistant = "assistant"
     const val Settings = "settings"
     const val Schedule = "schedule"
+    const val Subjects = "subjects"
 }
 
 /** وجهات الشريط السفلي (حسب وثيقة APP-2: 5 وجهات كحد أقصى). */

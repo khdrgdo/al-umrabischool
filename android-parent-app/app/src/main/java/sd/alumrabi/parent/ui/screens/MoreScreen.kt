@@ -14,6 +14,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.AutoAwesome
 import androidx.compose.material.icons.outlined.CalendarMonth
 import androidx.compose.material.icons.outlined.Chat
+import androidx.compose.material.icons.outlined.BugReport
+import androidx.compose.material.icons.outlined.MenuBook
 import androidx.compose.material.icons.outlined.Campaign
 import androidx.compose.material.icons.outlined.Notifications
 import androidx.compose.material.icons.outlined.Settings
@@ -33,6 +35,7 @@ fun MoreScreen(
     unreadAnnouncements: Int,
     onOpenRoute: (String) -> Unit,
     onContactSchool: () -> Unit,
+    onReport: () -> Unit,
     onCheckNow: (() -> Unit)? = null
 ) {
     SystemBars(statusBar = Canvas, darkIcons = true)
@@ -77,6 +80,13 @@ fun MoreScreen(
                 )
                 RowDivider()
                 ListRow(
+                    title = "مواد الفصل وأساتذتها",
+                    subtitle = "مواد ابنك وأسماء من يدرّسه",
+                    leading = Icons.Outlined.MenuBook,
+                    onClick = { onOpenRoute(Routes.Subjects) }
+                )
+                RowDivider()
+                ListRow(
                     title = if (unreadAnnouncements > 0) "الإعلانات والتقويم ($unreadAnnouncements جديد)" else "الإعلانات والتقويم",
                     subtitle = "إعلانات المدرسة ومواعيدها",
                     leading = Icons.Outlined.Campaign,
@@ -95,6 +105,13 @@ fun MoreScreen(
                     subtitle = "مراسلة الإدارة عبر واتساب",
                     leading = Icons.Outlined.Chat,
                     onClick = onContactSchool
+                )
+                RowDivider()
+                ListRow(
+                    title = "الإبلاغ عن مشكلة",
+                    subtitle = "مشكلة في التطبيق أو سؤال أو اقتراح للمدرسة",
+                    leading = Icons.Outlined.BugReport,
+                    onClick = onReport
                 )
             }
         }

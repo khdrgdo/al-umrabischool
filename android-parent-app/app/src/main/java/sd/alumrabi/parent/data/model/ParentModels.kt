@@ -21,6 +21,9 @@ data class PublishedGrade(
     @SerialName("max_score") val maxScore: Double = 100.0,
     @SerialName("pass_score") val passScore: Double = 50.0,
     @SerialName("is_absent") val isAbsent: Boolean = false,
+    @SerialName("graded_at") val gradedAt: String? = null,
+    @SerialName("academic_year_id") val academicYearId: String? = null,
+    @SerialName("academic_year") val academicYear: String? = null,
     @SerialName("created_at") val createdAt: String? = null
 )
 
@@ -47,7 +50,8 @@ data class FeeItem(
     val amount: Double = 0.0,
     val discount: Double = 0.0,
     val paid: Double = 0.0,
-    @SerialName("due_date") val dueDate: String? = null
+    @SerialName("due_date") val dueDate: String? = null,
+    @SerialName("is_optional") val isOptional: Boolean = false
 ) {
     val net: Double get() = (amount - discount).coerceAtLeast(0.0)
     val remaining: Double get() = (net - paid).coerceAtLeast(0.0)
@@ -93,7 +97,8 @@ data class LinkedChild(
     val grades: List<PublishedGrade>? = emptyList(),
     val attendance: List<AttendanceRecord>? = emptyList(),
     val fees: FeeStatement? = null,
-    val schedule: List<ScheduleEntry>? = emptyList()
+    val schedule: List<ScheduleEntry>? = emptyList(),
+    val subjects: List<SubjectInfo>? = emptyList()
 )
 
 @Serializable
@@ -102,7 +107,9 @@ data class AnnouncementItem(
     val title: String,
     val body: String,
     val priority: String = "normal",
-    @SerialName("published_at") val publishedAt: String
+    @SerialName("published_at") val publishedAt: String,
+    val targeted: Boolean = false,
+    @SerialName("read_at") val readAt: String? = null
 )
 
 @Serializable
@@ -120,7 +127,8 @@ data class DashboardPayload(
     val guardian: GuardianInfo,
     val children: List<LinkedChild> = emptyList(),
     val announcements: List<AnnouncementItem> = emptyList(),
-    val events: List<CalendarEventItem> = emptyList()
+    val events: List<CalendarEventItem> = emptyList(),
+    val school: SchoolInfo? = null
 )
 
 @Serializable
@@ -153,3 +161,16 @@ enum class BackendConnectionState {
     SYNCED_LOCAL,
     CONNECTING
 }
+
+@Serializable
+data class SubjectInfo(
+    @SerialName("subject_name") val subjectName: String,
+    @SerialName("teacher_name") val teacherName: String? = null,
+    @SerialName("weekly_periods") val weeklyPeriods: Int = 0
+)
+
+@Serializable
+data class SchoolInfo(
+    val name: String = "",
+    @SerialName("whatsapp_number") val whatsappNumber: String? = null
+)

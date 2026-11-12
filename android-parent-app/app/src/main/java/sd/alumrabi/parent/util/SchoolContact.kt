@@ -7,9 +7,10 @@ import android.widget.Toast
 import sd.alumrabi.parent.R
 
 object SchoolContact {
-    /** رقم المدرسة يُضبط في strings.xml (school_whatsapp_number)؛ إن كان فارغاً يفتح واتساب لاختيار جهة الاتصال. */
-    fun openWhatsApp(context: Context, guardianName: String, accountCode: String?, childName: String?) {
-        val number = context.getString(R.string.school_whatsapp_number).filter { it.isDigit() }
+    /** رقم المدرسة يأتي من النظام (إعدادات المدرسة)؛ احتياطياً strings.xml، وإن كان فارغاً يفتح واتساب لاختيار جهة الاتصال. */
+    fun openWhatsApp(context: Context, schoolNumber: String?, guardianName: String, accountCode: String?, childName: String?) {
+        val number = (schoolNumber?.filter { it.isDigit() }?.takeIf { it.isNotBlank() }
+            ?: context.getString(R.string.school_whatsapp_number).filter { it.isDigit() })
         val sb = StringBuilder("السلام عليكم، أنا ").append(guardianName)
         if (!childName.isNullOrBlank()) sb.append("، ولي أمر الطالب/ة ").append(childName)
         if (!accountCode.isNullOrBlank()) sb.append(" (رقم ولي الأمر ").append(accountCode).append(")")

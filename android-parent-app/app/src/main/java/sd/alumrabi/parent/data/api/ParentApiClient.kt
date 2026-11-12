@@ -7,6 +7,7 @@ import io.ktor.client.plugins.HttpTimeout
 import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.client.request.headers
 import io.ktor.client.request.post
+import io.ktor.client.request.put
 import io.ktor.client.request.setBody
 import io.ktor.client.statement.bodyAsText
 import io.ktor.http.ContentType
@@ -176,9 +177,105 @@ class ParentApiClient(
             val children = element.arr("children")?.mapNotNull { (it as? JsonObject)?.let(::parseChild) } ?: emptyList()
             val announcements = element.arr("announcements")?.mapNotNull { (it as? JsonObject)?.let(::parseAnnouncement) } ?: emptyList()
             val events = element.arr("events")?.mapNotNull { (it as? JsonObject)?.let(::parseEvent) } ?: emptyList()
-            Result.success(DashboardPayload(guardian, children, announcements, events))
+            val schoolObj = element.obj("school")
+            val school = schoolObj?.let {
+                SchoolInfo(
+                    name = it["name"]?.jsonPrimitive?.contentOrNull ?: "",
+                    whatsappNumber = it["whatsapp_number"]?.jsonPrimitive?.contentOrNull
+                )
+            }
+            Result.success(DashboardPayload(guardian, children, announcements, events, school))
         } catch (_: Exception) {
             Result.failure(Exception("تعذر الاتصال بخادم المدرسة. يرجى التحقق من اتصال الإنترنت."))
+        }
+    }
+
+    private fun errMsg(text: String, fallback: String): String = try {
+        val o = json.parseToJsonElement(text).jsonObject
+        o["msg"]?.jsonPrimitive?.contentOrNull
+            ?: o["message"]?.jsonPrimitive?.contentOrNull
+            ?: o["error_description"]?.jsonPrimitive?.contentOrNull
+            ?: fallback
+    } catch (_: Exception) {
+        fallback
+    }
+
+    /** تسجيل اطلاع ولي الأمر على إعلانات (يظهر للإدارة). */
+    suspend fun markAnnouncementsRead(accessToken: String, ids: List<String>): Result<Unit> = withContext(Dispatchers.IO) {
+        try {
+            val response = client.post("$baseUrl/rest/v1/rpc/parent_mark_announcements_read") {
+                contentType(ContentType.Application.Json)
+                headers {
+                    append("apikey", anonKey)
+                    append("Authorization", "Bearer $accessToken")
+                }
+                setBody(buildJsonObject { put("p_ids", buildJsonArray { ids.forEach { add(it) } }) })
+            }
+            if (response.status.value == 401) Result.failure(SessionExpiredException())
+            else if (response.status.isSuccess()) Result.success(Unit)
+            else Result.failure(Exception("read " + response.status.value))
+        } catch (_: Exception) {
+            Result.failure(Exception(networkError))
+        }
+    }
+
+    /** بلاغ مشكلة/سؤال/اقتراح إلى إدارة المدرسة. */
+    suspend fun submitReport(
+        accessToken: String, category: String, body: String, studentId: String?, appVersion: String, device: String
+    ): Result<Unit> = withContext(Dispatchers.IO) {
+        try {
+            val response = client.post("$baseUrl/rest/v1/rpc/parent_submit_report") {
+                contentType(ContentType.Application.Json)
+                headers {
+                    append("apikey", anonKey)
+                    append("Authorization", "Bearer $accessToken")
+                }
+                setBody(buildJsonObject {
+                    put("p_category", category)
+                    put("p_body", body)
+                    put("p_student_id", studentId)
+                    put("p_app_version", appVersion)
+                    put("p_device", device)
+                })
+            }
+            if (response.status.value == 401) return@withContext Result.failure(SessionExpiredException())
+            if (!response.status.isSuccess()) return@withContext Result.failure(Exception("تعذر إرسال البلاغ (" + response.status.value + ")"))
+            val o = json.parseToJsonElement(response.bodyAsText()).jsonObject
+            when (o["error"]?.jsonPrimitive?.contentOrNull) {
+                null -> Result.success(Unit)
+                "RATE_LIMITED" -> Result.failure(Exception("وصلت للحد اليومي من البلاغات (5)، حاول غداً."))
+                "INVALID" -> Result.failure(Exception("اكتب وصفاً أوضح (5 أحرف على الأقل)."))
+                else -> Result.failure(Exception("تعذر إرسال البلاغ"))
+            }
+        } catch (_: Exception) {
+            Result.failure(Exception(networkError))
+        }
+    }
+
+    /** تغيير كلمة المرور من داخل التطبيق: نتحقق من الحالية بتسجيل دخول ثم نحدّث ونعيد جلسة جديدة. */
+    suspend fun changePassword(accountCode: String, oldPassword: String, newPassword: String): Result<AuthTokens> = withContext(Dispatchers.IO) {
+        val verified = signIn(accountCode, oldPassword)
+        val tk = verified.getOrNull()
+            ?: return@withContext Result.failure(
+                Exception(
+                    verified.exceptionOrNull()?.message?.takeIf { it.contains("الاتصال") } ?: "كلمة المرور الحالية غير صحيحة"
+                )
+            )
+        try {
+            val response = client.put("$baseUrl/auth/v1/user") {
+                contentType(ContentType.Application.Json)
+                headers {
+                    append("apikey", anonKey)
+                    append("Authorization", "Bearer " + tk.accessToken)
+                }
+                setBody(buildJsonObject { put("password", newPassword) })
+            }
+            if (!response.status.isSuccess()) {
+                return@withContext Result.failure(Exception(errMsg(response.bodyAsText(), "تعذر تغيير كلمة المرور (" + response.status.value + ")")))
+            }
+            signIn(accountCode, newPassword)
+        } catch (_: Exception) {
+            Result.failure(Exception(networkError))
         }
     }
 
@@ -207,7 +304,10 @@ class ParentApiClient(
                     score = g["score"]?.jsonPrimitive?.doubleOrNull,
                     maxScore = g["max_score"]?.jsonPrimitive?.doubleOrNull ?: 100.0,
                     passScore = g["pass_score"]?.jsonPrimitive?.doubleOrNull ?: 50.0,
-                    isAbsent = g["is_absent"]?.jsonPrimitive?.booleanOrNull ?: false
+                    isAbsent = g["is_absent"]?.jsonPrimitive?.booleanOrNull ?: false,
+                    gradedAt = g["graded_at"]?.jsonPrimitive?.contentOrNull,
+                    academicYearId = g["academic_year_id"]?.jsonPrimitive?.contentOrNull,
+                    academicYear = g["academic_year"]?.jsonPrimitive?.contentOrNull
                 )
             } ?: emptyList()
 
@@ -243,7 +343,8 @@ class ParentApiClient(
                         amount = f["amount"]?.jsonPrimitive?.doubleOrNull ?: 0.0,
                         discount = f["discount"]?.jsonPrimitive?.doubleOrNull ?: 0.0,
                         paid = f["paid"]?.jsonPrimitive?.doubleOrNull ?: 0.0,
-                        dueDate = f["due_date"]?.jsonPrimitive?.contentOrNull
+                        dueDate = f["due_date"]?.jsonPrimitive?.contentOrNull,
+                        isOptional = f["is_optional"]?.jsonPrimitive?.booleanOrNull ?: false
                     )
                 } ?: emptyList()
                 FeeStatement(totalDue, totalDiscounts, totalPaid, payments, items)
@@ -263,6 +364,15 @@ class ParentApiClient(
                 )
             } ?: emptyList()
 
+            val subjects = obj.arr("subjects")?.mapNotNull {
+                val s = it as? JsonObject ?: return@mapNotNull null
+                SubjectInfo(
+                    subjectName = s["subject_name"]?.jsonPrimitive?.contentOrNull ?: return@mapNotNull null,
+                    teacherName = s["teacher_name"]?.jsonPrimitive?.contentOrNull,
+                    weeklyPeriods = s["weekly_periods"]?.jsonPrimitive?.intOrNull ?: 0
+                )
+            } ?: emptyList()
+
             LinkedChild(
                 id = id,
                 studentNumber = studentNumber,
@@ -276,7 +386,8 @@ class ParentApiClient(
                 grades = grades,
                 attendance = attendance,
                 fees = fees,
-                schedule = schedule
+                schedule = schedule,
+                subjects = subjects
             )
         } catch (_: Exception) {
             null
@@ -290,7 +401,9 @@ class ParentApiClient(
                 title = obj["title"]?.jsonPrimitive?.content ?: "",
                 body = obj["body"]?.jsonPrimitive?.content ?: "",
                 priority = obj["priority"]?.jsonPrimitive?.content ?: "normal",
-                publishedAt = obj["published_at"]?.jsonPrimitive?.content ?: ""
+                publishedAt = obj["published_at"]?.jsonPrimitive?.content ?: "",
+                targeted = obj["targeted"]?.jsonPrimitive?.booleanOrNull ?: false,
+                readAt = obj["read_at"]?.jsonPrimitive?.contentOrNull
             )
         } catch (_: Exception) {
             null
