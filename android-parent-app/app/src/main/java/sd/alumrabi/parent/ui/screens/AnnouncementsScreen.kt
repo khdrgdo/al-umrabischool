@@ -43,6 +43,7 @@ import sd.alumrabi.parent.data.model.CalendarEventItem
 import sd.alumrabi.parent.ui.components.*
 import sd.alumrabi.parent.ui.theme.*
 import sd.alumrabi.parent.util.Fmt
+import sd.alumrabi.parent.util.TimeFmt
 import sd.alumrabi.parent.util.addToCalendar
 import sd.alumrabi.parent.util.upcoming
 
@@ -52,6 +53,7 @@ fun AnnouncementsScreen(
     events: List<CalendarEventItem>,
     readIds: Set<String>,
     onMarkRead: (Collection<String>) -> Unit,
+    onOpened: (String) -> Unit = {},
     initialTab: Int = 0,
     onBack: () -> Unit
 ) {
@@ -97,7 +99,7 @@ fun AnnouncementsScreen(
                         val isOpen = open == a.id
                         Panel(onClick = {
                             open = if (isOpen) null else a.id
-                            if (isNew) onMarkRead(listOf(a.id))
+                            if (!isOpen) onOpened(a.id)
                         }) {
                             Row(verticalAlignment = Alignment.Top) {
                                 if (isNew) {
@@ -120,8 +122,12 @@ fun AnnouncementsScreen(
                                         )
                                         if (a.priority == "urgent") Pill("عاجل", Negative, NegativeBg)
                                         else if (a.priority == "important") Pill("هام", Caution, CautionBg)
+                                        if (a.targeted) {
+                                            Spacer(Modifier.width(6.dp))
+                                            Pill("خاص بك", Ink700, Wash)
+                                        }
                                     }
-                                    Text(Fmt.dateOrRaw(a.publishedAt), style = MaterialTheme.typography.bodySmall, color = Ink500)
+                                    Text(TimeFmt.dateTime(a.publishedAt) ?: Fmt.dateOrRaw(a.publishedAt), style = MaterialTheme.typography.bodySmall, color = Ink500)
                                     Spacer(Modifier.height(Space.sm))
                                     Text(
                                         a.body,

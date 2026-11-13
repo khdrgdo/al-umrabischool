@@ -1,9 +1,33 @@
 package sd.alumrabi.parent
 
+import android.Manifest
+import sd.alumrabi.parent.ui.components.ReportDialog
+import sd.alumrabi.parent.ui.screens.SubjectsScreen
 import android.content.pm.ApplicationInfo
+import android.content.pm.PackageManager
+import android.os.Build
+import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.layout.imePadding
+import androidx.core.content.ContextCompat
+import androidx.core.view.WindowCompat
+import androidx.work.OneTimeWorkRequestBuilder
+import androidx.work.WorkManager
+import sd.alumrabi.parent.notify.NotificationWorker
+import sd.alumrabi.parent.notify.Notifier
+import sd.alumrabi.parent.ui.components.BrandHeaderLayer
+import android.net.ConnectivityManager
+import android.net.Network
 import android.os.Bundle
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.compose.ui.platform.LocalLifecycleOwner
+import sd.alumrabi.parent.security.AppLock
+import sd.alumrabi.parent.util.SchoolContact
+import sd.alumrabi.parent.ui.theme.ThemeState
 import android.view.WindowManager
-import androidx.activity.ComponentActivity
+import androidx.fragment.app.FragmentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
@@ -42,14 +66,31 @@ import sd.alumrabi.parent.ui.theme.Canvas
 import sd.alumrabi.parent.ui.theme.Crimson700
 import sd.alumrabi.parent.ui.theme.SystemBars
 
-class MainActivity : ComponentActivity() {
+class MainActivity : FragmentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        val isDebugBuild = (applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE) != 0
+        if (isDebugBuild) {
+            sd.alumrabi.parent.util.CrashReporter.install(this)
+            val crash = sd.alumrabi.parent.util.CrashReporter.consume(this)
+            if (crash != null) {
+                showCrashScreen(crash)
+                return
+            }
+        }
+        // حافة لحافة: الترويسة الحمراء تمتد خلف شريط الحالة
+        WindowCompat.setDecorFitsSystemWindows(window, false)
+        Notifier.ensureChannel(this)
         // OWASP MASVS-PLATFORM: منع لقطات الشاشة ومعاينة التطبيقات الأخيرة للسجلات الأكاديمية والمالية
-        window.setFlags(
-            WindowManager.LayoutParams.FLAG_SECURE,
-            WindowManager.LayoutParams.FLAG_SECURE
-        )
+        // نسخة التجربة (debug) تسمح بلقطات الشاشة لمراجعة التصميم؛ نسخة الإصدار تمنعها دائماً
+        val debuggable = (applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE) != 0
+        if (!debuggable) {
+            window.setFlags(
+                WindowManager.LayoutParams.FLAG_SECURE,
+                WindowManager.LayoutParams.FLAG_SECURE
+            )
+        }
+        ThemeState.load(this)
         setContent {
             CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
                 AlUmrabiParentTheme {
@@ -60,6 +101,39 @@ class MainActivity : ComponentActivity() {
             }
         }
     }
+}
+
+private fun MainActivity.showCrashScreen(text: String) {
+    val pad = (16 * resources.displayMetrics.density).toInt()
+    val tv = android.widget.TextView(this).apply {
+        this.text = text
+        setTextIsSelectable(true)
+        textSize = 11f
+        setTextColor(android.graphics.Color.BLACK)
+        setPadding(pad, pad, pad, pad)
+        layoutDirection = android.view.View.LAYOUT_DIRECTION_LTR
+    }
+    val btn = android.widget.Button(this).apply {
+        this.text = "متابعة تشغيل التطبيق"
+        setOnClickListener { recreate() }
+    }
+    val title = android.widget.TextView(this).apply {
+        this.text = "توقف التطبيق في المرة السابقة بسبب هذا الخطأ (صوّر الشاشة وأرسلها):"
+        setTextColor(android.graphics.Color.BLACK)
+        textSize = 14f
+        setPadding(pad, pad * 2, pad, 0)
+    }
+    val col = android.widget.LinearLayout(this).apply {
+        orientation = android.widget.LinearLayout.VERTICAL
+        setBackgroundColor(android.graphics.Color.WHITE)
+        addView(title)
+        addView(
+            android.widget.ScrollView(this@showCrashScreen).apply { addView(tv) },
+            android.widget.LinearLayout.LayoutParams(android.view.ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f)
+        )
+        addView(btn)
+    }
+    setContentView(col)
 }
 
 private fun emptyGuardian() = GuardianInfo(
@@ -77,6 +151,7 @@ fun ParentAppNavHost() {
     val navController = rememberNavController()
     val scope = rememberCoroutineScope()
     val apiClient = remember { ParentApiClient() }
+    val lock = remember { AppLock(sessionManager) }
     val isDebuggable = (context.applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE) != 0
 
     var guardian by remember { mutableStateOf(sessionManager.getGuardian() ?: emptyGuardian()) }
@@ -88,21 +163,50 @@ fun ParentAppNavHost() {
     var lastSync by remember { mutableLongStateOf(sessionManager.getLastSyncMillis()) }
     var selectedChildIndex by remember { mutableIntStateOf(0) }
     var refreshing by remember { mutableStateOf(false) }
+    var school by remember { mutableStateOf(sessionManager.getSchool()) }
+    var showReport by remember { mutableStateOf(false) }
 
     val safeIndex = if (children.isEmpty()) 0 else selectedChildIndex.coerceIn(0, children.lastIndex)
     val unread = announcements.count { it.id !in readIds }
 
     fun resetLocalState() {
+        Notifier.cancel(context)
         sessionManager.clearSession()
+        lock.reset()
         guardian = emptyGuardian()
         children = emptyList()
         announcements = emptyList()
         events = emptyList()
         readIds = emptySet()
+        school = null
         selectedChildIndex = 0
         lastSync = 0L
         connectionState = BackendConnectionState.SYNCED_LOCAL
         navController.navigate(Routes.Login) { popUpTo(0) }
+    }
+
+    fun doLogout() {
+        val token = sessionManager.getTokens()?.accessToken
+        if (token != null) scope.launch { apiClient.signOut(token) }
+        resetLocalState()
+    }
+
+    suspend fun freshToken(): String? {
+        var tk = sessionManager.getTokens() ?: return null
+        if (tk.isExpiringSoon()) {
+            val renewed = apiClient.refreshSession(tk.refreshToken).getOrNull() ?: return null
+            sessionManager.saveTokens(renewed)
+            tk = renewed
+        }
+        return tk.accessToken
+    }
+
+    // تسجيل اطلاع ولي الأمر على الإعلانات للإدارة؛ ما تعذّر إرساله (دون إنترنت) يُعاد لاحقاً.
+    suspend fun flushReads() {
+        val ids = sessionManager.getUnsyncedReads()
+        if (ids.isEmpty()) return
+        val token = freshToken() ?: return
+        if (apiClient.markAnnouncementsRead(token, ids.toList()).isSuccess) sessionManager.clearUnsyncedReads(ids)
     }
 
     suspend fun syncOnce() {
@@ -135,8 +239,13 @@ fun ParentAppNavHost() {
             events = payload.events
             sessionManager.saveSession(payload.guardian, payload.children)
             sessionManager.saveContent(payload.announcements, payload.events)
+            sessionManager.addNotified(Notifier.keys(payload)); sessionManager.markBaselineV2()
             lastSync = sessionManager.getLastSyncMillis()
+            payload.school?.let { school = it; sessionManager.saveSchool(it) }
+            sessionManager.markRead(payload.announcements.filter { it.readAt != null }.map { it.id })
+            readIds = sessionManager.getReadIds()
             connectionState = BackendConnectionState.CONNECTED_LIVE
+            flushReads()
         } else {
             val ex = result.exceptionOrNull()
             if (ex is SessionExpiredException || ex is AccountBlockedException) {
@@ -147,7 +256,46 @@ fun ParentAppNavHost() {
         }
     }
 
-    LaunchedEffect(Unit) { syncOnce() }
+    LaunchedEffect(Unit) {
+        if (sessionManager.isLoggedIn()) Notifier.schedule(context)
+        syncOnce()
+    }
+
+    // عمل دون إنترنت: عند عودة الشبكة نعيد المزامنة تلقائياً إن كنا نعرض بيانات محفوظة،
+    // وعند العودة للتطبيق بعد أكثر من 10 دقائق نحدّث البيانات. القفل يُفعَّل عند مغادرة التطبيق.
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            when (event) {
+                Lifecycle.Event.ON_STOP -> lock.onBackground()
+                Lifecycle.Event.ON_START -> {
+                    lock.onForeground()
+                    if (connectionState != BackendConnectionState.CONNECTING &&
+                        sessionManager.isLoggedIn() &&
+                        System.currentTimeMillis() - lastSync > 10 * 60_000L
+                    ) scope.launch { syncOnce() }
+                }
+                else -> {}
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
+
+    DisposableEffect(Unit) {
+        val cm = context.getSystemService(ConnectivityManager::class.java)
+        val callback = object : ConnectivityManager.NetworkCallback() {
+            override fun onAvailable(network: Network) {
+                scope.launch {
+                    if (connectionState == BackendConnectionState.SYNCED_LOCAL && sessionManager.isLoggedIn()) syncOnce()
+                }
+            }
+        }
+        runCatching { cm?.registerDefaultNetworkCallback(callback) }
+        onDispose { runCatching { cm?.unregisterNetworkCallback(callback) } }
+    }
+
+    val notifPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { }
 
     fun navigateTab(tab: AppTab) {
         navController.navigate(tab.route) {
@@ -162,16 +310,31 @@ fun ParentAppNavHost() {
 
     BackHandler(enabled = isTab && currentRoute != Routes.Home) { navigateTab(AppTab.Home) }
 
+    LaunchedEffect(currentRoute) {
+        if (currentRoute == Routes.Home && Build.VERSION.SDK_INT >= 33 &&
+            ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
+        ) {
+            // بعض الأجهزة (ColorOS وغيرها) لا تجد نافذة الإذن فتنهار؛ نتجاهل الفشل بدل إغلاق التطبيق.
+            runCatching { notifPermission.launch(Manifest.permission.POST_NOTIFICATIONS) }
+        }
+    }
+
+    Box(Modifier.fillMaxSize()) {
+    BrandHeaderLayer(currentRoute)
     Column(Modifier.fillMaxSize()) {
-        Box(Modifier.weight(1f)) {
+        Box(Modifier.weight(1f).imePadding()) {
             NavHost(
                 navController = navController,
                 startDestination = Routes.Splash,
                 modifier = Modifier.fillMaxSize(),
                 enterTransition = {
                     val to = targetState.destination.route
-                    if (to != null && to in TabRoutes) fadeIn(tween(220))
-                    else slideInHorizontally(tween(260)) { -it / 6 } + fadeIn(tween(220))
+                    when {
+                        to == Routes.Login -> fadeIn(tween(350, delayMillis = 250))
+                        to == Routes.Home -> fadeIn(tween(300, delayMillis = 150))
+                        to != null && to in TabRoutes -> fadeIn(tween(220))
+                        else -> slideInHorizontally(tween(260)) { -it / 6 } + fadeIn(tween(220))
+                    }
                 },
                 exitTransition = {
                     val to = targetState.destination.route
@@ -211,10 +374,14 @@ fun ParentAppNavHost() {
                             announcements = payload.announcements
                             events = payload.events
                             readIds = sessionManager.getReadIds()
+                            school = payload.school
+                            sessionManager.saveSchool(payload.school)
                             selectedChildIndex = 0
                             sessionManager.saveTokens(tokens)
                             sessionManager.saveSession(payload.guardian, payload.children)
                             sessionManager.saveContent(payload.announcements, payload.events)
+                            sessionManager.addNotified(Notifier.keys(payload)); sessionManager.markBaselineV2()
+                            Notifier.schedule(context)
                             lastSync = sessionManager.getLastSyncMillis()
                             connectionState = BackendConnectionState.CONNECTED_LIVE
                             navController.navigate(Routes.Home) { popUpTo(Routes.Login) { inclusive = true } }
@@ -245,15 +412,36 @@ fun ParentAppNavHost() {
                     )
                 }
 
-                composable(Routes.Results) { GradesScreen(children, safeIndex) { selectedChildIndex = it } }
+                composable(Routes.Results) {
+                    GradesScreen(children, safeIndex, onOpenSubjects = { navController.navigate(Routes.Subjects) }) { selectedChildIndex = it }
+                }
                 composable(Routes.Attendance) { AttendanceScreen(children, safeIndex) { selectedChildIndex = it } }
                 composable(Routes.Fees) { FeesScreen(children, safeIndex) { selectedChildIndex = it } }
+
+                composable(Routes.Subjects) {
+                    SubjectsScreen(
+                        children = children,
+                        selectedChildIndex = safeIndex,
+                        onSelectChild = { selectedChildIndex = it },
+                        onBack = { navController.popBackStack() }
+                    )
+                }
 
                 composable(Routes.More) {
                     MoreScreen(
                         guardian = guardian,
                         unreadAnnouncements = unread,
-                        onOpenRoute = { navController.navigate(it) }
+                        onOpenRoute = { navController.navigate(it) },
+                        onContactSchool = {
+                            SchoolContact.openWhatsApp(context, school?.whatsappNumber, guardian.fullName, guardian.accountCode, children.getOrNull(safeIndex)?.fullName)
+                        },
+                        onReport = { showReport = true },
+                        onCheckNow = if (isDebuggable) {
+                            {
+                                WorkManager.getInstance(context).enqueue(OneTimeWorkRequestBuilder<NotificationWorker>().build())
+                                Toast.makeText(context, "جارٍ فحص الجديد…", Toast.LENGTH_SHORT).show()
+                            }
+                        } else null
                     )
                 }
 
@@ -275,6 +463,12 @@ fun ParentAppNavHost() {
                             sessionManager.markRead(ids)
                             readIds = sessionManager.getReadIds()
                         },
+                        onOpened = { id ->
+                            sessionManager.markRead(listOf(id))
+                            readIds = sessionManager.getReadIds()
+                            sessionManager.addUnsyncedReads(listOf(id))
+                            scope.launch { flushReads() }
+                        },
                         onBack = { navController.popBackStack() }
                     )
                 }
@@ -293,12 +487,13 @@ fun ParentAppNavHost() {
                     SettingsScreen(
                         guardian = guardian,
                         lastSyncMillis = lastSync,
+                        lock = lock,
+                        onChangePassword = { old, newPassword ->
+                            apiClient.changePassword(guardian.accountCode ?: "", old, newPassword)
+                                .map { tokens -> sessionManager.saveTokens(tokens) }
+                        },
                         onBack = { navController.popBackStack() },
-                        onLogout = {
-                            val token = sessionManager.getTokens()?.accessToken
-                            if (token != null) scope.launch { apiClient.signOut(token) }
-                            resetLocalState()
-                        }
+                        onLogout = { doLogout() }
                     )
                 }
             }
@@ -310,5 +505,23 @@ fun ParentAppNavHost() {
                 badges = mapOf(Routes.More to unread)
             )
         }
+    }
+    if (showReport) {
+        ReportDialog(
+            onDismiss = { showReport = false },
+            onSubmit = { category, text ->
+                val token = freshToken()
+                if (token == null) {
+                    Result.failure<Unit>(Exception("تعذر التحقق من الجلسة، حاول لاحقاً"))
+                } else {
+                    val ver = runCatching { context.packageManager.getPackageInfo(context.packageName, 0).versionName }.getOrNull() ?: "?"
+                    apiClient.submitReport(token, category, text, children.getOrNull(safeIndex)?.id, ver, Build.MANUFACTURER + " " + Build.MODEL)
+                }
+            }
+        )
+    }
+    if (lock.locked) {
+        LockScreen(lock = lock, guardianName = guardian.fullName, onForgot = { doLogout() })
+    }
     }
 }

@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.pager.HorizontalPager
@@ -84,9 +85,7 @@ fun HomeScreen(
     PullToRefreshBox(
         isRefreshing = isRefreshing,
         onRefresh = onRefresh,
-        modifier = Modifier
-            .fillMaxSize()
-            .background(Canvas)
+        modifier = Modifier.fillMaxSize()
     ) {
         LazyColumn(
             modifier = Modifier.fillMaxSize(),
@@ -189,16 +188,7 @@ private fun HeroHeader(
     onBell: () -> Unit
 ) {
     Box(Modifier.fillMaxWidth()) {
-        Box(
-            Modifier
-                .fillMaxWidth()
-                .height(210.dp)
-                .background(
-                    Brush.verticalGradient(listOf(Crimson800, Crimson700, Crimson600)),
-                    RoundedCornerShape(bottomStart = 32.dp, bottomEnd = 32.dp)
-                )
-        )
-        Column {
+        Column(Modifier.statusBarsPadding()) {
             Row(
                 Modifier
                     .fillMaxWidth()
@@ -226,7 +216,7 @@ private fun HeroHeader(
             }
             Spacer(Modifier.height(Space.lg))
             if (children.isNotEmpty()) {
-                ChildPager(children, selectedIndex, onSelectChild)
+                Reveal(1) { ChildPager(children, selectedIndex, onSelectChild) }
             } else {
                 Spacer(Modifier.height(Space.md))
             }

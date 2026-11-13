@@ -3,6 +3,14 @@ package sd.alumrabi.parent.ui.screens
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.ui.draw.clip
+import androidx.compose.material.icons.outlined.MenuBook
+import sd.alumrabi.parent.util.TimeFmt
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -11,6 +19,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -45,16 +54,25 @@ import sd.alumrabi.parent.util.shareText
 fun GradesScreen(
     children: List<LinkedChild>,
     selectedChildIndex: Int,
+    onOpenSubjects: (() -> Unit)? = null,
     onSelectChild: (Int) -> Unit
 ) {
     SystemBars(statusBar = Canvas, darkIcons = true)
     val context = LocalContext.current
     val child = children.getOrNull(selectedChildIndex)
-    val subjects = child?.grades.bySubject()
-    val overall = child?.grades.overallPercent()
+    val allGrades = child?.grades.orEmpty()
+    val years = allGrades.mapNotNull { it.academicYear }.distinct().sortedDescending()
+    var yearSel by remember(selectedChildIndex) { mutableStateOf<String?>(null) }
+    val year = yearSel?.takeIf { it in years } ?: years.firstOrNull()
+    val shownGrades = if (year == null) allGrades else allGrades.filter { it.academicYear == year || it.academicYear == null }
+    val prevYear = year?.let { y -> years.getOrNull(years.indexOf(y) + 1) }
+    val prevAvg = prevYear?.let { py -> allGrades.filter { it.academicYear == py }.bySubject().associate { it.subject to it.averagePercent } } ?: emptyMap()
+    val subjects = shownGrades.bySubject()
+    val overall = shownGrades.overallPercent()
     var expanded by remember(selectedChildIndex) { mutableStateOf<String?>(null) }
+    var trendScope by remember(selectedChildIndex) { mutableStateOf<String?>(null) }
 
-    Column(Modifier.fillMaxSize().background(Canvas)) {
+    Column(Modifier.fillMaxSize().background(Canvas).statusBarsPadding()) {
         ScreenHeader(
             title = "النتائج",
             subtitle = child?.fullName,
@@ -114,6 +132,38 @@ fun GradesScreen(
                         }
                     }
                 }
+                if (years.size > 1) {
+                    item {
+                        Row(
+                            Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                            horizontalArrangement = Arrangement.spacedBy(Space.sm)
+                        ) {
+                            years.forEach { y -> YearChip("سنة " + y, y == year) { yearSel = y } }
+                        }
+                    }
+                }
+                if (onOpenSubjects != null) {
+                    item {
+                        GroupedList {
+                            ListRow(
+                                title = "مواد الفصل وأساتذتها",
+                                subtitle = "المواد التي يدرسها ابنك وأسماء أساتذتها",
+                                leading = Icons.Outlined.MenuBook,
+                                onClick = onOpenSubjects
+                            )
+                        }
+                    }
+                }
+                item {
+                    Reveal(1) {
+                        TrendPanel(
+                            grades = shownGrades,
+                            subjects = subjects.map { it.subject },
+                            scope = trendScope,
+                            onScope = { trendScope = it }
+                        )
+                    }
+                }
                 items(subjects, key = { it.subject }) { s ->
                     val avg = s.averagePercent
                     val band = avg?.let { bandFor(it) }
@@ -128,6 +178,19 @@ fun GradesScreen(
                                     style = MaterialTheme.typography.bodySmall,
                                     color = Ink500
                                 )
+                                val lastAt = s.items.mapNotNull { it.gradedAt }.maxOrNull()
+                                TimeFmt.dateTime(lastAt)?.let {
+                                    Text("آخر رصد: " + it, style = MaterialTheme.typography.bodySmall, color = Ink500)
+                                }
+                                val pv = prevAvg[s.subject]
+                                if (pv != null && avg != null && prevYear != null) {
+                                    val d = avg - pv
+                                    Text(
+                                        prevYear + ": " + Fmt.percent(pv) + " (" + (if (d >= 0) "▲ " else "▼ ") + Fmt.percent(kotlin.math.abs(d)) + ")",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = Ink700
+                                    )
+                                }
                             }
                             if (avg != null && band != null) {
                                 Text(
@@ -146,15 +209,25 @@ fun GradesScreen(
                         AnimatedVisibility(visible = open) {
                             Column {
                                 Spacer(Modifier.height(Space.md))
-                                s.items.forEach { g ->
+                                s.items.sortedByDescending { it.gradedAt ?: "" }.forEach { g ->
                                     RowDivider()
                                     Row(
                                         Modifier.fillMaxWidth().padding(vertical = Space.sm),
                                         verticalAlignment = Alignment.CenterVertically
                                     ) {
                                         Column(Modifier.weight(1f)) {
-                                            Text(g.title, style = MaterialTheme.typography.bodyMedium, color = Ink900)
-                                            Text(Terms.label(g.term), style = MaterialTheme.typography.bodySmall, color = Ink500)
+                                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                                Text(g.title, style = MaterialTheme.typography.bodyMedium, color = Ink900)
+                                                if (TimeFmt.isRecent(g.gradedAt)) {
+                                                    Spacer(Modifier.width(6.dp))
+                                                    Pill("جديد", Positive, PositiveBg)
+                                                }
+                                            }
+                                            Text(
+                                                Terms.label(g.term) + (TimeFmt.dateTime(g.gradedAt)?.let { " · رُصدت " + it } ?: ""),
+                                                style = MaterialTheme.typography.bodySmall,
+                                                color = Ink500
+                                            )
                                         }
                                         val sc = g.score
                                         when {
@@ -178,5 +251,18 @@ fun GradesScreen(
                 item { Spacer(Modifier.height(Space.lg)) }
             }
         }
+    }
+}
+
+@Composable
+private fun YearChip(label: String, selected: Boolean, onClick: () -> Unit) {
+    Box(
+        Modifier
+            .clip(CircleShape)
+            .background(if (selected) Crimson600 else Paper)
+            .clickable(onClick = onClick)
+            .padding(horizontal = Space.lg, vertical = Space.sm)
+    ) {
+        Text(label, style = MaterialTheme.typography.labelLarge, color = if (selected) OnBrand else Ink900)
     }
 }

@@ -1,0 +1,85 @@
+name: Android Emulator Screenshots
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "demo or login"
+        default: "demo"
+      account:
+        description: "account code (login mode)"
+        default: ""
+      password:
+        description: "password (login mode, test account only)"
+        default: ""
+  push:
+    branches: [feature/parent-app-v1.2.1]
+    paths:
+      - ".github/workflows/android-screenshots.yml"
+      - "android-parent-app/scripts/shoot.py"
+
+jobs:
+  screenshots:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: "temurin"
+          java-version: 17
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - name: Build debug APK
+        working-directory: ./android-parent-app
+        run: |
+          chmod +x ./gradlew
+          ./gradlew assembleDebug --no-daemon
+
+      - name: Run emulator and capture screens
+        uses: reactivecircus/android-emulator-runner@v2
+        env:
+          SHOT_MODE: ${{ github.event.inputs.mode || 'demo' }}
+          ACCT: ${{ github.event.inputs.account }}
+          PW: ${{ github.event.inputs.password }}
+        with:
+          api-level: 34
+          target: google_apis
+          arch: x86_64
+          profile: pixel_6
+          disable-animations: false
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none -no-snapshot
+          script: |
+            mkdir -p shots
+            adb install -r android-parent-app/app/build/outputs/apk/debug/app-debug.apk
+            adb logcat -c
+            adb shell am start -n sd.alumrabi.parent.debug/sd.alumrabi.parent.MainActivity
+            sleep 15
+            adb logcat -d -b all '*:W' > shots/logcat_launch.txt
+            adb shell pidof sd.alumrabi.parent.debug || echo NOT_RUNNING_AFTER_LAUNCH >> shots/logcat_launch.txt
+            python3 android-parent-app/scripts/shoot.py || true
+            adb logcat -d -b crash > shots/logcat_crash.txt
+            adb shell cmd uimode night yes
+            adb shell am force-stop sd.alumrabi.parent.debug
+            adb logcat -c
+            adb shell am start -n sd.alumrabi.parent.debug/sd.alumrabi.parent.MainActivity
+            sleep 12
+            adb exec-out screencap -p > shots/99_dark_warm_start.png
+            adb logcat -d -b crash > shots/logcat_crash_warm.txt
+            adb shell pidof sd.alumrabi.parent.debug > shots/pid_after_warm.txt || echo NOT_RUNNING > shots/pid_after_warm.txt
+
+      - name: Upload screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: alumrabi-screenshots
+          path: shots/
+          if-no-files-found: warn

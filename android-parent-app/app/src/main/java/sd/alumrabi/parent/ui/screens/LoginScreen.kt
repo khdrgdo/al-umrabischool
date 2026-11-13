@@ -9,7 +9,9 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
@@ -31,6 +33,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.semantics.LiveRegionMode
@@ -46,6 +49,7 @@ import kotlinx.coroutines.launch
 import sd.alumrabi.parent.data.api.AuthTokens
 import sd.alumrabi.parent.data.api.ParentApiClient
 import sd.alumrabi.parent.data.model.DashboardPayload
+import sd.alumrabi.parent.ui.components.HeaderMetrics
 import sd.alumrabi.parent.ui.components.OmrabiSymbol
 import sd.alumrabi.parent.ui.components.OutlineButton
 import sd.alumrabi.parent.ui.components.PrimaryButton
@@ -138,18 +142,16 @@ fun LoginScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(Canvas)
             .verticalScroll(rememberScrollState())
     ) {
-        // رأس الهوية
+        // رأس الهوية: الخلفية الحمراء ترسمها الترويسة الدائمة في الهيكل، وهنا المحتوى فقط
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .background(
-                    Brush.verticalGradient(listOf(Crimson800, Crimson700, Crimson600)),
-                    RoundedCornerShape(bottomStart = 32.dp, bottomEnd = 32.dp)
-                )
-                .padding(start = 24.dp, end = 24.dp, top = 36.dp, bottom = 44.dp)
+                .statusBarsPadding()
+                .height(HeaderMetrics.Login)
+                .padding(start = 24.dp, end = 24.dp, bottom = 40.dp),
+            contentAlignment = Alignment.BottomStart
         ) {
             Column {
                 OmrabiSymbol(size = 56.dp, tint = OnBrand, description = "شعار العمرابي")
@@ -167,7 +169,7 @@ fun LoginScreen(
             }
         }
 
-        Column(Modifier.padding(horizontal = 24.dp, vertical = 24.dp)) {
+        Column(Modifier.navigationBarsPadding().padding(horizontal = 24.dp, vertical = 24.dp)) {
             Text(
                 if (activationMode) "تفعيل الحساب" else "تسجيل الدخول",
                 style = MaterialTheme.typography.titleLarge,
@@ -192,7 +194,7 @@ fun LoginScreen(
                     errorMessage = null
                 },
                 label = "معرّف الحساب",
-                placeholder = "PAR-10101",
+                placeholder = "123456",
                 ltr = true
             )
 

@@ -1272,7 +1272,7 @@ function GuardiansPage() {
                         </Button>
                       </div>
                       <div className="font-mono text-base font-bold text-foreground text-center tracking-widest bg-muted/60 py-1 rounded" dir="ltr">
-                        {appCredentials?.account_code || selectedGuardianForApp.account_code || "PAR-XXXXXX"}
+                        {appCredentials?.account_code || selectedGuardianForApp.account_code || "000000"}
                       </div>
                     </div>
 

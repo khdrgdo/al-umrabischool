@@ -70,6 +70,24 @@ fun List<PublishedGrade>?.overallPercent(): Double? {
     return if (p.isEmpty()) null else p.average()
 }
 
+/** نتائج الطالب بالنسبة المئوية مرتبة زمنياً (تاريخ إنشاء التقييم)؛ تُهمل الغياب وغير المرصود. للاتجاه فقط. */
+fun List<PublishedGrade>?.trendPercents(subject: String? = null): List<Double> =
+    this.orEmpty()
+        .filter { subject == null || it.subjectName == subject }
+        .sortedBy { it.createdAt.orEmpty() }
+        .mapNotNull { it.percent() }
+
+data class TrendSummary(val earlier: Double, val recent: Double) {
+    val delta: Double get() = recent - earlier
+}
+
+/** متوسط النصف الأقدم مقابل النصف الأحدث؛ null إن قلّت النتائج عن اثنتين. */
+fun List<Double>.trendSummary(): TrendSummary? {
+    if (size < 2) return null
+    val k = maxOf(1, size / 2)
+    return TrendSummary(take(k).average(), takeLast(k).average())
+}
+
 fun List<AttendanceRecord>?.byDate(): Map<LocalDate, AttendanceRecord> =
     this.orEmpty().mapNotNull { r -> Fmt.parseDate(r.date)?.let { it to r } }.toMap()
 

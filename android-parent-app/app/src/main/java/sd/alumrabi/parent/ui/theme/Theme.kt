@@ -5,6 +5,9 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Shapes
 import androidx.compose.material3.Typography
+import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.material3.ColorScheme
+import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.SideEffect
@@ -69,33 +72,63 @@ object Radius {
     val card = RoundedCornerShape(12.dp)
 }
 
-private val OmrabiColors = lightColorScheme(
-    primary = Crimson600,
-    onPrimary = OnBrand,
-    primaryContainer = Crimson100,
-    onPrimaryContainer = Crimson800,
-    secondary = Ink900,
-    onSecondary = OnBrand,
-    secondaryContainer = Wash,
-    onSecondaryContainer = Ink900,
-    tertiary = Crimson700,
-    background = Canvas,
-    onBackground = Ink900,
-    surface = Paper,
-    onSurface = Ink900,
-    surfaceVariant = Wash,
-    onSurfaceVariant = Ink700,
-    surfaceTint = Paper,
-    outline = LineStrong,
-    outlineVariant = Line,
-    error = Negative,
-    onError = OnBrand,
-    surfaceContainerLowest = Paper,
-    surfaceContainerLow = Paper,
-    surfaceContainer = Paper,
-    surfaceContainerHigh = Paper,
-    surfaceContainerHighest = Wash
-)
+private fun omrabiColors(dark: Boolean): ColorScheme = if (dark) {
+    darkColorScheme(
+        primary = Crimson600,
+        onPrimary = OnBrand,
+        primaryContainer = Crimson100,
+        onPrimaryContainer = Crimson700,
+        secondary = Ink900,
+        onSecondary = Canvas,
+        secondaryContainer = Wash,
+        onSecondaryContainer = Ink900,
+        tertiary = Crimson700,
+        background = Canvas,
+        onBackground = Ink900,
+        surface = Paper,
+        onSurface = Ink900,
+        surfaceVariant = Wash,
+        onSurfaceVariant = Ink700,
+        surfaceTint = Paper,
+        outline = LineStrong,
+        outlineVariant = Line,
+        error = Negative,
+        onError = Canvas,
+        surfaceContainerLowest = Paper,
+        surfaceContainerLow = Paper,
+        surfaceContainer = Paper,
+        surfaceContainerHigh = Paper,
+        surfaceContainerHighest = Wash
+    )
+} else {
+    lightColorScheme(
+        primary = Crimson600,
+        onPrimary = OnBrand,
+        primaryContainer = Crimson100,
+        onPrimaryContainer = Crimson800,
+        secondary = Ink900,
+        onSecondary = OnBrand,
+        secondaryContainer = Wash,
+        onSecondaryContainer = Ink900,
+        tertiary = Crimson700,
+        background = Canvas,
+        onBackground = Ink900,
+        surface = Paper,
+        onSurface = Ink900,
+        surfaceVariant = Wash,
+        onSurfaceVariant = Ink700,
+        surfaceTint = Paper,
+        outline = LineStrong,
+        outlineVariant = Line,
+        error = Negative,
+        onError = OnBrand,
+        surfaceContainerLowest = Paper,
+        surfaceContainerLow = Paper,
+        surfaceContainer = Paper,
+        surfaceContainerHigh = Paper,
+        surfaceContainerHighest = Wash
+    )
+}
 
 /** ألوان شريط الحالة وشريط التنقل لكل شاشة (الشاشات الداكنة تحتاج أيقونات فاتحة). */
 @Composable
@@ -106,22 +139,33 @@ fun SystemBars(
     navigationIconsDark: Boolean = true
 ) {
     val view = LocalView.current
+    val statusDarkIcons = darkIcons && !ThemeState.dark
+    val navDarkIcons = navigationIconsDark && !ThemeState.dark
     if (!view.isInEditMode) {
         SideEffect {
             val window = (view.context as Activity).window
-            window.statusBarColor = statusBar.toArgb()
-            window.navigationBarColor = navigationBar.toArgb()
+            // الشريطان شفافان دائماً (حافة لحافة)؛ لون الخلفية تصنعه الشاشة نفسها خلفهما.
+            window.statusBarColor = android.graphics.Color.TRANSPARENT
+            window.navigationBarColor = android.graphics.Color.TRANSPARENT
+            if (android.os.Build.VERSION.SDK_INT >= 29) window.isNavigationBarContrastEnforced = false
             val controller = WindowCompat.getInsetsController(window, view)
-            controller.isAppearanceLightStatusBars = darkIcons
-            controller.isAppearanceLightNavigationBars = navigationIconsDark
+            controller.isAppearanceLightStatusBars = statusDarkIcons
+            controller.isAppearanceLightNavigationBars = navDarkIcons
         }
     }
 }
 
 @Composable
 fun AlUmrabiParentTheme(content: @Composable () -> Unit) {
+    val dark = when (ThemeState.mode) {
+        ThemeMode.Dark -> true
+        ThemeMode.Light -> false
+        ThemeMode.System -> isSystemInDarkTheme()
+    }
+    // تُكتب قبل رسم الأبناء لتقرأها ألوان Color.kt في نفس الإطار.
+    ThemeState.dark = dark
     MaterialTheme(
-        colorScheme = OmrabiColors,
+        colorScheme = omrabiColors(dark),
         typography = OmrabiTypography,
         shapes = Shapes(
             small = Radius.chip,

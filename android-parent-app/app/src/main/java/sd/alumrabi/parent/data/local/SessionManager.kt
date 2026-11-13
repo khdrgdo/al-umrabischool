@@ -11,9 +11,10 @@ import sd.alumrabi.parent.data.model.AnnouncementItem
 import sd.alumrabi.parent.data.model.CalendarEventItem
 import sd.alumrabi.parent.data.model.GuardianInfo
 import sd.alumrabi.parent.data.model.LinkedChild
+import sd.alumrabi.parent.data.model.SchoolInfo
 
 /**
- * تخزين الجلسة مشفّر (AES256 عبر Android Keystore). لا تُخزَّن كلمة المرور ولا أي PIN أبداً؛
+ * تخزين الجلسة مشفّر (AES256 عبر Android Keystore). لا تُخزَّن كلمة المرور أبداً، ورمز قفل التطبيق (PIN) يُخزَّن فقط كبصمة مملّحة (PBKDF2) داخل هذا الملف المشفّر؛
  * فقط رموز جلسة Supabase Auth وبيانات العرض المؤقتة. يُحذف الملف القديم غير المشفّر عند أول تشغيل.
  */
 class SessionManager(context: Context) {
@@ -142,6 +143,60 @@ class SessionManager(context: Context) {
         val merged = getReadIds() + ids
         prefs.edit().putStringSet("read_announcements", merged).apply()
     }
+
+    fun getNotifiedIds(): Set<String> = prefs.getStringSet("notified_ids", emptySet())?.toSet() ?: emptySet()
+
+    fun hasNotifyBaseline(): Boolean = prefs.contains("notified_ids")
+
+    fun addNotified(ids: Collection<String>) {
+        prefs.edit().putStringSet("notified_ids", getNotifiedIds() + ids).apply()
+    }
+
+    // ── قفل التطبيق (يُحذف كله مع clearSession عند تسجيل الخروج) ──
+    fun getPinRecord(): String? = prefs.getString("pin_record", null)
+
+    fun setPinRecord(value: String?) {
+        prefs.edit().apply { if (value == null) remove("pin_record") else putString("pin_record", value) }.apply()
+    }
+
+    fun isBiometricEnabled(): Boolean = prefs.getBoolean("lock_biometric", false)
+
+    fun setBiometricEnabled(on: Boolean) { prefs.edit().putBoolean("lock_biometric", on).apply() }
+
+    fun getPinFails(): Int = prefs.getInt("pin_fails", 0)
+
+    fun setPinFails(n: Int) { prefs.edit().putInt("pin_fails", n).apply() }
+
+    fun getPinLockouts(): Int = prefs.getInt("pin_lockouts", 0)
+
+    fun setPinLockouts(n: Int) { prefs.edit().putInt("pin_lockouts", n).apply() }
+
+    fun getLockoutUntil(): Long = prefs.getLong("pin_lockout_until", 0L)
+
+    fun setLockoutUntil(millis: Long) { prefs.edit().putLong("pin_lockout_until", millis).apply() }
+
+    fun saveSchool(school: SchoolInfo?) {
+        if (school == null) return
+        try { prefs.edit().putString("school_json", json.encodeToString(school)).apply() } catch (_: Exception) { }
+    }
+
+    fun getSchool(): SchoolInfo? {
+        if (!isLoggedIn()) return null
+        val raw = prefs.getString("school_json", null) ?: return null
+        return try { json.decodeFromString<SchoolInfo>(raw) } catch (_: Exception) { null }
+    }
+
+    // خط أساس إشعارات الدرجات والدفعات (v2): يمنع إغراق المستخدم بنتائج قديمة بعد التحديث.
+    fun hasBaselineV2(): Boolean = prefs.getBoolean("notify_v2", false)
+
+    fun markBaselineV2() { prefs.edit().putBoolean("notify_v2", true).apply() }
+
+    // إعلانات فتحها ولي الأمر ولم يصل تسجيل اطلاعها للخادم بعد (دون إنترنت).
+    fun getUnsyncedReads(): Set<String> = prefs.getStringSet("unsynced_reads", emptySet())?.toSet() ?: emptySet()
+
+    fun addUnsyncedReads(ids: Collection<String>) { prefs.edit().putStringSet("unsynced_reads", getUnsyncedReads() + ids).apply() }
+
+    fun clearUnsyncedReads(ids: Collection<String>) { prefs.edit().putStringSet("unsynced_reads", getUnsyncedReads() - ids.toSet()).apply() }
 
     fun getLastSyncMillis(): Long = prefs.getLong(KEY_LAST_SYNC, 0L)
 
