@@ -262,6 +262,7 @@ function CalendarPage() {
         id = created.id;
         setEditingAnnId(id); // A failed target write can retry without creating another announcement.
       }
+      if (!id) throw new Error("تعذر تحديد الإعلان للحفظ");
       const announcementId = id;
       const rows = directed ? targetRows(announcementId, targets) : [];
       await replaceAnnouncementTargets({

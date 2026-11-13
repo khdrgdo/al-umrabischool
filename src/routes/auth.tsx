@@ -14,6 +14,8 @@ export const Route = createFileRoute("/auth")({
       { name: "description", content: "تسجيل الدخول إلى نظام إدارة مدرسة العمرابي." },
       { property: "og:title", content: "تسجيل الدخول — مدرسة العمرابي" },
       { property: "og:description", content: "تسجيل الدخول إلى نظام إدارة المدرسة." },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary_large_image" },
     ],
   }),
   component: AuthPage,

@@ -8,6 +8,8 @@ export const Route = createFileRoute("/")({
       { name: "description", content: "بوابة إدارة مدرسة العمرابي الثانوية: الطلاب، الصفوف، المعلمون والمواد." },
       { property: "og:title", content: "نظام إدارة مدرسة العمرابي" },
       { property: "og:description", content: "بوابة إدارة مدرسة العمرابي الثانوية." },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary_large_image" },
     ],
   }),
   component: Index,

@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useSchool, useMe, canManage, errMsg } from "@/lib/staff";
 import { getKhartoumDateString } from "@/lib/schoolDate";
+import { schoolPageHead } from "@/lib/pageHead";
 import { printTarget } from "@/lib/printHelper";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -38,7 +39,7 @@ import {
 } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/guardians")({
-  head: () => ({ meta: [{ title: "إدارة أولياء الأمور والربط الأسري — مدرسة العمرابي" }] }),
+  head: () => schoolPageHead("إدارة أولياء الأمور والربط الأسري — مدرسة العمرابي", "إدارة حسابات أولياء الأمور وروابط الأبناء في نظام مدرسة العمرابي."),
   component: GuardiansPage,
 });
 

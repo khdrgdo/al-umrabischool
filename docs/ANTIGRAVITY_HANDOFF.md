@@ -1,5 +1,11 @@
 # ANTIGRAVITY HANDOFF — Al-Omarabi School System
 
+## Admin web validation — 2026-11-13
+- Fixed nullable announcement IDs, nullable query data in optional-fee rendering, and optional assignment-author payloads under strict TypeScript.
+- Automatic typecheck/build reported `build OK`; Vitest passed 92 tests, with 33 database integration tests skipped (live test environment not enabled).
+- Existing generated types already describe the added database objects; no compatibility casts or generated-type edits were necessary.
+- No database, migration, auth configuration, existing fees-page, Android, or seed changes. Authenticated live reads/writes and RLS integration remain unverified in this task because live-data access needs separate permission.
+
 ## Purpose
 Admin web app (this repo) + future **parent mobile app** (to be built in Google Antigravity) sharing one PostgreSQL database and auth.
 Do NOT rewrite the system. Do NOT duplicate business rules in the mobile app.

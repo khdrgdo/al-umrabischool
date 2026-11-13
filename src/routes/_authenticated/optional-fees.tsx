@@ -83,7 +83,7 @@ function OptionalFees() {
       }
       // Add first, delete only explicit removed IDs. Each request is checked by RLS.
       if (changes.add.length) {
-        const { error } = await supabase.from("fee_structure_assignments").upsert(changes.add.map((student_id) => ({ student_id, fee_structure_id: structure.id, assigned_by: me?.user.id })), { onConflict: "fee_structure_id,student_id", ignoreDuplicates: true });
+        const { error } = await supabase.from("fee_structure_assignments").upsert(changes.add.map((student_id) => ({ student_id, fee_structure_id: structure.id, assigned_by: me?.user.id ?? null })), { onConflict: "fee_structure_id,student_id", ignoreDuplicates: true });
         if (error) throw error;
       }
       for (let i = 0; i < changes.remove.length; i += 100) {
@@ -102,8 +102,8 @@ function OptionalFees() {
     {error ? <div role="alert" className="text-destructive">{errMsg(error)} <Button variant="outline" onClick={() => { roster.refetch(); query.refetch(); }}>إعادة المحاولة</Button></div> : roster.isLoading || query.isLoading ? <p>جارٍ التحميل…</p> : <div className="sheet overflow-x-auto">
       <table className="ledger"><thead><tr><th>الصف</th><th>الرسم</th><th>المبلغ</th><th>الاستحقاق</th><th>الوصف</th><th>الطلاب المسندون</th><th>الإجمالي المتوقع</th><th>الإسناد</th></tr></thead>
         <tbody>{query.data?.structures.map((fee) => {
-          const ids = query.data.assignments.filter((a) => a.fee_structure_id === fee.id).map((a) => a.student_id);
-          return <tr key={fee.id}><td>{roster.data?.grades.find((g) => g.id === fee.grade_id)?.name}</td><td>{query.data.types.find((t) => t.id === fee.fee_type_id)?.name}</td><td className="num">{fee.amount.toLocaleString("ar-SD")}</td><td dir="ltr">{fee.due_date ?? "—"}</td><td className="whitespace-pre-wrap">{fee.description ?? "—"}</td><td className="num">{ids.length}</td><td className="num">{expectedOptionalTotal(fee.amount, ids.length).toLocaleString("ar-SD")}</td><td><Button variant="outline" size="sm" onClick={() => { setAssignId(fee.id); setSelection(ids); setWarning([]); setConfirmRemoval(false); }}>{manager ? "إسناد الطلاب" : "عرض الطلاب"}</Button></td></tr>;
+          const ids = query.data?.assignments.filter((a) => a.fee_structure_id === fee.id).map((a) => a.student_id) ?? [];
+          return <tr key={fee.id}><td>{roster.data?.grades.find((g) => g.id === fee.grade_id)?.name}</td><td>{query.data?.types.find((t) => t.id === fee.fee_type_id)?.name}</td><td className="num">{fee.amount.toLocaleString("ar-SD")}</td><td dir="ltr">{fee.due_date ?? "—"}</td><td className="whitespace-pre-wrap">{fee.description ?? "—"}</td><td className="num">{ids.length}</td><td className="num">{expectedOptionalTotal(fee.amount, ids.length).toLocaleString("ar-SD")}</td><td><Button variant="outline" size="sm" onClick={() => { setAssignId(fee.id); setSelection(ids); setWarning([]); setConfirmRemoval(false); }}>{manager ? "إسناد الطلاب" : "عرض الطلاب"}</Button></td></tr>;
         })}</tbody></table>
       {!query.data?.structures.length && <Empty title="لا توجد رسوم اختيارية في العام الحالي" />}
     </div>}

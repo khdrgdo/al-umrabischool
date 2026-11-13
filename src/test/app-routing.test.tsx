@@ -29,6 +29,14 @@ describe("App routing", () => {
     expect(matches.at(-1)?.routeId).toBe("/_authenticated/fees");
   });
 
+  it("matches the authenticated optional fees page", () => {
+    expect(router.matchRoutes("/optional-fees").at(-1)?.routeId).toBe("/_authenticated/optional-fees");
+  });
+
+  it("matches the authenticated parent reports page", () => {
+    expect(router.matchRoutes("/parent-reports").at(-1)?.routeId).toBe("/_authenticated/parent-reports");
+  });
+
   it("matches route for /attendance", () => {
     const matches = router.matchRoutes("/attendance");
     expect(matches.at(-1)?.routeId).toBe("/_authenticated/attendance");
